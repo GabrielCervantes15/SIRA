@@ -1,0 +1,16 @@
+{
+  "_nota": "Datos ficticios PROVISIONALES para el adaptador simulado. BASE-6 los reemplaza por los datos semilla comunes del proyecto.",
+  "solicitudes": [
+    { "aspiranteId": "asp-001", "estado": "EN_REVISION", "fechaActualizacion": "2026-11-02T16:00:00Z" },
+    { "aspiranteId": "asp-002", "estado": "ACEPTADA",    "fechaActualizacion": "2026-11-05T18:30:00Z" },
+    { "aspiranteId": "asp-003", "estado": "RECHAZADA",   "fechaActualizacion": "2026-11-06T09:15:00Z" },
+    { "aspiranteId": "asp-004", "estado": "RECIBIDA",    "fechaActualizacion": "2026-11-09T12:00:00Z" }
+  ],
+  "cambios": [
+    { "aspiranteId": "asp-001", "estadoAnterior": "RECIBIDA",    "estadoNuevo": "EN_REVISION", "fechaCambio": "2026-11-02T16:00:00Z", "motivoRechazo": null },
+    { "aspiranteId": "asp-002", "estadoAnterior": "RECIBIDA",    "estadoNuevo": "EN_REVISION", "fechaCambio": "2026-11-03T10:00:00Z", "motivoRechazo": null },
+    { "aspiranteId": "asp-002", "estadoAnterior": "EN_REVISION", "estadoNuevo": "ACEPTADA",    "fechaCambio": "2026-11-05T18:30:00Z", "motivoRechazo": null },
+    { "aspiranteId": "asp-003", "estadoAnterior": "RECIBIDA",    "estadoNuevo": "EN_REVISION", "fechaCambio": "2026-11-04T08:45:00Z", "motivoRechazo": null },
+    { "aspiranteId": "asp-003", "estadoAnterior": "EN_REVISION", "estadoNuevo": "RECHAZADA",   "fechaCambio": "2026-11-06T09:15:00Z", "motivoRechazo": "Constancia de estudios ilegible" }
+  ]
+}
