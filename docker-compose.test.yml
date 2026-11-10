@@ -7,6 +7,8 @@ services:
       POSTGRES_PASSWORD: sira_test_password
     volumes:
       - ./docker/postgres/init-schemas.sql:/docker-entrypoint-initdb.d/01-init-schemas.sql:ro
+      - ./docker/postgres/migrations/01_esquema_aspirantes.sql:/docker-entrypoint-initdb.d/02-esquema-aspirantes.sql:ro
+      - ./datos-semilla/02_aspirantes_semilla.sql:/docker-entrypoint-initdb.d/03-aspirantes-semilla.sql:ro
     tmpfs:
       - /var/lib/postgresql/data
     healthcheck:
