@@ -7,6 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { RepositorioMonitoreoMemoria } from "./infraestructura/repositorio-monitoreo-memoria.js";
 import { ObtenerFiltrosCasoUso } from "./aplicacion/obtener-filtros.caso-uso.js";
+import { ListarAspirantesCasoUso } from "./aplicacion/listar-aspirantes.caso-uso.js";
 import { MonitoreoControlador } from "./infraestructura/controlador-monitoreo.js";
 import { crearEnrutadorMonitoreo } from "./rutas.js";
 
@@ -37,8 +38,13 @@ export function crearModuloMonitoreo(opciones = {}) {
     repositorioMonitoreo: repositorio,
   });
 
+  const listarAspirantesCasoUso = new ListarAspirantesCasoUso({
+    repositorioMonitoreo: repositorio,
+  });
+
   const controlador = new MonitoreoControlador({
     obtenerFiltrosCasoUso,
+    listarAspirantesCasoUso,
   });
 
   const enrutador = crearEnrutadorMonitoreo({ controlador });
@@ -46,6 +52,7 @@ export function crearModuloMonitoreo(opciones = {}) {
   return {
     repositorio,
     obtenerFiltrosCasoUso,
+    listarAspirantesCasoUso,
     controlador,
     enrutador,
   };
@@ -53,8 +60,8 @@ export function crearModuloMonitoreo(opciones = {}) {
 
 export {
   ObtenerFiltrosCasoUso,
+  ListarAspirantesCasoUso,
   MonitoreoControlador,
   RepositorioMonitoreoMemoria,
   crearEnrutadorMonitoreo,
 };
-

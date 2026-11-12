@@ -19,7 +19,12 @@ export function crearEnrutadorMonitoreo({ controlador }) {
       return true;
     }
 
+    // GET /api/monitoreo/aspirantes (HU2-4)
+    if ((rutaRelativa === "/aspirantes" || rutaRelativa === "/aspirantes/") && req.method === "GET") {
+      await controlador.listarAspirantes(req, res, contexto);
+      return true;
+    }
+
     return false; // Ruta no manejada por este enrutador
   };
 }
-
