@@ -1,0 +1,13 @@
+{
+  "name": "crm-admisiones",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test",
+    "iniciar": "node scripts/iniciar-servidor.js",
+    "demo:registro-escolar": "node scripts/demo-registro-escolar.js"
+  }
+}
