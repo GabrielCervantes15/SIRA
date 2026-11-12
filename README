@@ -1,1 +1,44 @@
 #SIRA
+
+## Inicio de sesión SIRA (EQ-15 / EQ-18)
+
+La pantalla de acceso está en `public/login/` y el servidor HTTP publica estos endpoints:
+
+- `POST /api/v1/auth/login`: autentica mediante el puerto BASE-7 y crea una sesión temporal.
+- `GET /api/v1/auth/session`: consulta la sesión actual.
+- `POST /api/v1/auth/logout`: invalida la sesión y elimina la cookie.
+
+La cookie `sira_session` es `HttpOnly`, `SameSite=Lax` y usa `Secure` cuando `NODE_ENV=production`. La duración predeterminada es de 30 minutos; puede ajustarse con `SIRA_SESSION_TTL_MS`.
+
+### Ejecutar
+
+```bash
+npm start
+```
+
+Abrir `http://localhost:3000`. Para ejecutar las pruebas específicas del login: `npm run test:login`. Para toda la suite: `npm test`.
+
+### Usuarios mock
+
+Los usuarios y contraseñas siguen siendo los definidos por BASE-7 en `datos-semilla/autenticacion.json`. En los datos actuales, la contraseña de la mayoría de los colaboradores es `Password123!`; la cuenta semilla de Alma Leticia Chávez usa `AdminPassword2026!`.
+
+### Roles y acceso a SIRA
+
+Para no modificar el contrato BASE-7, la autorización de la aplicación se configura separadamente en `datos-semilla/permisos-sira.json`:
+
+- `administradores`: IDs institucionales que deben recibir el rol `administrador`.
+- `usuariosSinAcceso`: IDs que pueden autenticarse en el adaptador, pero no tienen permiso para entrar a SIRA.
+- Los IDs no listados en ninguna de esas propiedades reciben el rol predeterminado `colaborador`.
+
+También se pueden configurar `SIRA_ADMIN_IDS` y `SIRA_DENIED_IDS` como listas de IDs separadas por comas. Para simular una caída del directorio desde la interfaz, iniciar con `SIRA_IDENTITY_UNAVAILABLE=true`. Esta configuración es provisional para el sprint: la fuente definitiva del rol debe ser el módulo de usuarios / esquema `usuarios.usuario` cuando se integre su consulta real. No se debe asumir que el primer usuario semilla es administrador.
+
+### Códigos de error de login
+
+- `401 CREDENCIALES_INVALIDAS`: usuario o contraseña incorrectos.
+- `401 CUENTA_BLOQUEADA`: cuenta marcada como inactiva por BASE-7.
+- `403 USUARIO_SIN_ACCESO`: credenciales válidas, pero sin autorización para SIRA.
+- `503 SERVICIO_NO_DISPONIBLE`: el adaptador de identidad simula indisponibilidad.
+
+El enlace de recuperación muestra una indicación de soporte; no implementa todavía un flujo de restablecimiento de contraseña institucional.
+
+> Alcance: el adaptador sigue siendo simulado. Las sesiones se almacenan en memoria del proceso y se pierden al reiniciar el servidor. No es todavía autenticación real con Active Directory ni almacenamiento de sesiones distribuido para producción.

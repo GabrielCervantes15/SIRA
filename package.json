@@ -15,7 +15,8 @@
     "test:watch": "node --test --watch",
     "lint": "node scripts/lint.js",
     "demo:registro-escolar": "node scripts/demo-registro-escolar.js",
-    "demo:autenticacion": "node scripts/demo-autenticacion.js"
+    "demo:autenticacion": "node scripts/demo-autenticacion.js",
+    "test:login": "node --test test/login-http.test.js"
   },
   "keywords": [
     "crm",

@@ -1,0 +1,5 @@
+{
+  "_nota": "Configuración local de autorización para el simulador SIRA. No modifica el contrato BASE-7. Los usuarios no listados como administradores se consideran colaboradores. Los IDs en usuariosSinAcceso se autentican en BASE-7, pero no pueden entrar al CRM.",
+  "administradores": ["00000100001"],
+  "usuariosSinAcceso": []
+}
