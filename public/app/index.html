@@ -1,21 +1,161 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SIRA | Sesión iniciada</title>
-  <link rel="stylesheet" href="/login/styles.css">
-  <style>
-    .app-card{width:min(720px,calc(100% - 32px));margin:8vh auto;padding:clamp(28px,5vw,52px);background:#fff;border:1px solid #e1e5ea;border-radius:18px;box-shadow:0 10px 30px #142b4312}.app-card h1{margin:0 0 8px;color:#124f83}.app-card p{color:#536477}.app-card button{margin-top:20px;padding:13px 22px;border:0;border-radius:8px;background:#075b9e;color:white;font-weight:700;cursor:pointer}
-  </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#155b96">
+  <title>SIRA | Monitoreo de aspirantes</title>
+  <link rel="stylesheet" href="/app/styles.css">
   <script src="/app/app.js" defer></script>
 </head>
 <body>
-  <main class="app-card">
-    <p class="eyebrow">SIRA · ITSON</p>
-    <h1 id="welcome">Sesión iniciada</h1>
-    <p id="profile">Cargando información de tu cuenta…</p>
-    <p id="role"></p>
-    <button id="logout" type="button">Cerrar sesión</button>
+  <header class="topbar">
+    <nav class="main-nav" aria-label="Navegación principal">
+      <span class="nav-item active" aria-current="page">Aspirantes</span>
+      <span class="nav-item nav-muted" aria-disabled="true">Colaboradores</span>
+      <span class="nav-item nav-muted" aria-disabled="true">Mensajes</span>
+    </nav>
+
+    <div class="topbar-user">
+      <span class="topbar-message" aria-hidden="true">▣</span>
+      <span class="avatar" id="user-avatar" aria-hidden="true">SI</span>
+      <div class="topbar-user-copy">
+        <strong id="user-name">Cargando usuario…</strong>
+        <small id="user-role"></small>
+      </div>
+      <button class="logout-button" id="logout" type="button">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main class="page-layout">
+    <aside class="left-column" aria-label="Panel lateral">
+      <section class="welcome-card">
+        <p class="welcome-eyebrow">Bienvenido a SIRA</p>
+        <h1>Seguimiento de Aspirantes</h1>
+        <p class="welcome-period">Monitoreo de admisiones</p>
+      </section>
+
+      <section class="side-card automatic-card">
+        <div class="side-card-title">
+          <span class="side-icon" aria-hidden="true">➤</span>
+          <h2>Mensajes automáticos</h2>
+        </div>
+        <p>Consulta y administra los recordatorios automáticos cuando este módulo esté habilitado para tu cuenta.</p>
+        <span class="module-note">Módulo complementario</span>
+      </section>
+
+      <section class="side-card alerts-card">
+        <div class="side-card-heading">
+          <h2><span aria-hidden="true">🔔</span> Alertas</h2>
+          <span class="pending-label">Pendientes</span>
+        </div>
+        <p class="side-help">Las notificaciones de seguimiento aparecerán aquí cuando estén disponibles.</p>
+        <div class="empty-alerts">
+          <span class="empty-alerts-icon" aria-hidden="true">✓</span>
+          <div>
+            <strong>Panel de alertas</strong>
+            <small>No hay notificaciones conectadas en esta entrega.</small>
+          </div>
+        </div>
+      </section>
+
+      <div class="sidebar-footer">
+        <span class="status-indicator"></span>
+        <span>Sesión institucional activa</span>
+      </div>
+    </aside>
+
+    <section class="monitor-card" aria-labelledby="monitor-title">
+      <div class="monitor-heading">
+        <div>
+          <h2 id="monitor-title">Monitoreo</h2>
+          <p>Seleccione un aspirante para consultar su información y dar seguimiento a su proceso de admisión.</p>
+        </div>
+        <span class="api-status" id="api-status">
+          <span class="status-indicator"></span>
+          Conectando
+        </span>
+      </div>
+
+      <div class="monitor-toolbar">
+        <div class="search-controls">
+          <label class="search-mode">
+            <span class="visually-hidden">Campo de búsqueda</span>
+            <select id="search-field" aria-label="Campo de búsqueda">
+              <option value="nombre">Nombre</option>
+            </select>
+          </label>
+          <label class="search-box">
+            <span class="visually-hidden">Buscar por nombre de aspirante</span>
+            <input id="search-name" type="search" placeholder="Buscar por nombre de aspirante" autocomplete="off">
+            <span class="search-symbol" aria-hidden="true">⌕</span>
+          </label>
+        </div>
+
+        <div class="toolbar-actions">
+          <label class="accepted-toggle" for="include-accepted">
+            <span>Mostrar aspirantes aceptados</span>
+            <input id="include-accepted" type="checkbox" role="switch" aria-label="Mostrar aspirantes aceptados">
+            <span class="switch-track" aria-hidden="true"></span>
+          </label>
+          <button class="fields-button" id="toggle-fields" type="button" aria-expanded="true" aria-controls="fields-panel" title="Mostrar u ocultar campos">
+            <span aria-hidden="true">▥</span>
+            <span class="visually-hidden">Mostrar u ocultar columnas</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="monitor-content">
+        <div class="table-area">
+          <div class="table-scroll">
+            <table class="applicants-table">
+              <thead>
+                <tr id="table-head-row">
+                  <th data-column="semaforo">Semáforo</th>
+                  <th data-column="nombreCompleto">Nombre</th>
+                  <th data-column="carreraSolicitada">Carrera</th>
+                  <th data-column="preparatoriaProcedencia">Preparatoria</th>
+                  <th data-column="fechaSolicitud">Fecha de solicitud</th>
+                  <th data-column="fechaUltimaActividad">Última actividad</th>
+                  <th data-column="estadoSolicitud" class="column-hidden">Estado</th>
+                </tr>
+              </thead>
+              <tbody id="aspirants-body">
+                <tr><td colspan="7" class="table-message">Cargando aspirantes…</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="table-footer">
+            <span id="result-summary" aria-live="polite">Cargando resultados…</span>
+            <div class="pagination" aria-label="Paginación">
+              <button id="previous-page" type="button" disabled>← Anterior</button>
+              <span id="page-indicator">Página 1</span>
+              <button id="next-page" type="button" disabled>Siguiente →</button>
+            </div>
+          </div>
+        </div>
+
+        <aside class="fields-panel" id="fields-panel" aria-label="Columnas visibles">
+          <h3>Campos</h3>
+          <p>Selecciona los campos que deseas mostrar en la tabla.</p>
+          <label><input type="checkbox" data-column-toggle="semaforo" checked> Semáforo</label>
+          <label><input type="checkbox" data-column-toggle="nombreCompleto" checked> Nombre</label>
+          <label><input type="checkbox" data-column-toggle="carreraSolicitada" checked> Carrera</label>
+          <label><input type="checkbox" data-column-toggle="preparatoriaProcedencia" checked> Preparatoria</label>
+          <label><input type="checkbox" data-column-toggle="fechaSolicitud" checked> Fecha de solicitud</label>
+          <label><input type="checkbox" data-column-toggle="fechaUltimaActividad" checked> Última actividad</label>
+          <label><input type="checkbox" data-column-toggle="estadoSolicitud"> Estado</label>
+          <div class="semaphore-legend">
+            <span><i class="legend-dot red"></i> Rojo</span>
+            <span><i class="legend-dot amber"></i> Ámbar</span>
+            <span><i class="legend-dot green"></i> Verde</span>
+          </div>
+        </aside>
+      </div>
+
+      <p class="feedback-message" id="feedback-message" role="status" aria-live="polite"></p>
+    </section>
   </main>
 </body>
 </html>
