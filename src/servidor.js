@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
 import { crearProveedorAutenticacionSimulado, ErrorAutenticacion } from './modulos/autenticacion/index.js';
+import { crearModuloMonitoreo } from './modulos/monitoreo/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -78,6 +79,7 @@ export function crearServidor(opciones = {}) {
   const sesiones = new Map();
   const reloj = opciones.reloj || Date.now;
   const sinAcceso = new Set([...(permisos.usuariosSinAcceso || []), ...(process.env.SIRA_DENIED_IDS || '').split(',').map((v) => v.trim()).filter(Boolean)]);
+  const moduloMonitoreo = opciones.moduloMonitoreo || crearModuloMonitoreo();
 
   function obtenerSesion(req) {
     const token = cookiesDe(req)[COOKIE_NAME];
@@ -139,6 +141,14 @@ export function crearServidor(opciones = {}) {
         const token = cookiesDe(req)[COOKIE_NAME];
         if (token) sesiones.delete(token);
         return responderJson(res, 200, { cerrado: true }, { 'Set-Cookie': `${COOKIE_NAME}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${NODE_ENV === 'production' ? '; Secure' : ''}` });
+      }
+
+      // Módulo Monitoreo: /api/monitoreo/... y /api/v1/monitoreo/...
+      if (url.pathname.startsWith('/api/monitoreo') || url.pathname.startsWith('/api/v1/monitoreo')) {
+        const sesion = obtenerSesion(req);
+        const contexto = { usuario: sesion?.usuario || null };
+        const manejado = await moduloMonitoreo.enrutador(req, res, contexto);
+        if (manejado) return;
       }
 
       if (url.pathname === '/' && req.method === 'GET') return servirArchivo(res, path.join(PUBLIC, 'login/index.html'));
