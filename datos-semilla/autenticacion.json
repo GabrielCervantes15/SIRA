@@ -1,0 +1,60 @@
+{
+  "_nota": "Datos semilla ficticios de colaboradores en Active Directory ITSON para el adaptador simulado (BASE-7).",
+  "usuarios": [
+    {
+      "idInstitucional": "00000252115",
+      "password": "Password123!",
+      "nombreCompleto": "Sebastián Bórquez Huerta",
+      "correoInstitucional": "sebastian.borquez252115@potros.itson.edu.mx",
+      "telefono": "+526441112233",
+      "fotoUrl": "https://ad.itson.mx/fotos/00000252115.jpg",
+      "activo": true
+    },
+    {
+      "idInstitucional": "00000233231",
+      "password": "Password123!",
+      "nombreCompleto": "Gabriel Cervantes Trujillo",
+      "correoInstitucional": "gabriel.cervantes233231@potros.itson.edu.mx",
+      "telefono": "+526442223344",
+      "fotoUrl": "https://ad.itson.mx/fotos/00000233231.jpg",
+      "activo": true
+    },
+    {
+      "idInstitucional": "00000247933",
+      "password": "Password123!",
+      "nombreCompleto": "Nomar Alberto Limón Quintero",
+      "correoInstitucional": "nomar.limon247933@potros.itson.edu.mx",
+      "telefono": "+526443334455",
+      "fotoUrl": "https://ad.itson.mx/fotos/00000247933.jpg",
+      "activo": true
+    },
+    {
+      "idInstitucional": "00000235352",
+      "password": "Password123!",
+      "nombreCompleto": "Leonel Carballo",
+      "correoInstitucional": "leonel.carballo235352@potros.itson.edu.mx",
+      "telefono": "+526444445566",
+      "fotoUrl": "https://ad.itson.mx/fotos/00000235352.jpg",
+      "activo": true
+    },
+    {
+      "idInstitucional": "00000252390",
+      "password": "Password123!",
+      "nombreCompleto": "Leonardo Flores Leyva",
+      "correoInstitucional": "leonardo.flores252390@potros.itson.edu.mx",
+      "telefono": "+526445556677",
+      "fotoUrl": "https://ad.itson.mx/fotos/00000252390.jpg",
+      "activo": true
+    },
+    {
+      "idInstitucional": "00000100001",
+      "password": "AdminPassword2026!",
+      "nombreCompleto": "Mtra. Alma Leticia Chávez Quintero",
+      "correoInstitucional": "alma.chavez@itson.edu.mx",
+      "telefono": "+526449998877",
+      "fotoUrl": "https://ad.itson.mx/fotos/00000100001.jpg",
+      "activo": true
+    }
+  ]
+}
+

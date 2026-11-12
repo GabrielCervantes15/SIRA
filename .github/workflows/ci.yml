@@ -42,7 +42,9 @@ jobs:
         run: npm test
 
       - name: Probar ejecución de scripts con datos semilla
-        run: npm run demo:registro-escolar
+        run: |
+          npm run demo:registro-escolar
+          npm run demo:autenticacion
 
   # ==========================================================================
   # 2. Validación de Contenedores Docker y Compose
