@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS aspirantes.aspirantes (
     estado_solicitud VARCHAR(30) NOT NULL DEFAULT 'RECIBIDA' 
         CHECK (estado_solicitud IN ('RECIBIDA', 'EN_REVISION', 'ACEPTADA', 'RECHAZADA')),
     semaforo VARCHAR(10) NOT NULL DEFAULT 'VERDE' 
-        CHECK (semaforo IN ('VERDE', 'AMARILLO', 'ROJO')),
+        CHECK (semaforo IN ('VERDE', 'AMARILLO', 'NARANJA', 'ROJO')),
     colaborador_id VARCHAR(50) NULL,
     fecha_ultima_actividad TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     creado_en TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS aspirantes.aspirantes (
 
 COMMENT ON TABLE aspirantes.aspirantes IS 'Entidad principal de aspirantes registrados en el CRM para seguimiento y admisión.';
 COMMENT ON COLUMN aspirantes.aspirantes.colaborador_id IS 'ID del colaborador asignado. Reasignable en HU 6 sin perder trazabilidad.';
-COMMENT ON COLUMN aspirantes.aspirantes.semaforo IS 'Semáforo de inactividad operativa: VERDE (activo), AMARILLO (en riesgo), ROJO (estancado/inactivo).';
+COMMENT ON COLUMN aspirantes.aspirantes.semaforo IS 'Semáforo operativo: VERDE, AMARILLO, NARANJA y ROJO, según las reglas de Monitoreo.';
 COMMENT ON COLUMN aspirantes.aspirantes.estado_solicitud IS 'Estado institucional de la solicitud reportado por Registro Escolar.';
 
 -- ----------------------------------------------------------------------------

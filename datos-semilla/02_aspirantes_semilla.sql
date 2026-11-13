@@ -29,11 +29,12 @@ INSERT INTO aspirantes.aspirantes (
     'Campus Obregón Centro', 'Ingeniería Industrial', 'CECyTE Esperanza', '2027-1',
     '2026-10-20T10:00:00Z', 'RECHAZADA', 'AMARILLO', 'colab-002', '2026-11-06T11:20:00Z'
 ),
--- asp-004: Caso recién recibido en atención de bienvenida (Semáforo Verde, Recibida, Obregón Centro)
+-- asp-004: Caso recién recibido en atención de bienvenida
+-- Semáforo Naranja, Recibida, Obregón Centro
 (
     'asp-004', 'FOL-2026-00104', 'Ana Sofía Castro Morales', 'ana.castro@gmail.com', '+526444567890',
-    'Campus Obregón Centro', 'Licenciatura en Psicología', 'CBTIS 188', '2027-1',
-    '2026-11-01T15:30:00Z', 'RECIBIDA', 'VERDE', 'colab-002', '2026-11-09T18:00:00Z'
+    'Campus Obregón Centro', 'Licenciatura en Psicología', 'CBTIS 188', '2027-2',
+    '2026-11-01T15:30:00Z', 'RECIBIDA', 'NARANJA', 'colab-001', '2026-11-09T18:00:00Z'
 ),
 -- asp-005: Caso Campus Navojoa inactivo (Semáforo Rojo, En Revisión, Navojoa)
 (
