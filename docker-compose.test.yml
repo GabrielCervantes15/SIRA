@@ -1,0 +1,52 @@
+services:
+  postgres-test:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: sira_test_db
+      POSTGRES_USER: sira_test_user
+      POSTGRES_PASSWORD: sira_test_password
+    volumes:
+      - ./docker/postgres/init-schemas.sql:/docker-entrypoint-initdb.d/01-init-schemas.sql:ro
+      - ./docker/postgres/migrations/01_esquema_aspirantes.sql:/docker-entrypoint-initdb.d/02-esquema-aspirantes.sql:ro
+      - ./datos-semilla/02_aspirantes_semilla.sql:/docker-entrypoint-initdb.d/03-aspirantes-semilla.sql:ro
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sira_test_user -d sira_test_db"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+
+  rabbitmq-test:
+    image: rabbitmq:3.13-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: sira_test_rabbit
+      RABBITMQ_DEFAULT_PASS: sira_test_rabbit_pass
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  backend-test:
+    build:
+      context: .
+      target: test
+    environment:
+      NODE_ENV: test
+      DB_HOST: postgres-test
+      DB_PORT: 5432
+      DB_NAME: sira_test_db
+      DB_USER: sira_test_user
+      DB_PASSWORD: sira_test_password
+      RABBITMQ_HOST: rabbitmq-test
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: sira_test_rabbit
+      RABBITMQ_PASSWORD: sira_test_rabbit_pass
+      AUTH_MOCK_ENABLED: "true"
+      REGISTRO_ESCOLAR_MOCK_ENABLED: "true"
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      rabbitmq-test:
+        condition: service_healthy

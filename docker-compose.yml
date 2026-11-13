@@ -1,0 +1,130 @@
+services:
+  # ============================================================================
+  # 1. Base de Datos: PostgreSQL 16 (Aislamiento por Esquemas de Negocio)
+  # ============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: sira-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-sira_db}
+      POSTGRES_USER: ${DB_USER:-sira_admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-sira_secret_password_dev}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init-schemas.sql:/docker-entrypoint-initdb.d/01-init-schemas.sql:ro
+      - ./docker/postgres/migrations/01_esquema_aspirantes.sql:/docker-entrypoint-initdb.d/02-esquema-aspirantes.sql:ro
+      - ./datos-semilla/02_aspirantes_semilla.sql:/docker-entrypoint-initdb.d/03-aspirantes-semilla.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-sira_admin} -d ${DB_NAME:-sira_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - sira-network
+
+  # ============================================================================
+  # 2. Broker de Mensajería: RabbitMQ 3.13 con UI de Gestión
+  # ============================================================================
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: sira-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-sira_rabbit}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-sira_rabbit_secret_dev}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"       # Protocolo AMQP para comunicación entre módulos
+      - "${RABBITMQ_MGMT_PORT:-15672}:15672" # Panel Web de Administración de RabbitMQ
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - sira-network
+
+  # ============================================================================
+  # 3. Servidor SMTP de Pruebas (Mailpit para desarrollo / BASE-9)
+  # ============================================================================
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: sira-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"   # Puerto SMTP de pruebas
+      - "8025:8025"   # Interfaz web para visualizar correos enviados
+    networks:
+      - sira-network
+
+  # ============================================================================
+  # 4. Backend: Monolito Modular Node.js (Modo Desarrollo con Hot-Reload)
+  # ============================================================================
+  backend:
+    build:
+      context: .
+      target: development
+    container_name: sira-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      HOST: 0.0.0.0
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-sira_db}
+      DB_USER: ${DB_USER:-sira_admin}
+      DB_PASSWORD: ${DB_PASSWORD:-sira_secret_password_dev}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER:-sira_rabbit}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-sira_rabbit_secret_dev}
+      RABBITMQ_VHOST: ${RABBITMQ_VHOST:-/}
+      RABBITMQ_EXCHANGE: ${RABBITMQ_EXCHANGE:-crm.eventos}
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      AUTH_MOCK_ENABLED: "true"
+      REGISTRO_ESCOLAR_MOCK_ENABLED: "true"
+      JWT_SECRET: ${JWT_SECRET:-super_secret_jwt_key_para_desarrollo_local_min_32_chars}
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - ./src:/app/src
+      - ./test:/app/test
+      - ./scripts:/app/scripts
+      - ./datos-semilla:/app/datos-semilla
+      - ./package.json:/app/package.json
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - sira-network
+
+# ============================================================================
+# Volúmenes y Redes
+# ============================================================================
+volumes:
+  postgres_data:
+    name: sira_postgres_data
+  rabbitmq_data:
+    name: sira_rabbitmq_data
+
+networks:
+  sira-network:
+    name: sira-network
+    driver: bridge

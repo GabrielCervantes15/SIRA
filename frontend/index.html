@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CRM Admisiones · Monitoreo de aspirantes</title>
+  <link rel="stylesheet" href="/app/css/estilos.css">
+</head>
+<body>
+  <header class="barra-superior">
+    <nav class="menu-principal" aria-label="Principal">
+      <a href="#" class="activo" aria-current="page">Aspirantes</a>
+      <a href="#" aria-disabled="true" title="Fuera de este sprint">Colaboradores</a>
+      <a href="#" aria-disabled="true" title="Fuera de este sprint">Mensajes</a>
+    </nav>
+    <div class="usuario" id="usuario">
+      <span class="avatar" aria-hidden="true">EO</span>
+      <span id="nombre-usuario">Cargando…</span>
+      <button type="button" class="boton" id="cerrar-sesion">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main class="contenedor">
+    <section class="tarjeta monitoreo" aria-labelledby="titulo-monitoreo">
+      <div class="monitoreo-encabezado">
+        <h1 id="titulo-monitoreo">Monitoreo</h1>
+        <p class="ayuda">Seleccione un aspirante para ver su información de contacto y su historial de actividades.</p>
+      </div>
+
+      <div class="barra-herramientas" role="toolbar" aria-label="Filtros de la tabla">
+        <label class="buscador">
+          <span class="sr-only">Buscar por nombre</span>
+          <input id="buscar" type="search" placeholder="Buscar por nombre de aspirante" autocomplete="off">
+        </label>
+        <label class="interruptor">
+          <input id="incluir-aceptados" type="checkbox" role="switch">
+          <span class="pista" aria-hidden="true"></span>
+          <span>Mostrar aspirantes aceptados</span>
+        </label>
+      </div>
+
+      <div class="cuerpo-monitoreo">
+        <div class="tabla-contenedor" id="tabla-contenedor">
+          <!-- Estados de la tabla: cargando, error, sin resultados o datos (lo pinta app.js) -->
+          <div id="estado-tabla" class="estado-tabla" role="status" hidden></div>
+
+          <table class="tabla" id="tabla" hidden>
+            <thead>
+              <tr>
+                <th scope="col" class="col-semaforo">
+                  <button type="button" class="orden" data-columna="semaforo" aria-sort="none">Semáforo <span class="flecha" aria-hidden="true"></span></button>
+                </th>
+                <th scope="col">
+                  <button type="button" class="orden" data-columna="nombre" aria-sort="none">Nombre <span class="flecha" aria-hidden="true"></span></button>
+                </th>
+                <th scope="col">
+                  <button type="button" class="orden" data-columna="carrera" aria-sort="none">Carrera <span class="flecha" aria-hidden="true"></span></button>
+                </th>
+                <th scope="col">
+                  <button type="button" class="orden" data-columna="preparatoria" aria-sort="none">Preparatoria <span class="flecha" aria-hidden="true"></span></button>
+                </th>
+                <th scope="col">
+                  <button type="button" class="orden" data-columna="fechaSolicitud" aria-sort="none">Fecha de solicitud <span class="flecha" aria-hidden="true"></span></button>
+                </th>
+                <th scope="col">
+                  <button type="button" class="orden" data-columna="ultimaActividad" aria-sort="none">Última actividad <span class="flecha" aria-hidden="true"></span></button>
+                </th>
+              </tr>
+            </thead>
+            <tbody id="cuerpo-tabla"></tbody>
+          </table>
+
+          <nav class="paginacion" id="paginacion" aria-label="Paginación" hidden>
+            <button type="button" id="anterior">← Anterior</button>
+            <span id="indicador-pagina"></span>
+            <button type="button" id="siguiente">Siguiente →</button>
+          </nav>
+        </div>
+
+        <aside class="panel" id="panel" aria-live="polite" hidden>
+          <header class="panel-encabezado">
+            <h2 id="panel-nombre"></h2>
+            <button type="button" class="icono" id="cerrar-panel" aria-label="Cerrar panel">✕</button>
+          </header>
+          <div class="pestanas" role="tablist">
+            <button type="button" role="tab" id="pestana-contacto" aria-selected="true" aria-controls="vista-contacto" class="pestana activa">Contacto</button>
+            <button type="button" role="tab" id="pestana-actividades" aria-selected="false" aria-controls="vista-actividades" class="pestana">Actividades</button>
+          </div>
+
+          <section id="vista-contacto" role="tabpanel" aria-labelledby="pestana-contacto" class="vista-panel"></section>
+
+          <section id="vista-actividades" role="tabpanel" aria-labelledby="pestana-actividades" class="vista-panel" hidden>
+            <div class="rango">
+              <label>Inicio: <input type="date" id="desde"></label>
+              <label>Fin: <input type="date" id="hasta"></label>
+            </div>
+            <ol class="linea-tiempo" id="lista-actividades"></ol>
+            <p class="ayuda" id="sin-actividades" hidden>Este aspirante aún no tiene movimientos en el rango seleccionado.</p>
+          </section>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <script src="/app/js/app.js" type="module"></script>
+</body>
+</html>

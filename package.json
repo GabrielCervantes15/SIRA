@@ -1,0 +1,32 @@
+{
+  "name": "sira-crm",
+  "version": "0.1.0",
+  "description": "CRM de Seguimiento de Aspirantes - Instituto Tecnol├│gico de Sonora (ITSON)",
+  "main": "src/index.js",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test",
+    "test:watch": "node --test --watch",
+    "lint": "node scripts/lint.js",
+    "demo:registro-escolar": "node scripts/demo-registro-escolar.js",
+    "demo:autenticacion": "node scripts/demo-autenticacion.js",
+    "test:login": "node --test test/login-http.test.js",
+    "iniciar": "node scripts/iniciar-servidor.js"
+  },
+  "keywords": [
+    "crm",
+    "itson",
+    "modular-monolith",
+    "hexagonal-architecture",
+    "rabbitmq",
+    "postgresql"
+  ],
+  "author": "Equipo SIRA - ITSON",
+  "license": "UNLICENSED"
+}
