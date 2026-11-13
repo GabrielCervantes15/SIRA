@@ -56,6 +56,31 @@ function normalizarIdentificador(identificador, usuarios) {
   return usuario?.idInstitucional || valor;
 }
 
+/**
+ * EQ-17: Control de acceso basado en roles.
+ * 401: no existe una sesión válida.
+ * 403: el usuario no tiene el rol requerido.
+ */
+function verificarAccesoRol(sesion, rolesPermitidos) {
+  if (!sesion) {
+    return {
+      status: 401,
+      codigo: 'NO_AUTORIZADO',
+      mensaje: 'Debes iniciar sesión para acceder.'
+    };
+  }
+
+  if (!rolesPermitidos.includes(sesion.usuario?.rol)) {
+    return {
+      status: 403,
+      codigo: 'SIN_PERMISO',
+      mensaje: 'Tu rol no tiene permiso para acceder a este recurso.'
+    };
+  }
+
+  return null;
+}
+
 function servirArchivo(res, ruta) {
   try {
     const contenido = readFileSync(ruta);
@@ -178,6 +203,35 @@ export function crearServidor(opciones = {}) {
         return responderJson(res, 200, { cerrado: true }, { 'Set-Cookie': `${COOKIE_NAME}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${NODE_ENV === 'production' ? '; Secure' : ''}` });
       }
 
+      // EQ-17: Rutas exclusivas del administrador.
+      const rutaAdminApi =
+        /^\/api\/(?:v1\/)?colaboradores(?:\/|$)/.test(url.pathname);
+
+      const rutaAdminFrontend =
+        /^\/app\/colaboradores(?:\/|$)/.test(url.pathname);
+
+      if (rutaAdminApi || rutaAdminFrontend) {
+        const sesion = obtenerSesion(req);
+
+        const acceso = verificarAccesoRol(
+          sesion,
+          ['administrador']
+        );
+
+        if (acceso) {
+          return responderJson(res, acceso.status, {
+            codigo: acceso.codigo,
+            mensaje: acceso.mensaje
+          });
+        }
+
+        // El módulo de Colaboradores aún no está implementado.
+        return responderJson(res, 404, {
+          codigo: 'NO_ENCONTRADO',
+          mensaje: 'La funcionalidad administrativa aún no está disponible.'
+        });
+      }
+
       // Adaptador de lectura para el expediente de Gabriel (EQ-40).
       // Utiliza el MISMO repositorio de la lista, no la semilla provisional de Gabriel.
       const rutaExpediente = url.pathname.match(/^\/api\/(?:v1\/)?monitoreo\/aspirantes\/([^/]+)(?:\/(actividades))?\/?$/);
@@ -230,14 +284,35 @@ export function crearServidor(opciones = {}) {
         return responderJson(res, 200, { actividades });
       }
 
-      // Módulo Monitoreo: /api/monitoreo/... y /api/v1/monitoreo/...
-      if (url.pathname.startsWith('/api/monitoreo') || url.pathname.startsWith('/api/v1/monitoreo')) {
+      // EQ-17: Monitoreo permite administradores y colaboradores.
+      if (
+        url.pathname.startsWith('/api/monitoreo') ||
+        url.pathname.startsWith('/api/v1/monitoreo')
+      ) {
         const sesion = obtenerSesion(req);
-        if (!sesion) return responderJson(res, 401, { codigo: 'NO_AUTORIZADO', mensaje: 'Inicia sesión para consultar monitoreo.' });
+
+        const acceso = verificarAccesoRol(
+          sesion,
+          ['administrador', 'colaborador']
+        );
+
+        if (acceso) {
+          return responderJson(res, acceso.status, {
+            codigo: acceso.codigo,
+            mensaje: acceso.mensaje
+          });
+        }
+
         const contexto = { usuario: sesion.usuario };
-        const manejado = await moduloMonitoreo.enrutador(req, res, contexto);
+        const manejado = await moduloMonitoreo.enrutador(
+          req,
+          res,
+          contexto
+        );
+
         if (manejado) return;
       }
+
 
       if (url.pathname === '/' && req.method === 'GET') return servirArchivo(res, path.join(PUBLIC, 'login/index.html'));
       // Integración SIRA: después del login, servir únicamente el monitoreo de Gabriel.
