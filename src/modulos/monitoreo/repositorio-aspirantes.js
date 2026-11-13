@@ -9,8 +9,10 @@
  *
  * Cuando exista PostgreSQL se reemplaza por una implementación con la misma forma.
  */
-import { ESTADOS_SOLICITUD as E } from "../registro-escolar/estados.js";
-import { validarEventoEstadoCambiado } from "../registro-escolar/eventos.js";
+import {
+  ESTADOS_SOLICITUD as E,
+  validarEventoEstadoCambiado,
+} from "../registro-escolar/index.js";
 import { TIPOS_ACTIVIDAD } from "./textos.js";
 
 /**

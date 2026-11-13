@@ -1,0 +1,36 @@
+
+{
+  "_nota": "Simulacion del esquema Usuarios del CRM para EQ-16. No contiene contrasenas.",
+  "usuarios": [
+    {
+      "idInstitucional": "00000252115",
+      "rol": "colaborador",
+      "activo": true
+    },
+    {
+      "idInstitucional": "00000233231",
+      "rol": "colaborador",
+      "activo": true
+    },
+    {
+      "idInstitucional": "00000247933",
+      "rol": "colaborador",
+      "activo": true
+    },
+    {
+      "idInstitucional": "00000235352",
+      "rol": "colaborador",
+      "activo": true
+    },
+    {
+      "idInstitucional": "00000252390",
+      "rol": "colaborador",
+      "activo": true
+    },
+    {
+      "idInstitucional": "00000100001",
+      "rol": "administrador",
+      "activo": true
+    }
+  ]
+}

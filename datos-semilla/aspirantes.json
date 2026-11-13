@@ -58,11 +58,11 @@
       "campus": "Campus Obregón Centro",
       "carreraSolicitada": "Licenciatura en Psicología",
       "preparatoriaProcedencia": "CBTIS 188",
-      "periodo": "2027-1",
+      "periodo": "2027-2",
       "fechaSolicitud": "2026-11-01T15:30:00Z",
       "estadoSolicitud": "RECIBIDA",
-      "semaforo": "VERDE",
-      "colaboradorId": "colab-002",
+      "semaforo": "NARANJA",
+      "colaboradorId": "colab-001",
       "fechaUltimaActividad": "2026-11-09T18:00:00Z"
     },
     {
