@@ -22,7 +22,7 @@
  * @property {string|null} estadoAnterior  null si es el primer estado conocido.
  * @property {string} estadoNuevo
  * @property {string} fechaCambio          ISO 8601 (UTC).
- * @property {string|null} motivoRechazo   Solo cuando estadoNuevo es RECHAZADA.
+ * @property {string|null} motivoRechazo   Solo cuando estadoNuevo es CONSTANCIA_RECHAZADA o RECHAZADA.
  */
 
 /**

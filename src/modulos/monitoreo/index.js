@@ -1,6 +1,6 @@
 /**
- * Módulo de Negocio: Monitoreo
- * Punto de entrada público e inyección de dependencias.
+ * M├│dulo de Negocio: Monitoreo
+ * Punto de entrada p├║blico e inyecci├│n de dependencias.
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -65,3 +65,9 @@ export {
   RepositorioMonitoreoMemoria,
   crearEnrutadorMonitoreo,
 };
+
+// Interfaces de la tabla, semáforo y expediente desarrolladas en EQ-26/EQ-40.
+export * from "./semaforo.js";
+export * from "./textos.js";
+export * from "./servicio.js";
+export { crearRepositorioAspirantes } from "./repositorio-aspirantes.js";

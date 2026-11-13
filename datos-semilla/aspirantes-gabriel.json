@@ -1,0 +1,1242 @@
+{
+  "_nota": "Datos ficticios PROVISIONALES. BASE-6 los reemplaza por los datos semilla comunes del proyecto.",
+  "colaboradores": [
+    {
+      "id": "col-001",
+      "nombre": "Edgar Ozuna"
+    },
+    {
+      "id": "col-002",
+      "nombre": "Colaboradora de otra cartera"
+    }
+  ],
+  "aspirantes": [
+    {
+      "id": "asp-001",
+      "nombre": "Juan Miguel López Cruz",
+      "carrera": "Ingeniería en Software",
+      "preparatoria": "CBTIS 37",
+      "fechaSolicitud": "2026-11-02",
+      "telefono": "6442104729",
+      "correo": "juan.lopez@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-002",
+      "nombre": "Leonardo Flores Leyva",
+      "carrera": "Ingeniería en Software",
+      "preparatoria": "COBACH 1",
+      "fechaSolicitud": "2026-11-05",
+      "telefono": "6443287465",
+      "correo": "leonardofloresleyva@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-003",
+      "nombre": "José Guadalupe Hernández Valenzuela",
+      "carrera": "Ingeniería en Mecatrónica",
+      "preparatoria": "CBETA",
+      "fechaSolicitud": "2026-10-28",
+      "telefono": "6442314187",
+      "correo": "jose.hernandez@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-004",
+      "nombre": "Agustín Emiliano Flores Castro",
+      "carrera": "Ingeniería Industrial",
+      "preparatoria": "CBTIS 188",
+      "fechaSolicitud": "2026-10-30",
+      "telefono": "6442418916",
+      "correo": "agustin.flores@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-005",
+      "nombre": "Jesús Alberto Duarte Limón",
+      "carrera": "Ingeniería en Electrónica",
+      "preparatoria": "CBTIS 37",
+      "fechaSolicitud": "2026-11-01",
+      "telefono": "6442523645",
+      "correo": "jesus.duarte@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-006",
+      "nombre": "Yuri Germán García López",
+      "carrera": "Ingeniería en Software",
+      "preparatoria": "CBTIS 37",
+      "fechaSolicitud": "2026-10-20",
+      "telefono": "6442628374",
+      "correo": "yuri.garcia@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-007",
+      "nombre": "Luis Fernando Rosas Gallardo",
+      "carrera": "Ingeniería en Electromecánica",
+      "preparatoria": "COBACH 2",
+      "fechaSolicitud": "2026-11-06",
+      "telefono": "6442733103",
+      "correo": "luis.rosas@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-008",
+      "nombre": "Sebastián Huerta Bórquez",
+      "carrera": "Ingeniería en Software",
+      "preparatoria": "CBTIS 37",
+      "fechaSolicitud": "2026-10-27",
+      "telefono": "6442837832",
+      "correo": "sebastian.huerta@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-009",
+      "nombre": "Daniel Miramontes Iribe",
+      "carrera": "Ingeniería en Software",
+      "preparatoria": "CBTIS 37",
+      "fechaSolicitud": "2026-10-06",
+      "telefono": "6442942561",
+      "correo": "daniel.miramontes@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-010",
+      "nombre": "Jesús Ernesto López Ibarra",
+      "carrera": "Ingeniería en Software",
+      "preparatoria": "Tecmilenio",
+      "fechaSolicitud": "2026-10-29",
+      "telefono": "6443047290",
+      "correo": "jesus.lopez@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-011",
+      "nombre": "Johan Leyva Aldama",
+      "carrera": "Ingeniería en Mecatrónica",
+      "preparatoria": "CBTIS 129",
+      "fechaSolicitud": "2026-11-01",
+      "telefono": "6443152019",
+      "correo": "johan.leyva@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-012",
+      "nombre": "Leobardo Alcántar López",
+      "carrera": "Ingeniería en Electromecánica",
+      "preparatoria": "COBACH 1",
+      "fechaSolicitud": "2026-11-05",
+      "telefono": "6443256748",
+      "correo": "leobardo.alcantar@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-013",
+      "nombre": "Rodrigo Tovar Vidal",
+      "carrera": "Ingeniería en Mecatrónica",
+      "preparatoria": "La Salle",
+      "fechaSolicitud": "2026-10-05",
+      "telefono": "6443361477",
+      "correo": "rodrigo.tovar@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-014",
+      "nombre": "María Fernanda Soto Ruiz",
+      "carrera": "Ingeniería en Software",
+      "preparatoria": "CBETA",
+      "fechaSolicitud": "2026-11-02",
+      "telefono": "6443466206",
+      "correo": "maria.soto@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-015",
+      "nombre": "José Luis Valenzuela Peña",
+      "carrera": "Ingeniería en Mecatrónica",
+      "preparatoria": "CBTIS 188",
+      "fechaSolicitud": "2026-10-30",
+      "telefono": "6443570935",
+      "correo": "jose.valenzuela@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-016",
+      "nombre": "Ana Sofía Mendoza Ibarra",
+      "carrera": "Ingeniería Industrial",
+      "preparatoria": "CBTIS 129",
+      "fechaSolicitud": "2026-10-30",
+      "telefono": "6443675664",
+      "correo": "ana.mendoza@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-017",
+      "nombre": "Carlos Eduardo Cota Navarro",
+      "carrera": "Ingeniería en Electrónica",
+      "preparatoria": "Tecmilenio",
+      "fechaSolicitud": "2026-10-21",
+      "telefono": "6443780393",
+      "correo": "carlos.cota@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-018",
+      "nombre": "Valeria Acosta Félix",
+      "carrera": "Ingeniería en Electromecánica",
+      "preparatoria": "La Salle",
+      "fechaSolicitud": "2026-11-03",
+      "telefono": "6443885122",
+      "correo": "valeria.acosta@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-019",
+      "nombre": "Diego Armando Moreno Lugo",
+      "carrera": "Ingeniería en Software",
+      "preparatoria": "CBTIS 37",
+      "fechaSolicitud": "2026-11-03",
+      "telefono": "6443989851",
+      "correo": "diego.moreno@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-020",
+      "nombre": "Paola Yáñez Corral",
+      "carrera": "Ingeniería en Mecatrónica",
+      "preparatoria": "COBACH 1",
+      "fechaSolicitud": "2026-10-25",
+      "telefono": "6444094580",
+      "correo": "paola.yanez@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-021",
+      "nombre": "Miguel Ángel Quintero Aguirre",
+      "carrera": "Ingeniería Industrial",
+      "preparatoria": "COBACH 2",
+      "fechaSolicitud": "2026-10-27",
+      "telefono": "6444199309",
+      "correo": "miguel.quintero@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-022",
+      "nombre": "Daniela Bojórquez Salazar",
+      "carrera": "Ingeniería en Electrónica",
+      "preparatoria": "CBETA",
+      "fechaSolicitud": "2026-10-27",
+      "telefono": "6444304038",
+      "correo": "daniela.bojorquez@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-023",
+      "nombre": "Jorge Alberto Verdugo Mares",
+      "carrera": "Ingeniería en Electromecánica",
+      "preparatoria": "CBTIS 188",
+      "fechaSolicitud": "2026-10-19",
+      "telefono": "6444408767",
+      "correo": "jorge.verdugo@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-024",
+      "nombre": "Camila Armenta Leyva",
+      "carrera": "Ingeniería en Software",
+      "preparatoria": "CBTIS 129",
+      "fechaSolicitud": "2026-11-03",
+      "telefono": "6444513496",
+      "correo": "camila.armenta@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-025",
+      "nombre": "Ricardo Castro Rendón",
+      "carrera": "Ingeniería en Mecatrónica",
+      "preparatoria": "Tecmilenio",
+      "fechaSolicitud": "2026-11-04",
+      "telefono": "6444618225",
+      "correo": "ricardo.castro@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-026",
+      "nombre": "Fátima Zazueta Orduño",
+      "carrera": "Ingeniería Industrial",
+      "preparatoria": "La Salle",
+      "fechaSolicitud": "2026-10-26",
+      "telefono": "6444722954",
+      "correo": "fatima.zazueta@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-027",
+      "nombre": "Héctor Manuel Félix Montoya",
+      "carrera": "Ingeniería en Electrónica",
+      "preparatoria": "CBTIS 37",
+      "fechaSolicitud": "2026-10-12",
+      "telefono": "6444827683",
+      "correo": "hector.felix@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-028",
+      "nombre": "Ximena Rojas Beltrán",
+      "carrera": "Ingeniería en Electromecánica",
+      "preparatoria": "COBACH 1",
+      "fechaSolicitud": "2026-10-28",
+      "telefono": "6444932412",
+      "correo": "ximena.rojas@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-029",
+      "nombre": "Iván Ibarra Camacho",
+      "carrera": "Ingeniería en Software",
+      "preparatoria": "COBACH 2",
+      "fechaSolicitud": "2026-10-31",
+      "telefono": "6445037141",
+      "correo": "ivan.ibarra@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-030",
+      "nombre": "Regina Lugo Espinoza",
+      "carrera": "Ingeniería en Mecatrónica",
+      "preparatoria": "CBETA",
+      "fechaSolicitud": "2026-10-21",
+      "telefono": "6445141870",
+      "correo": "regina.lugo@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-031",
+      "nombre": "Óscar Duarte Salido",
+      "carrera": "Ingeniería Industrial",
+      "preparatoria": "CBTIS 188",
+      "fechaSolicitud": "2026-10-30",
+      "telefono": "6445246599",
+      "correo": "oscar.duarte@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-032",
+      "nombre": "Alejandra Esquer Molina",
+      "carrera": "Ingeniería en Electrónica",
+      "preparatoria": "CBTIS 129",
+      "fechaSolicitud": "2026-11-02",
+      "telefono": "6445351328",
+      "correo": "alejandra.esquer@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-033",
+      "nombre": "Emiliano Haro Treviño",
+      "carrera": "Ingeniería en Electromecánica",
+      "preparatoria": "Tecmilenio",
+      "fechaSolicitud": "2026-10-23",
+      "telefono": "6445456057",
+      "correo": "emiliano.haro@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-034",
+      "nombre": "Brenda Palomares Nieblas",
+      "carrera": "Ingeniería en Software",
+      "preparatoria": "La Salle",
+      "fechaSolicitud": "2026-10-31",
+      "telefono": "6445560786",
+      "correo": "brenda.palomares@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-035",
+      "nombre": "Gael Alcaraz Urías",
+      "carrera": "Ingeniería en Mecatrónica",
+      "preparatoria": "CBTIS 37",
+      "fechaSolicitud": "2026-10-31",
+      "telefono": "6445665515",
+      "correo": "gael.alcaraz@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-036",
+      "nombre": "Mariana Meza Villa",
+      "carrera": "Ingeniería Industrial",
+      "preparatoria": "COBACH 1",
+      "fechaSolicitud": "2026-10-18",
+      "telefono": "6445770244",
+      "correo": "mariana.meza@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-037",
+      "nombre": "Adrián Tapia Bernal",
+      "carrera": "Ingeniería en Electrónica",
+      "preparatoria": "COBACH 2",
+      "fechaSolicitud": "2026-11-01",
+      "telefono": "6445874973",
+      "correo": "adrian.tapia@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-038",
+      "nombre": "Karla Gastélum Ochoa",
+      "carrera": "Ingeniería en Electromecánica",
+      "preparatoria": "CBETA",
+      "fechaSolicitud": "2026-11-02",
+      "telefono": "6445979702",
+      "correo": "karla.gastelum@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-039",
+      "nombre": "Santiago Sandoval Romo",
+      "carrera": "Ingeniería en Software",
+      "preparatoria": "CBTIS 188",
+      "fechaSolicitud": "2026-10-27",
+      "telefono": "6446084431",
+      "correo": "santiago.sandoval@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-040",
+      "nombre": "Renata Cabrera Ayón",
+      "carrera": "Ingeniería en Mecatrónica",
+      "preparatoria": "CBTIS 129",
+      "fechaSolicitud": "2026-10-21",
+      "telefono": "6446189160",
+      "correo": "renata.cabrera@ejemplo.mx",
+      "colaboradorId": "col-001"
+    },
+    {
+      "id": "asp-901",
+      "nombre": "Mónica Beltrán Cota",
+      "carrera": "Ingeniería en Software",
+      "preparatoria": "CBTIS 37",
+      "fechaSolicitud": "2026-10-20",
+      "telefono": "6445550001",
+      "correo": "monica.cota@ejemplo.mx",
+      "colaboradorId": "col-002"
+    },
+    {
+      "id": "asp-902",
+      "nombre": "Arturo Ruiz Meza",
+      "carrera": "Ingeniería en Software",
+      "preparatoria": "CBTIS 37",
+      "fechaSolicitud": "2026-10-20",
+      "telefono": "6445550011",
+      "correo": "arturo.meza@ejemplo.mx",
+      "colaboradorId": "col-002"
+    }
+  ],
+  "actividades": [
+    {
+      "id": "act-0001",
+      "aspiranteId": "asp-001",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-05T20:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0002",
+      "aspiranteId": "asp-001",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-11-09T20:00:00Z"
+    },
+    {
+      "id": "act-0003",
+      "aspiranteId": "asp-002",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-09T15:33:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0004",
+      "aspiranteId": "asp-002",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-11-10T21:02:00Z"
+    },
+    {
+      "id": "act-0005",
+      "aspiranteId": "asp-002",
+      "tipo": "RECHAZO",
+      "fecha": "2026-11-11T20:52:00Z",
+      "objeto": "constancia",
+      "motivo": "le faltó una hoja con las calificaciones del primer semestre"
+    },
+    {
+      "id": "act-0006",
+      "aspiranteId": "asp-003",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-02T20:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0007",
+      "aspiranteId": "asp-003",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-05T20:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0008",
+      "aspiranteId": "asp-004",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-05T20:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0009",
+      "aspiranteId": "asp-004",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-08T20:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0010",
+      "aspiranteId": "asp-005",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-08T04:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0011",
+      "aspiranteId": "asp-005",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-11-12T04:00:00Z"
+    },
+    {
+      "id": "act-0012",
+      "aspiranteId": "asp-006",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-10-22T20:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0013",
+      "aspiranteId": "asp-006",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-10-23T20:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0014",
+      "aspiranteId": "asp-006",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-10-24T20:00:00Z"
+    },
+    {
+      "id": "act-0015",
+      "aspiranteId": "asp-006",
+      "tipo": "RECHAZO",
+      "fecha": "2026-10-29T20:00:00Z",
+      "objeto": "constancia",
+      "motivo": "el documento estaba ilegible"
+    },
+    {
+      "id": "act-0016",
+      "aspiranteId": "asp-007",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-09T03:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0017",
+      "aspiranteId": "asp-007",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-12T03:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0018",
+      "aspiranteId": "asp-008",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-10-31T20:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0019",
+      "aspiranteId": "asp-008",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-01T20:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0020",
+      "aspiranteId": "asp-008",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-11-02T20:00:00Z"
+    },
+    {
+      "id": "act-0021",
+      "aspiranteId": "asp-008",
+      "tipo": "RECHAZO",
+      "fecha": "2026-11-07T20:00:00Z",
+      "objeto": "constancia",
+      "motivo": "le faltó una hoja con las calificaciones del primer semestre"
+    },
+    {
+      "id": "act-0022",
+      "aspiranteId": "asp-009",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-10-11T20:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0023",
+      "aspiranteId": "asp-009",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-10-15T20:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0024",
+      "aspiranteId": "asp-010",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-04T20:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0025",
+      "aspiranteId": "asp-010",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-08T20:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0026",
+      "aspiranteId": "asp-011",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-08T19:03:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0027",
+      "aspiranteId": "asp-011",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-12T19:03:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0028",
+      "aspiranteId": "asp-012",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-07T19:57:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0029",
+      "aspiranteId": "asp-012",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-09T19:57:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0030",
+      "aspiranteId": "asp-012",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-11-12T19:57:00Z"
+    },
+    {
+      "id": "act-0031",
+      "aspiranteId": "asp-013",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-10-08T20:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0032",
+      "aspiranteId": "asp-013",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-10-10T20:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0033",
+      "aspiranteId": "asp-013",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-10-13T20:00:00Z"
+    },
+    {
+      "id": "act-0034",
+      "aspiranteId": "asp-014",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-06T15:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0035",
+      "aspiranteId": "asp-014",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-07T15:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0036",
+      "aspiranteId": "asp-014",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-11-12T15:00:00Z"
+    },
+    {
+      "id": "act-0037",
+      "aspiranteId": "asp-015",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-04T20:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0038",
+      "aspiranteId": "asp-015",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-05T20:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0039",
+      "aspiranteId": "asp-015",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-11-10T20:00:00Z"
+    },
+    {
+      "id": "act-0040",
+      "aspiranteId": "asp-016",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-05T14:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0041",
+      "aspiranteId": "asp-016",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-06T14:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0042",
+      "aspiranteId": "asp-016",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-11-11T14:00:00Z"
+    },
+    {
+      "id": "act-0043",
+      "aspiranteId": "asp-017",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-10-28T20:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0044",
+      "aspiranteId": "asp-017",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-10-29T20:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0045",
+      "aspiranteId": "asp-017",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-11-03T20:00:00Z"
+    },
+    {
+      "id": "act-0046",
+      "aspiranteId": "asp-018",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-05T20:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0047",
+      "aspiranteId": "asp-018",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-06T20:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0048",
+      "aspiranteId": "asp-018",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-11-11T20:00:00Z"
+    },
+    {
+      "id": "act-0049",
+      "aspiranteId": "asp-019",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-06T12:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0050",
+      "aspiranteId": "asp-019",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-07T12:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0051",
+      "aspiranteId": "asp-019",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-11-12T12:00:00Z"
+    },
+    {
+      "id": "act-0052",
+      "aspiranteId": "asp-020",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-10-29T20:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0053",
+      "aspiranteId": "asp-020",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-10-30T20:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0054",
+      "aspiranteId": "asp-020",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-10-31T20:00:00Z"
+    },
+    {
+      "id": "act-0055",
+      "aspiranteId": "asp-020",
+      "tipo": "RECHAZO",
+      "fecha": "2026-11-06T20:00:00Z",
+      "objeto": "solicitud",
+      "motivo": "el certificado presentado no corresponde a su preparatoria"
+    },
+    {
+      "id": "act-0056",
+      "aspiranteId": "asp-021",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-01T20:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0057",
+      "aspiranteId": "asp-021",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-02T20:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0058",
+      "aspiranteId": "asp-021",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-11-03T20:00:00Z"
+    },
+    {
+      "id": "act-0059",
+      "aspiranteId": "asp-021",
+      "tipo": "RECHAZO",
+      "fecha": "2026-11-09T20:00:00Z",
+      "objeto": "solicitud",
+      "motivo": "no cumple con el promedio mínimo requerido"
+    },
+    {
+      "id": "act-0060",
+      "aspiranteId": "asp-022",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-02T18:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0061",
+      "aspiranteId": "asp-022",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-03T18:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0062",
+      "aspiranteId": "asp-022",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-11-04T18:00:00Z"
+    },
+    {
+      "id": "act-0063",
+      "aspiranteId": "asp-022",
+      "tipo": "RECHAZO",
+      "fecha": "2026-11-10T18:00:00Z",
+      "objeto": "solicitud",
+      "motivo": "no entregó la documentación completa en el plazo establecido"
+    },
+    {
+      "id": "act-0064",
+      "aspiranteId": "asp-023",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-10-26T20:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0065",
+      "aspiranteId": "asp-023",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-10-28T20:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0066",
+      "aspiranteId": "asp-023",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-10-31T20:00:00Z"
+    },
+    {
+      "id": "act-0067",
+      "aspiranteId": "asp-024",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-05T20:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0068",
+      "aspiranteId": "asp-024",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-07T20:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0069",
+      "aspiranteId": "asp-024",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-11-10T20:00:00Z"
+    },
+    {
+      "id": "act-0070",
+      "aspiranteId": "asp-025",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-07T18:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0071",
+      "aspiranteId": "asp-025",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-09T18:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0072",
+      "aspiranteId": "asp-025",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-11-12T18:00:00Z"
+    },
+    {
+      "id": "act-0073",
+      "aspiranteId": "asp-026",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-10-30T20:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0074",
+      "aspiranteId": "asp-026",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-01T20:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0075",
+      "aspiranteId": "asp-026",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-11-04T20:00:00Z"
+    },
+    {
+      "id": "act-0076",
+      "aspiranteId": "asp-027",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-10-17T20:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0077",
+      "aspiranteId": "asp-027",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-10-19T20:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0078",
+      "aspiranteId": "asp-027",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-10-22T20:00:00Z"
+    },
+    {
+      "id": "act-0079",
+      "aspiranteId": "asp-028",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-03T20:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0080",
+      "aspiranteId": "asp-028",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-05T20:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0081",
+      "aspiranteId": "asp-028",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-11-08T20:00:00Z"
+    },
+    {
+      "id": "act-0082",
+      "aspiranteId": "asp-029",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-07T09:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0083",
+      "aspiranteId": "asp-029",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-09T09:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0084",
+      "aspiranteId": "asp-029",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-11-12T09:00:00Z"
+    },
+    {
+      "id": "act-0085",
+      "aspiranteId": "asp-030",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-10-23T20:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0086",
+      "aspiranteId": "asp-030",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-10-25T20:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0087",
+      "aspiranteId": "asp-030",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-10-28T20:00:00Z"
+    },
+    {
+      "id": "act-0088",
+      "aspiranteId": "asp-031",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-02T20:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0089",
+      "aspiranteId": "asp-031",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-04T20:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0090",
+      "aspiranteId": "asp-031",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-11-07T20:00:00Z"
+    },
+    {
+      "id": "act-0091",
+      "aspiranteId": "asp-032",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-06T04:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0092",
+      "aspiranteId": "asp-032",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-08T04:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0093",
+      "aspiranteId": "asp-032",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-11-11T04:00:00Z"
+    },
+    {
+      "id": "act-0094",
+      "aspiranteId": "asp-033",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-10-28T20:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0095",
+      "aspiranteId": "asp-033",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-10-30T20:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0096",
+      "aspiranteId": "asp-033",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-11-02T20:00:00Z"
+    },
+    {
+      "id": "act-0097",
+      "aspiranteId": "asp-034",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-06T20:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0098",
+      "aspiranteId": "asp-034",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-08T20:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0099",
+      "aspiranteId": "asp-034",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-11-11T20:00:00Z"
+    },
+    {
+      "id": "act-0100",
+      "aspiranteId": "asp-035",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-07T13:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0101",
+      "aspiranteId": "asp-035",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-09T13:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0102",
+      "aspiranteId": "asp-035",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-11-12T13:00:00Z"
+    },
+    {
+      "id": "act-0103",
+      "aspiranteId": "asp-036",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-10-20T20:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0104",
+      "aspiranteId": "asp-036",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-10-22T20:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0105",
+      "aspiranteId": "asp-036",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-10-25T20:00:00Z"
+    },
+    {
+      "id": "act-0106",
+      "aspiranteId": "asp-037",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-04T20:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0107",
+      "aspiranteId": "asp-037",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-06T20:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0108",
+      "aspiranteId": "asp-037",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-11-09T20:00:00Z"
+    },
+    {
+      "id": "act-0109",
+      "aspiranteId": "asp-038",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-06T18:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0110",
+      "aspiranteId": "asp-038",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-08T18:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0111",
+      "aspiranteId": "asp-038",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-11-11T18:00:00Z"
+    },
+    {
+      "id": "act-0112",
+      "aspiranteId": "asp-039",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-01T20:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0113",
+      "aspiranteId": "asp-039",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-03T20:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0114",
+      "aspiranteId": "asp-039",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-11-06T20:00:00Z"
+    },
+    {
+      "id": "act-0115",
+      "aspiranteId": "asp-040",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-10-27T20:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0116",
+      "aspiranteId": "asp-040",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-10-29T20:00:00Z",
+      "origen": "colaborador"
+    },
+    {
+      "id": "act-0117",
+      "aspiranteId": "asp-040",
+      "tipo": "CONSTANCIA_ENTREGADA",
+      "fecha": "2026-11-01T20:00:00Z"
+    },
+    {
+      "id": "act-0118",
+      "aspiranteId": "asp-901",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-10T20:00:00Z",
+      "origen": "automatico"
+    },
+    {
+      "id": "act-0119",
+      "aspiranteId": "asp-902",
+      "tipo": "MENSAJE_ENVIADO",
+      "fecha": "2026-11-09T20:00:00Z",
+      "origen": "automatico"
+    }
+  ]
+}

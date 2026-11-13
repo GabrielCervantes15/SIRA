@@ -5,7 +5,7 @@
  * BASE-3 define la convención oficial de eventos y, si cambia, se ajusta aquí.
  */
 import { randomUUID } from "node:crypto";
-import { ESTADOS_SOLICITUD, esEstadoValido } from "./estados.js";
+import { ESTADOS_CON_MOTIVO, esEstadoValido } from "./estados.js";
 
 export const EXCHANGE_EVENTOS = "crm.eventos";
 export const TIPO_ESTADO_CAMBIADO = "registro_escolar.solicitud.estado_cambiado";
@@ -93,9 +93,9 @@ export function validarEventoEstadoCambiado(evento) {
       if (typeof d.motivoRechazo !== "string" || d.motivoRechazo.trim() === "") {
         errores.push("datos.motivoRechazo debe ser texto no vacío o null.");
       }
-      if (d.estadoNuevo !== ESTADOS_SOLICITUD.RECHAZADA) {
+      if (!ESTADOS_CON_MOTIVO.includes(d.estadoNuevo)) {
         errores.push(
-          "datos.motivoRechazo solo se permite cuando estadoNuevo es RECHAZADA.",
+          "datos.motivoRechazo solo se permite cuando estadoNuevo es CONSTANCIA_RECHAZADA o RECHAZADA.",
         );
       }
     }

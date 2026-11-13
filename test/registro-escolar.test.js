@@ -2,12 +2,15 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { crearBusEnMemoria } from "../src/compartido/eventos/bus-en-memoria.js";
 import {
+  ESTADOS_FINALES,
   ESTADOS_SOLICITUD as E,
   ErrorRegistroEscolar,
   TIPO_ESTADO_CAMBIADO,
   VERSION_EVENTO,
   crearEventoEstadoCambiado,
   crearRegistroEscolarSimulado,
+  esEstadoFinal,
+  esEstadoValido,
   implementaRegistroEscolar,
   validarEventoEstadoCambiado,
 } from "../src/modulos/registro-escolar/index.js";
@@ -164,4 +167,28 @@ test("validarEventoEstadoCambiado detecta eventos mal formados", () => {
     assert.equal(valido, false, `debería ser inválido: ${patron}`);
     assert.match(errores.join(" "), patron);
   }
+});
+
+// ---------- Catálogo de estados ----------
+
+
+test("el catálogo distingue la constancia rechazada (en proceso) del rechazo definitivo", () => {
+  assert.equal(esEstadoValido(E.CONSTANCIA_RECHAZADA), true);
+  assert.equal(esEstadoFinal(E.CONSTANCIA_RECHAZADA), false);
+  assert.deepEqual([...ESTADOS_FINALES].sort(), [E.ACEPTADA, E.RECHAZADA].sort());
+  assert.equal(esEstadoFinal(E.ACEPTADA), true);
+  assert.equal(esEstadoFinal(E.EN_REVISION), false);
+});
+
+test("el motivo de rechazo se permite con CONSTANCIA_RECHAZADA y RECHAZADA, y no con otros estados", () => {
+  const conEstado = (estadoNuevo, motivoRechazo) => {
+    const e = eventoBase();
+    e.datos.estadoNuevo = estadoNuevo;
+    e.datos.motivoRechazo = motivoRechazo;
+    return validarEventoEstadoCambiado(e).valido;
+  };
+  assert.equal(conEstado(E.CONSTANCIA_RECHAZADA, "le faltó una hoja"), true);
+  assert.equal(conEstado(E.RECHAZADA, "no cumple el promedio mínimo"), true);
+  assert.equal(conEstado(E.EN_REVISION, "no aplica"), false);
+  assert.equal(conEstado(E.ACEPTADA, "no aplica"), false);
 });

@@ -32,8 +32,8 @@ await registroEscolar.simularCambioDeEstado({
 });
 await registroEscolar.simularCambioDeEstado({
   aspiranteId: "asp-001",
-  estadoNuevo: ESTADOS_SOLICITUD.RECHAZADA,
-  motivoRechazo: "Constancia de estudios ilegible",
+  estadoNuevo: ESTADOS_SOLICITUD.CONSTANCIA_RECHAZADA,
+  motivoRechazo: "le faltó una hoja con las calificaciones del primer semestre",
 });
 
 console.log("\nEstado de asp-001 después:", await registroEscolar.obtenerEstadoSolicitud("asp-001"));
