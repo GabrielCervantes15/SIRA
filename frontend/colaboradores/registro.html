@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Administrador · Colaboradores · SIRA</title>
+  <link rel="stylesheet" href="/app/css/estilos.css">
+  <link rel="stylesheet" href="/app/colaboradores/registro.css">
+</head>
+<body class="pagina-colaboradores">
+  <header class="barra-superior barra-figma">
+    <nav class="menu-principal" aria-label="Principal">
+      <a href="/app/colaboradores/registro.html" class="activo" aria-current="page">Colaboradores</a>
+      <a href="#" aria-disabled="true" title="Fuera del alcance de EQ-62 y EQ-63">Mensajes</a>
+      <a href="#" aria-disabled="true" title="Fuera del alcance de EQ-62 y EQ-63">Conocimiento</a>
+      <a href="/app" class="enlace-monitoreo">Monitoreo</a>
+    </nav>
+    <div class="usuario">
+      <span class="usuario-icono" aria-hidden="true">♙</span>
+      <span id="nombre-usuario">Validando sesión…</span>
+      <button class="salir" id="cerrar-sesion" type="button">Salir</button>
+    </div>
+  </header>
+
+  <main class="contenedor tablero-colaboradores">
+    <section class="tablero-tarjeta" aria-labelledby="titulo-colaboradores">
+      <div class="tablero-titulo">
+        <div>
+          <h1 id="titulo-colaboradores">Colaboradores</h1>
+          <p>Vista de muestra para presentar el diseño de Figma · los registros de esta cuadrícula son ficticios.</p>
+        </div>
+        <span class="sello-demo">Vista de demostración</span>
+      </div>
+      <div class="tablero-indicadores">
+        <span>Miembros de ejemplo: <strong id="conteo-colaboradores">0</strong></span>
+        <span>Los aspirantes y sus cargas reales se integrarán después.</span>
+      </div>
+      <div class="herramientas-colaboradores" role="toolbar" aria-label="Herramientas de colaboradores">
+        <label class="ordenar-colaboradores">
+          <span class="sr-only">Ordenar colaboradores</span>
+          <select id="ordenar-muestra"><option value="nombre">Nombre</option><option value="campus">Campus</option></select>
+        </label>
+        <label class="buscar-muestra">
+          <span class="sr-only">Buscar colaborador de ejemplo</span>
+          <input id="buscar-muestra" type="search" autocomplete="off" placeholder="Buscar por nombre de colaborador">
+          <span aria-hidden="true">⌕</span>
+        </label>
+        <div class="filtros-campus" id="filtros-campus" aria-label="Filtros de campus de muestra"></div>
+        <span class="herramientas-espaciador"></span>
+        <label class="interruptor-muestra"><span>Mostrar inactivos</span><input id="mostrar-inactivos" type="checkbox" role="switch"><span class="pista-muestra" aria-hidden="true"></span></label>
+        <button type="button" class="boton-registrar" id="abrir-registro"><span aria-hidden="true">＋</span> Registrar colaborador</button>
+        <div class="paginar-muestra" aria-label="Paginación de la muestra">
+          <button id="pagina-anterior" type="button" aria-label="Página anterior">‹</button>
+          <span id="conteo-pagina">1–9 de 9</span>
+          <button id="pagina-siguiente" type="button" aria-label="Página siguiente">›</button>
+        </div>
+      </div>
+      <div class="cuadricula-colaboradores" id="cuadricula-colaboradores" aria-live="polite"></div>
+      <p class="pie-tablero">Este listado es únicamente una maqueta visual. No consulta ni crea colaboradores reales; la implementación del listado corresponde a otros tickets.</p>
+    </section>
+  </main>
+
+  <div class="capa-modal" id="capa-registro" hidden>
+    <section class="modal-registro" role="dialog" aria-modal="true" aria-labelledby="modal-titulo" aria-describedby="modal-descripcion">
+      <div class="modal-cabecera"><h2 id="modal-titulo">Registro de colaborador</h2><button type="button" id="cerrar-registro" aria-label="Cerrar registro">×</button></div>
+      <p class="sr-only" id="modal-descripcion">Formulario en dos pasos para consultar un colaborador y seleccionar las carreras de su campus. Los cambios se guardan en borrador, no se confirma el alta.</p>
+      <ol class="modal-pasos" aria-label="Pasos de registro">
+        <li id="indicador-1" aria-current="step"><span>1</span> Datos del colaborador</li>
+        <li id="indicador-2"><span>2</span> Distribución de carreras</li>
+      </ol>
+
+      <section class="panel-paso" id="paso-1" aria-label="Paso 1: datos del colaborador">
+        <form id="form-busqueda" novalidate>
+          <label class="campo-titulo" for="id-colaborador">ID del colaborador</label>
+          <p class="texto-instruccion">Ingresa el ID institucional para buscar al colaborador (será usado como su usuario de acceso).</p>
+          <div class="fila-id">
+            <input id="id-colaborador" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="20" placeholder="Ej. 00000252115" autocomplete="off" required>
+            <button class="accion-buscar" id="buscar-colaborador" type="submit">Buscar</button>
+            <span class="resultado-id" id="resultado-id" aria-live="polite"></span>
+          </div>
+        </form>
+        <p id="mensaje-busqueda" class="registro-mensaje error" role="alert" hidden></p>
+
+        <div class="panel-subtitulo">Datos generales <span class="detalle-subtitulo">Solo lectura · Directorio simulado</span></div>
+        <div id="datos-personales" class="datos-generales">
+          <div class="foto-perfil" aria-label="Fotografía de perfil">
+            <span id="iniciales-perfil" aria-hidden="true">▧</span>
+            <img id="foto-perfil" alt="Fotografía institucional del colaborador" hidden>
+          </div>
+          <div class="campos-generales">
+            <label>Nombre(s): <input id="nombre-perfil" type="text" value="N/A" readonly tabindex="-1"></label>
+            <label>Apellido(s): <input id="apellido-perfil" type="text" value="N/A" readonly tabindex="-1"></label>
+            <label>Correo electrónico: <input id="correo-perfil" type="text" value="N/A" readonly tabindex="-1"></label>
+            <label>Teléfono: <input id="telefono-perfil" type="text" value="N/A" readonly tabindex="-1"></label>
+          </div>
+        </div>
+
+        <fieldset class="seccion-campus">
+          <legend class="campo-titulo">Campus al que pertenece: <span class="requerido">*</span></legend>
+          <div id="opciones-campus" class="opciones-campus" aria-label="Seleccionar campus"></div>
+          <!-- Se conserva el contrato original del selector para las pruebas de regresión. -->
+          <select id="campus" aria-label="Campus seleccionado" disabled hidden><option value="">Selecciona un campus</option></select>
+          <p id="error-campus" class="texto-error" role="alert" hidden>Selecciona un campus para continuar.</p>
+        </fieldset>
+
+        <div class="clave-pendiente">
+          <strong>Contraseña de acceso</strong>
+          <p>La contraseña temporal se configurará al integrar el registro definitivo (EQ-64).</p>
+          <div class="fila-claves">
+            <label>Contraseña: <input type="password" disabled placeholder="Pendiente de integración" autocomplete="new-password"></label>
+            <label>Confirmar contraseña: <input type="password" disabled placeholder="Pendiente de integración" autocomplete="new-password"></label>
+          </div>
+        </div>
+        <div class="acciones-modal">
+          <button class="btn-volver" type="button" disabled>Atrás</button>
+          <button class="btn-principal" id="continuar" type="button" disabled>Siguiente</button>
+          <button class="btn-cancelar" data-cancelar type="button">Cancelar</button>
+        </div>
+      </section>
+
+      <section class="panel-paso" id="paso-2" aria-label="Paso 2: distribución de carreras" hidden>
+        <p class="campo-titulo">Carreras asignadas:</p>
+        <p class="texto-instruccion aviso-asignacion">Selecciona las carreras que atenderá este colaborador. El reparto automático de aspirantes y sus cantidades reales todavía no está integrado.</p>
+        <label class="interruptor-manual"><span>Distribución manual</span><input id="distribucion-manual" type="checkbox" role="switch" checked><span class="pista-muestra" aria-hidden="true"></span></label>
+        <p class="mensaje-manual" id="mensaje-manual" hidden>La distribución automática depende del módulo del equipo. Activa la distribución manual para seleccionar carreras.</p>
+        <div id="lista-carreras" class="lista-carreras" role="group" aria-label="Carreras disponibles"></div>
+        <p id="error-carreras" class="texto-error" role="alert">Selecciona al menos una carrera para habilitar «Guardar borrador».</p>
+        <div class="resumen-carreras">
+          <span>Campus: <strong id="resumen-campus">—</strong></span>
+          <span>Carreras seleccionadas: <strong id="total-carreras">0</strong></span>
+          <span>Asignación de aspirantes: <strong>Pendiente</strong></span>
+        </div>
+        <p id="mensaje-guardado" class="registro-mensaje" role="status" hidden></p>
+        <div class="acciones-modal">
+          <button id="anterior" class="btn-volver" type="button">Atrás</button>
+          <button id="guardar-borrador" class="btn-principal" type="button" disabled>Guardar borrador</button>
+          <button class="btn-cancelar" data-cancelar type="button">Cancelar</button>
+        </div>
+      </section>
+    </section>
+  </div>
+  <script type="module" src="/app/colaboradores/registro.js"></script>
+</body>
+</html>
