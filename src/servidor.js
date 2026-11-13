@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
 import { crearProveedorAutenticacionSimulado, ErrorAutenticacion } from './modulos/autenticacion/index.js';
 import { crearModuloMonitoreo } from './modulos/monitoreo/index.js';
+import { crearServicioBorradores } from './modulos/colaboradores/borradores.js';
+import { crearCatalogoRegistroDemo } from './modulos/colaboradores/catalogo-registro-demo.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -106,6 +108,11 @@ export function crearServidor(opciones = {}) {
   const reloj = opciones.reloj || Date.now;
   const sinAcceso = new Set([...(permisos.usuariosSinAcceso || []), ...(process.env.SIRA_DENIED_IDS || '').split(',').map((v) => v.trim()).filter(Boolean)]);
   const moduloMonitoreo = opciones.moduloMonitoreo || crearModuloMonitoreo();
+  // EQ-62/EQ-63: adaptadores TEMPORALES hasta integrar EQ-55 y EQ-57.
+  const aspirantesDemo = leerJson(path.join(ROOT, 'datos-semilla/aspirantes.json'), { aspirantes: [] }).aspirantes;
+  const catalogoRegistro = opciones.catalogoRegistro || crearCatalogoRegistroDemo(aspirantesDemo);
+  const borradoresRegistro = opciones.borradoresRegistro || crearServicioBorradores();
+  const idsRegistrados = new Set(opciones.idsColaboradoresYaRegistrados || []);
   // Historial común del proyecto para el panel de actividades del frontend de Gabriel.
   const historialMonitoreo = opciones.historialMonitoreo || leerJson(path.join(ROOT, 'datos-semilla/aspirantes.json'), { historial: [] }).historial || [];
 
@@ -225,7 +232,89 @@ export function crearServidor(opciones = {}) {
           });
         }
 
-        // El módulo de Colaboradores aún no está implementado.
+        // Pantalla administrativa. Las otras rutas administrativas permanecen 404
+        // para respetar los contratos y las tareas de otros integrantes.
+        const recursosRegistro = new Set([
+          'registro.html', 'registro.js', 'registro.css', 'validaciones.js'
+        ]);
+        const recursoRegistro = url.pathname.replace(/^\/app\/colaboradores\//, '');
+        if (rutaAdminFrontend && req.method === 'GET' && recursosRegistro.has(recursoRegistro)) {
+          return servirArchivo(res, path.join(FRONTEND_GABRIEL, 'colaboradores', recursoRegistro));
+        }
+
+        const raizRegistro = '/api/v1/colaboradores/registro';
+        if (url.pathname === `${raizRegistro}/catalogo` && req.method === 'GET') {
+          const campus = catalogoRegistro.listarCampus();
+          return responderJson(res, 200, {
+            campus, carrerasPorCampus: Object.fromEntries(campus.map((c) => [c, catalogoRegistro.listarCarreras(c)])),
+            origen: catalogoRegistro.origen || 'ADAPTADOR_TEMPORAL'
+          });
+        }
+
+        const rutaPerfil = url.pathname.match(/^\/api\/v1\/colaboradores\/registro\/perfil\/([^/]+)$/);
+        if (rutaPerfil && req.method === 'GET') {
+          let id;
+          try { id = decodeURIComponent(rutaPerfil[1]); }
+          catch { return responderJson(res, 400, { codigo: 'ID_INVALIDO', mensaje: 'El ID no es válido.' }); }
+          if (!/^\d{5,20}$/.test(id)) {
+            return responderJson(res, 400, { codigo: 'ID_INVALIDO', mensaje: 'Ingresa un ID institucional numérico válido.' });
+          }
+          if (idsRegistrados.has(id)) {
+            return responderJson(res, 409, { codigo: 'YA_REGISTRADO', mensaje: 'Este colaborador ya está registrado.' });
+          }
+          let perfil;
+          try { perfil = await proveedor.obtenerPorIdInstitucional(id); }
+          catch (error) {
+            if (error instanceof ErrorAutenticacion && error.codigo === 'SERVICIO_NO_DISPONIBLE') {
+              return responderJson(res, 503, { codigo: 'SERVICIO_NO_DISPONIBLE', mensaje: 'El directorio institucional no está disponible.' });
+            }
+            throw error;
+          }
+          if (!perfil) return responderJson(res, 404, { codigo: 'ID_NO_ENCONTRADO', mensaje: 'No se encontró un colaborador con ese ID.' });
+          // El perfil del proveedor ya excluye contraseña y otros secretos.
+          return responderJson(res, 200, { perfil });
+        }
+
+        if (url.pathname === `${raizRegistro}/borrador` && req.method === 'POST') {
+          const body = await leerCuerpo(req);
+          const id = String(body.idInstitucional ?? '').trim();
+          const campus = typeof body.campus === 'string' ? body.campus.trim() : '';
+          if (!/^\d{5,20}$/.test(id)) return responderJson(res, 400, { codigo: 'ID_INVALIDO', mensaje: 'El ID institucional es obligatorio y debe ser numérico.' });
+          if (idsRegistrados.has(id)) return responderJson(res, 409, { codigo: 'YA_REGISTRADO', mensaje: 'Este colaborador ya está registrado.' });
+          let perfil;
+          try { perfil = await proveedor.obtenerPorIdInstitucional(id); }
+          catch (error) {
+            if (error instanceof ErrorAutenticacion && error.codigo === 'SERVICIO_NO_DISPONIBLE') {
+              return responderJson(res, 503, { codigo: 'SERVICIO_NO_DISPONIBLE', mensaje: 'El directorio institucional no está disponible.' });
+            }
+            throw error;
+          }
+          if (!perfil) return responderJson(res, 404, { codigo: 'ID_NO_ENCONTRADO', mensaje: 'No se encontró un colaborador con ese ID.' });
+          if (!campus) return responderJson(res, 422, { codigo: 'CAMPUS_OBLIGATORIO', mensaje: 'Selecciona un campus para continuar.' });
+          if (!catalogoRegistro.contieneCampus(campus)) return responderJson(res, 422, { codigo: 'CAMPUS_INVALIDO', mensaje: 'El campus seleccionado no está disponible.' });
+
+          let carreras;
+          if (body.carreras !== undefined) {
+            if (!Array.isArray(body.carreras) || body.carreras.length === 0) {
+              return responderJson(res, 422, { codigo: 'CARRERAS_OBLIGATORIAS', mensaje: 'Selecciona al menos una carrera para guardar el borrador.' });
+            }
+            carreras = [...new Set(body.carreras)];
+            if (carreras.length > 100 || !carreras.every((c) => typeof c === 'string' && catalogoRegistro.contieneCarrera(campus, c))) {
+              return responderJson(res, 422, { codigo: 'CARRERA_INVALIDA', mensaje: 'Una o más carreras no corresponden al campus seleccionado.' });
+            }
+          }
+          const borrador = borradoresRegistro.guardarBorrador({ idInstitucional: id, campus, ...(carreras ? { carreras } : {}) });
+          return responderJson(res, 200, { borrador, confirmado: false });
+        }
+
+        const rutaBorrador = url.pathname.match(/^\/api\/v1\/colaboradores\/registro\/borrador\/([^/]+)$/);
+        if (rutaBorrador && req.method === 'GET') {
+          const borrador = borradoresRegistro.obtenerBorrador(decodeURIComponent(rutaBorrador[1]));
+          if (!borrador) return responderJson(res, 404, { codigo: 'NO_ENCONTRADO', mensaje: 'Borrador no encontrado.' });
+          return responderJson(res, 200, { borrador });
+        }
+
+        // EQ-64 y otros endpoints fuera de este alcance conservan su estado.
         return responderJson(res, 404, {
           codigo: 'NO_ENCONTRADO',
           mensaje: 'La funcionalidad administrativa aún no está disponible.'

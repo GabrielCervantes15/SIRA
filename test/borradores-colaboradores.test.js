@@ -86,3 +86,12 @@ test('[EQ-56] un borrador no modifica otro registro', () => {
     'Campus Guaymas'
   );
 });
+
+test('[EQ-63] regresar al paso 1 conserva carreras si el campus no cambia', () => {
+  const servicio = crearServicioBorradores();
+  servicio.guardarBorrador({ idInstitucional: '001', campus: 'Campus Navojoa', carreras: ['Ingeniería en Software'] });
+  servicio.guardarBorrador({ idInstitucional: '001', campus: 'Campus Navojoa' });
+  assert.deepEqual(servicio.obtenerBorrador('001').carreras, ['Ingeniería en Software']);
+  servicio.guardarBorrador({ idInstitucional: '001', campus: 'Campus Guaymas' });
+  assert.equal(servicio.obtenerBorrador('001').carreras, undefined);
+});
