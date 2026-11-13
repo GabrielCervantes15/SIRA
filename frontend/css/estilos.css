@@ -13,7 +13,6 @@
 
   --rojo: #e51d1d;
   --naranja: #f5821f;
-  --amarillo: #f5c518;
   --verde: #1f9d55;
 
   --radio: 10px;
@@ -111,7 +110,6 @@ body {
 }
 .semaforo-punto.ROJO { background: var(--rojo); }
 .semaforo-punto.NARANJA { background: var(--naranja); }
-.semaforo-punto.AMARILLO { background: var(--amarillo); }
 .semaforo-punto.VERDE { background: var(--verde); }
 .sin-texto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 

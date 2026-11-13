@@ -103,7 +103,7 @@ export class RepositorioMonitoreoMemoria {
       "RECHAZADA",
     ];
 
-    this.catalogoSemaforos = ["Verde", "Amarillo", "Naranja", "Rojo"];
+    this.catalogoSemaforos = ["Verde", "Naranja", "Rojo"];
   }
 
   /**
@@ -205,7 +205,7 @@ export class RepositorioMonitoreoMemoria {
       });
     }
 
-    // 4. Filtro opcional: semáforo (VERDE, AMARILLO, NARANJA, ROJO)
+    // 4. Filtro opcional: semáforo (VERDE, NARANJA, ROJO)
     if (semaforo) {
       const semNorm = normalizarTexto(semaforo);
       resultados = resultados.filter((a) => normalizarTexto(a.semaforo) === semNorm);

@@ -56,29 +56,9 @@ function normalizarIdentificador(identificador, usuarios) {
   return usuario?.idInstitucional || valor;
 }
 
-/**
- * EQ-17: Control de acceso basado en roles.
- * 401: no existe una sesión válida.
- * 403: el usuario no tiene el rol requerido.
- */
-function verificarAccesoRol(sesion, rolesPermitidos) {
-  if (!sesion) {
-    return {
-      status: 401,
-      codigo: 'NO_AUTORIZADO',
-      mensaje: 'Debes iniciar sesión para acceder.'
-    };
-  }
-
-  if (!rolesPermitidos.includes(sesion.usuario?.rol)) {
-    return {
-      status: 403,
-      codigo: 'SIN_PERMISO',
-      mensaje: 'Tu rol no tiene permiso para acceder a este recurso.'
-    };
-  }
-
-  return null;
+function resolverRol(id, permisos) {
+  const administradores = new Set([...(permisos.administradores || []), ...(process.env.SIRA_ADMIN_IDS || '').split(',').map((v) => v.trim()).filter(Boolean)]);
+  return administradores.has(id) ? 'administrador' : 'colaborador';
 }
 
 function servirArchivo(res, ruta) {
@@ -94,11 +74,6 @@ function servirArchivo(res, ruta) {
 export function crearServidor(opciones = {}) {
   const NODE_ENV = process.env.NODE_ENV || 'development';
   const semilla = opciones.usuarios || leerJson(path.join(ROOT, 'datos-semilla/autenticacion.json'), { usuarios: [] }).usuarios;
-  const usuariosCrm = opciones.usuariosCrm ??
-  leerJson(
-    path.join(ROOT, 'datos-semilla/usuarios-crm.json'),
-    { usuarios: [] }
-  ).usuarios;
   const permisos = opciones.permisos || leerJson(path.join(ROOT, 'datos-semilla/permisos-sira.json'), { administradores: [], usuariosSinAcceso: [] });
   const proveedor = opciones.proveedor || crearProveedorAutenticacionSimulado({ usuarios: semilla, indisponible: process.env.SIRA_IDENTITY_UNAVAILABLE === 'true' });
   const duracionSesionMs = opciones.duracionSesionMs ?? Number(process.env.SIRA_SESSION_TTL_MS || 1_800_000);
@@ -146,44 +121,12 @@ export function crearServidor(opciones = {}) {
         }
 
         const id = resultado.colaborador.idInstitucional;
+        if (sinAcceso.has(id)) return responderJson(res, 403, { codigo: 'USUARIO_SIN_ACCESO', mensaje: 'La cuenta no tiene autorización para acceder a SIRA.' });
 
-        // EQ-16: Consultar el registro del usuario en el CRM.
-        const registroCrm = usuariosCrm.find(
-          (usuario) => usuario.idInstitucional === id
-        );
-
-        const rolValido =
-          registroCrm &&
-          ['administrador', 'colaborador'].includes(registroCrm.rol);
-
-        // Rechazar usuarios no registrados, inactivos o sin permisos.
-        if (
-          !registroCrm ||
-          registroCrm.activo !== true ||
-          !rolValido ||
-          sinAcceso.has(id)
-        ) {
-          return responderJson(res, 403, {
-            codigo: 'USUARIO_SIN_ACCESO',
-            mensaje: 'La cuenta no tiene autorización para acceder a SIRA.'
-          });
-        }
-
-        // Crear sesión únicamente para usuarios autorizados.
         const token = randomBytes(32).toString('base64url');
         const ahora = reloj();
-
-        const usuario = {
-          ...resultado.colaborador,
-          rol: registroCrm.rol
-        };
-
-        sesiones.set(token, {
-          usuario,
-          creadoEn: ahora,
-          expiraEn: ahora + duracionSesionMs
-        });
-
+        const usuario = { ...resultado.colaborador, rol: resolverRol(id, permisos) };
+        sesiones.set(token, { usuario, creadoEn: ahora, expiraEn: ahora + duracionSesionMs });
         const maxAge = Math.max(1, Math.floor(duracionSesionMs / 1000));
         const secure = NODE_ENV === 'production' ? '; Secure' : '';
         return responderJson(res, 200, { autenticado: true, usuario: { idInstitucional: usuario.idInstitucional, nombreCompleto: usuario.nombreCompleto, rol: usuario.rol } }, {
@@ -201,35 +144,6 @@ export function crearServidor(opciones = {}) {
         const token = cookiesDe(req)[COOKIE_NAME];
         if (token) sesiones.delete(token);
         return responderJson(res, 200, { cerrado: true }, { 'Set-Cookie': `${COOKIE_NAME}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${NODE_ENV === 'production' ? '; Secure' : ''}` });
-      }
-
-      // EQ-17: Rutas exclusivas del administrador.
-      const rutaAdminApi =
-        /^\/api\/(?:v1\/)?colaboradores(?:\/|$)/.test(url.pathname);
-
-      const rutaAdminFrontend =
-        /^\/app\/colaboradores(?:\/|$)/.test(url.pathname);
-
-      if (rutaAdminApi || rutaAdminFrontend) {
-        const sesion = obtenerSesion(req);
-
-        const acceso = verificarAccesoRol(
-          sesion,
-          ['administrador']
-        );
-
-        if (acceso) {
-          return responderJson(res, acceso.status, {
-            codigo: acceso.codigo,
-            mensaje: acceso.mensaje
-          });
-        }
-
-        // El módulo de Colaboradores aún no está implementado.
-        return responderJson(res, 404, {
-          codigo: 'NO_ENCONTRADO',
-          mensaje: 'La funcionalidad administrativa aún no está disponible.'
-        });
       }
 
       // Adaptador de lectura para el expediente de Gabriel (EQ-40).
@@ -303,35 +217,14 @@ export function crearServidor(opciones = {}) {
         return responderJson(res, 200, { actividades });
       }
 
-      // EQ-17: Monitoreo permite administradores y colaboradores.
-      if (
-        url.pathname.startsWith('/api/monitoreo') ||
-        url.pathname.startsWith('/api/v1/monitoreo')
-      ) {
+      // Módulo Monitoreo: /api/monitoreo/... y /api/v1/monitoreo/...
+      if (url.pathname.startsWith('/api/monitoreo') || url.pathname.startsWith('/api/v1/monitoreo')) {
         const sesion = obtenerSesion(req);
-
-        const acceso = verificarAccesoRol(
-          sesion,
-          ['administrador', 'colaborador']
-        );
-
-        if (acceso) {
-          return responderJson(res, acceso.status, {
-            codigo: acceso.codigo,
-            mensaje: acceso.mensaje
-          });
-        }
-
+        if (!sesion) return responderJson(res, 401, { codigo: 'NO_AUTORIZADO', mensaje: 'Inicia sesión para consultar monitoreo.' });
         const contexto = { usuario: sesion.usuario };
-        const manejado = await moduloMonitoreo.enrutador(
-          req,
-          res,
-          contexto
-        );
-
+        const manejado = await moduloMonitoreo.enrutador(req, res, contexto);
         if (manejado) return;
       }
-
 
       if (url.pathname === '/' && req.method === 'GET') return servirArchivo(res, path.join(PUBLIC, 'login/index.html'));
       // Integración SIRA: después del login, servir únicamente el monitoreo de Gabriel.

@@ -6,7 +6,7 @@
 import { api } from "./api.js";
 
 const TAMANO = 13;
-const ETIQUETA_SEMAFORO = { ROJO: "Rojo", NARANJA: "Naranja", AMARILLO: "Amarillo", VERDE: "Verde" };
+const ETIQUETA_SEMAFORO = { ROJO: "Rojo", NARANJA: "Naranja", VERDE: "Verde" };
 const FORMATO_FECHA = new Intl.DateTimeFormat("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" });
 const FORMATO_HORA = new Intl.DateTimeFormat("es-MX", { hour: "2-digit", minute: "2-digit", hour12: true });
 

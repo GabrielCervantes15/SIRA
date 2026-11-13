@@ -9,7 +9,7 @@
  * @property {string[]} preparatorias      Catálogo general de preparatorias.
  * @property {string[]} periodos           Catálogo general de períodos de admisión.
  * @property {string[]} estadosSolicitud   Catálogo general de estados de la solicitud.
- * @property {string[]} semaforos          Colores del semáforo de inactividad (Verde, Amarillo, Naranja, Rojo).
+ * @property {string[]} semaforos          Colores del semáforo de inactividad (Verde, Naranja, Rojo).
  */
 
 /**

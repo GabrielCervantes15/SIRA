@@ -7,7 +7,7 @@
  *   - historial de actividades (HU3-4)
  * Los filtros por carrera, preparatoria, período y estado quedan para HU2-4.
  */
-import { esEstadoFinal } from "../registro-escolar/index.js";
+import { esEstadoFinal } from "../registro-escolar/estados.js";
 import { SEVERIDAD, calcularSemaforo } from "./semaforo.js";
 import { textoActividad, textoEstado } from "./textos.js";
 

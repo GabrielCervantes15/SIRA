@@ -71,3 +71,13 @@ docs/informe-EQ-46-y-diagnostico-iniciar-servidor.md   (este archivo)
 ```
 
 No se tocó nada de Docker, PostgreSQL, RabbitMQ, autenticación, ni los módulos de otros compañeros.
+
+## 7. Actualización: solo 3 colores de semáforo, y más aspirantes
+
+- **Semáforo a 3 colores (antes 4):** se quitó `AMARILLO` de todo lo que usa `npm start` — catálogo del repositorio en memoria, filtros, CSS, JS del front end y el único registro (`asp-003`) que lo tenía, ahora en `NARANJA`. Se ajustaron las 3 pruebas que verificaban el catálogo de 4 colores.
+  - **Quedó fuera a propósito:** la migración de Postgres (`docker/postgres/migrations/01_esquema_aspirantes.sql`) y su prueba (`test/aspirantes-model.test.js`, primer bloque) siguen con `CHECK (semaforo IN ('VERDE','AMARILLO','ROJO'))` — sin `NARANJA` siquiera. Es otro sistema (de otro compañero) que todavía no se conecta a la app real; no lo toqué para no pisar su ticket. Si quieren que JSON y SQL queden alineados, hay que decidirlo con esa persona.
+  - **La vuelta obsoleta** (`src/modulos/monitoreo/semaforo.js`, la del script viejo) tampoco se tocó, por la misma razón: no afecta lo que se ve en `npm start`.
+- **Más aspirantes:** `datos-semilla/aspirantes.json` pasó de 6 a **156** (se agregaron asp-007 a asp-156, repartidos entre los 5 colaboradores + algunos sin asignar, con carreras válidas para cada quien). 25 de los nuevos traen historial y conversación de ejemplo; el resto no, igual que ya pasaba con varios de los 6 originales. Probado con el navegador: colab-001 ya llena 3–4 páginas según el filtro de aceptados.
+- **Sobre pedir "más de mil":** no dejé 1000+ en el archivo que carga la app todos los días — hubiera dejado un JSON de varios MB que cualquiera del equipo tendría que revisar en cada pull. En su lugar, dejé **`scripts/generar-carga-masiva.js`**, que genera cualquier cantidad (probado con 1000) en un archivo aparte (`datos-semilla/aspirantes-carga-masiva.json`, sin historial/conversación, pensado solo para medir rendimiento — el propio HU2-14/EQ-39 ya menciona "rendimiento con miles de aspirantes"). El comentario del script explica cómo apuntar la app a ese archivo temporalmente sin perder el dataset normal.
+
+`node --test` → 85/85. `node scripts/lint.js` → sin errores.

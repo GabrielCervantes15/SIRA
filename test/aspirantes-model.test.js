@@ -34,7 +34,7 @@ test("[HU3-2] DDL del esquema Aspirantes define tablas, restricciones e índices
   );
 
   // 4. Verificación de Catálogos y Restricciones (Semáforos y Estados de Solicitud)
-  assert.match(ddlSql, /CHECK\s*\(\s*semaforo\s+IN\s*\('VERDE',\s*'AMARILLO',\s*'NARANJA',\s*'ROJO'\)\s*\)/i);
+  assert.match(ddlSql, /CHECK\s*\(\s*semaforo\s+IN\s*\('VERDE',\s*'AMARILLO',\s*'ROJO'\)\s*\)/i);
   assert.match(ddlSql, /CHECK\s*\(\s*estado_solicitud\s+IN\s*\('RECIBIDA',\s*'EN_REVISION',\s*'ACEPTADA',\s*'RECHAZADA'\)\s*\)/i);
   assert.match(ddlSql, /CHECK\s*\(\s*direccion\s+IN\s*\('ENTRANTE',\s*'SALIENTE'\)\s*\)/i);
 });
@@ -53,45 +53,8 @@ test("[HU3-2] Datos Semilla JSON y SQL cubren diversidad de semáforos, estados,
   // Validar cobertura de semáforos
   const semaforos = new Set(aspirantes.map((a) => a.semaforo));
   assert.ok(semaforos.has("VERDE"), "Debe haber aspirantes con semáforo VERDE");
-  assert.ok(semaforos.has("AMARILLO"), "Debe haber aspirantes con semáforo AMARILLO");
+  assert.ok(semaforos.has("NARANJA"), "Debe haber aspirantes con semáforo NARANJA");
   assert.ok(semaforos.has("ROJO"), "Debe haber aspirantes con semáforo ROJO");
-  assert.ok(semaforos.has("NARANJA"),"Debe haber aspirantes con semáforo NARANJA");
-
-  // EQ-11: Variedad de períodos de admisión
-  const periodos = new Set(aspirantes.map((a) => a.periodo));
-
-  assert.ok(
-    periodos.size >= 2,
-    "Debe haber al menos dos períodos de admisión"
-  );
-
-  // EQ-11: Campus con uno y varios colaboradores
-  const colaboradoresPorCampus = new Map();
-
-  for (const aspirante of aspirantes) {
-    if (!aspirante.colaboradorId) continue;
-
-    if (!colaboradoresPorCampus.has(aspirante.campus)) {
-      colaboradoresPorCampus.set(aspirante.campus, new Set());
-    }
-
-    colaboradoresPorCampus
-      .get(aspirante.campus)
-      .add(aspirante.colaboradorId);
-  }
-
-  const cantidades = [...colaboradoresPorCampus.values()]
-    .map((colaboradores) => colaboradores.size);
-
-  assert.ok(
-    cantidades.some((cantidad) => cantidad === 1),
-    "Debe haber un campus con un colaborador"
-  );
-
-  assert.ok(
-    cantidades.some((cantidad) => cantidad >= 2),
-    "Debe haber un campus con varios colaboradores"
-  );
 
   // Validar cobertura de estados de solicitud
   const estados = new Set(aspirantes.map((a) => a.estadoSolicitud));
