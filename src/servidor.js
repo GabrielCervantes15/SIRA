@@ -56,11 +56,6 @@ function normalizarIdentificador(identificador, usuarios) {
   return usuario?.idInstitucional || valor;
 }
 
-function resolverRol(id, permisos) {
-  const administradores = new Set([...(permisos.administradores || []), ...(process.env.SIRA_ADMIN_IDS || '').split(',').map((v) => v.trim()).filter(Boolean)]);
-  return administradores.has(id) ? 'administrador' : 'colaborador';
-}
-
 function servirArchivo(res, ruta) {
   try {
     const contenido = readFileSync(ruta);
@@ -74,6 +69,11 @@ function servirArchivo(res, ruta) {
 export function crearServidor(opciones = {}) {
   const NODE_ENV = process.env.NODE_ENV || 'development';
   const semilla = opciones.usuarios || leerJson(path.join(ROOT, 'datos-semilla/autenticacion.json'), { usuarios: [] }).usuarios;
+  const usuariosCrm = opciones.usuariosCrm ??
+  leerJson(
+    path.join(ROOT, 'datos-semilla/usuarios-crm.json'),
+    { usuarios: [] }
+  ).usuarios;
   const permisos = opciones.permisos || leerJson(path.join(ROOT, 'datos-semilla/permisos-sira.json'), { administradores: [], usuariosSinAcceso: [] });
   const proveedor = opciones.proveedor || crearProveedorAutenticacionSimulado({ usuarios: semilla, indisponible: process.env.SIRA_IDENTITY_UNAVAILABLE === 'true' });
   const duracionSesionMs = opciones.duracionSesionMs ?? Number(process.env.SIRA_SESSION_TTL_MS || 1_800_000);
@@ -121,12 +121,44 @@ export function crearServidor(opciones = {}) {
         }
 
         const id = resultado.colaborador.idInstitucional;
-        if (sinAcceso.has(id)) return responderJson(res, 403, { codigo: 'USUARIO_SIN_ACCESO', mensaje: 'La cuenta no tiene autorización para acceder a SIRA.' });
 
+        // EQ-16: Consultar el registro del usuario en el CRM.
+        const registroCrm = usuariosCrm.find(
+          (usuario) => usuario.idInstitucional === id
+        );
+
+        const rolValido =
+          registroCrm &&
+          ['administrador', 'colaborador'].includes(registroCrm.rol);
+
+        // Rechazar usuarios no registrados, inactivos o sin permisos.
+        if (
+          !registroCrm ||
+          registroCrm.activo !== true ||
+          !rolValido ||
+          sinAcceso.has(id)
+        ) {
+          return responderJson(res, 403, {
+            codigo: 'USUARIO_SIN_ACCESO',
+            mensaje: 'La cuenta no tiene autorización para acceder a SIRA.'
+          });
+        }
+
+        // Crear sesión únicamente para usuarios autorizados.
         const token = randomBytes(32).toString('base64url');
         const ahora = reloj();
-        const usuario = { ...resultado.colaborador, rol: resolverRol(id, permisos) };
-        sesiones.set(token, { usuario, creadoEn: ahora, expiraEn: ahora + duracionSesionMs });
+
+        const usuario = {
+          ...resultado.colaborador,
+          rol: registroCrm.rol
+        };
+
+        sesiones.set(token, {
+          usuario,
+          creadoEn: ahora,
+          expiraEn: ahora + duracionSesionMs
+        });
+
         const maxAge = Math.max(1, Math.floor(duracionSesionMs / 1000));
         const secure = NODE_ENV === 'production' ? '; Secure' : '';
         return responderJson(res, 200, { autenticado: true, usuario: { idInstitucional: usuario.idInstitucional, nombreCompleto: usuario.nombreCompleto, rol: usuario.rol } }, {

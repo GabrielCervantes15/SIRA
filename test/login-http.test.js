@@ -8,8 +8,26 @@ const usuarios = [
   { idInstitucional: '00000654321', password: 'ClaveDemo123!', nombreCompleto: 'Usuario Sin Acceso', correoInstitucional: 'sinacceso@itson.edu.mx', telefono: '+526447654321', fotoUrl: '', activo: true },
 ];
 
+const usuariosCrmPrueba = [
+  {
+    idInstitucional: '00000123456',
+    rol: 'administrador',
+    activo: true
+  },
+  {
+    idInstitucional: '00000654321',
+    rol: 'colaborador',
+    activo: true
+  }
+];
+
 async function conServidor(opciones, callback) {
-  const server = crearServidor({ usuarios, proveedor: crearProveedorAutenticacionSimulado({ usuarios }), ...opciones });
+  const server = crearServidor({
+  usuarios,
+  proveedor: crearProveedorAutenticacionSimulado({ usuarios }),
+  usuariosCrm: usuariosCrmPrueba,
+  ...opciones
+});
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
   try { await callback(base); } finally { await new Promise((resolve) => server.close(resolve)); }
@@ -92,5 +110,80 @@ test('[EQ-18] informa cuando el proveedor de identidad no está disponible', asy
     const response = await fetch(`${base}/api/v1/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identificador: '00000123456', password: 'ClaveDemo123!' }) });
     assert.equal(response.status, 503);
     assert.equal((await response.json()).codigo, 'SERVICIO_NO_DISPONIBLE');
+  });
+});
+
+test('[EQ-16] asigna rol colaborador desde Usuarios CRM', async () => {
+  await conServidor({
+    usuariosCrm: [
+      {
+        idInstitucional: '00000123456',
+        rol: 'colaborador',
+        activo: true
+      }
+    ],
+    permisos: {
+      administradores: ['00000123456'],
+      usuariosSinAcceso: []
+    }
+  }, async (base) => {
+    const response = await fetch(`${base}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        identificador: '00000123456',
+        password: 'ClaveDemo123!'
+      })
+    });
+
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.equal(data.usuario.rol, 'colaborador');
+  });
+});
+
+test('[EQ-16] rechaza usuario no registrado en CRM', async () => {
+  await conServidor({
+    usuariosCrm: []
+  }, async (base) => {
+    const response = await fetch(`${base}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        identificador: '00000123456',
+        password: 'ClaveDemo123!'
+      })
+    });
+
+    assert.equal(response.status, 403);
+    const data = await response.json();
+    assert.equal(data.codigo, 'USUARIO_SIN_ACCESO');
+    assert.equal(response.headers.get('set-cookie'), null);
+  });
+});
+
+test('[EQ-16] rechaza usuario inactivo en CRM', async () => {
+  await conServidor({
+    usuariosCrm: [
+      {
+        idInstitucional: '00000123456',
+        rol: 'colaborador',
+        activo: false
+      }
+    ]
+  }, async (base) => {
+    const response = await fetch(`${base}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        identificador: '00000123456',
+        password: 'ClaveDemo123!'
+      })
+    });
+
+    assert.equal(response.status, 403);
+    const data = await response.json();
+    assert.equal(data.codigo, 'USUARIO_SIN_ACCESO');
+    assert.equal(response.headers.get('set-cookie'), null);
   });
 });
