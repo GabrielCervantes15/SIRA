@@ -208,7 +208,17 @@ function pintarActividades(datos) {
 }
 
 function etiquetaTipo(tipo) {
-  return { MENSAJE_ENVIADO: "Mensaje", CONSTANCIA_ENTREGADA: "Constancia", RECHAZO: "Rechazo" }[tipo] ?? "Actividad";
+  // RECHAZO_SOLICITUD y CAMBIO_ESTADO/NOTA_SEGUIMIENTO son los nombres reales
+  // del historial integrado (datos-semilla/aspirantes.json); RECHAZO se deja
+  // por compatibilidad con datos más antiguos.
+  return {
+    MENSAJE_ENVIADO: "Mensaje",
+    CONSTANCIA_ENTREGADA: "Constancia",
+    RECHAZO: "Rechazo",
+    RECHAZO_SOLICITUD: "Rechazo",
+    CAMBIO_ESTADO: "Estado",
+    NOTA_SEGUIMIENTO: "Seguimiento",
+  }[tipo] ?? "Actividad";
 }
 
 async function cargarActividades() {
@@ -231,15 +241,50 @@ async function cargarActividades() {
   }
 }
 
+// EQ-46 · HU3-7: vista de mensajería, de solo lectura en este sprint.
+function pintarChat(mensajes) {
+  const lista = $("lista-chat");
+  $("sin-chat").hidden = mensajes.length > 0;
+  lista.replaceChildren(...mensajes.map((m) => elemento("li", { class: `burbuja ${m.direccion}` }, [
+    elemento("div", { class: "remitente", text: etiquetaRemitente(m.remitenteTipo) }),
+    elemento("p", { text: m.contenido }),
+    elemento("time", { datetime: m.fecha, text: `${fechaCorta(m.fecha)} · ${FORMATO_HORA.format(new Date(m.fecha))}` }),
+  ])));
+}
+
+function etiquetaRemitente(tipo) {
+  return { ASPIRANTE: "Aspirante", COLABORADOR: "Colaborador", BOT_IA: "Mensaje automático", SISTEMA: "Sistema" }[tipo] ?? tipo;
+}
+
+async function cargarChat() {
+  const id = estado.aspiranteId;
+  if (!id) return;
+  try {
+    const { datos } = await api.conversacion(id);
+    if (id !== estado.aspiranteId) return;
+    // Orden cronológico (el más antiguo primero), como en una conversación real.
+    pintarChat([...datos].sort((a, b) => new Date(a.fecha) - new Date(b.fecha)));
+  } catch (error) {
+    if (id !== estado.aspiranteId) return;
+    $("lista-chat").replaceChildren();
+    $("sin-chat").hidden = false;
+    $("sin-chat").textContent = error.codigo === "SIN_PERMISO"
+      ? "No tienes permiso para ver este aspirante."
+      : "No pudimos cargar la conversación. Inténtalo de nuevo.";
+  }
+}
+
+const PESTANAS = ["contacto", "actividades", "chat"];
+
 function seleccionarPestana(nombre) {
-  const esContacto = nombre === "contacto";
-  $("pestana-contacto").setAttribute("aria-selected", String(esContacto));
-  $("pestana-contacto").classList.toggle("activa", esContacto);
-  $("pestana-actividades").setAttribute("aria-selected", String(!esContacto));
-  $("pestana-actividades").classList.toggle("activa", !esContacto);
-  $("vista-contacto").hidden = !esContacto;
-  $("vista-actividades").hidden = esContacto;
-  if (!esContacto) cargarActividades();
+  for (const otra of PESTANAS) {
+    const activa = otra === nombre;
+    $(`pestana-${otra}`).setAttribute("aria-selected", String(activa));
+    $(`pestana-${otra}`).classList.toggle("activa", activa);
+    $(`vista-${otra}`).hidden = !activa;
+  }
+  if (nombre === "actividades") cargarActividades();
+  if (nombre === "chat") cargarChat();
 }
 
 async function abrirPanel(id) {
@@ -305,6 +350,7 @@ function configurarEventos() {
 
   $("pestana-contacto").addEventListener("click", () => seleccionarPestana("contacto"));
   $("pestana-actividades").addEventListener("click", () => seleccionarPestana("actividades"));
+  $("pestana-chat").addEventListener("click", () => seleccionarPestana("chat"));
   $("desde").addEventListener("change", cargarActividades);
   $("hasta").addEventListener("change", cargarActividades);
   $("cerrar-panel").addEventListener("click", cerrarPanel);

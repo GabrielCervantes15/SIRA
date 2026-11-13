@@ -85,6 +85,7 @@
           <div class="pestanas" role="tablist">
             <button type="button" role="tab" id="pestana-contacto" aria-selected="true" aria-controls="vista-contacto" class="pestana activa">Contacto</button>
             <button type="button" role="tab" id="pestana-actividades" aria-selected="false" aria-controls="vista-actividades" class="pestana">Actividades</button>
+            <button type="button" role="tab" id="pestana-chat" aria-selected="false" aria-controls="vista-chat" class="pestana">Chat</button>
           </div>
 
           <section id="vista-contacto" role="tabpanel" aria-labelledby="pestana-contacto" class="vista-panel"></section>
@@ -96,6 +97,13 @@
             </div>
             <ol class="linea-tiempo" id="lista-actividades"></ol>
             <p class="ayuda" id="sin-actividades" hidden>Este aspirante aún no tiene movimientos en el rango seleccionado.</p>
+          </section>
+
+          <!-- EQ-46 · HU3-7: vista de mensajería de solo lectura. -->
+          <section id="vista-chat" role="tabpanel" aria-labelledby="pestana-chat" class="vista-panel" hidden>
+            <p class="ayuda chat-nota">Solo lectura por ahora. Enviar mensajes depende de los módulos Chat y WhatsApp.</p>
+            <ol class="chat-lista" id="lista-chat"></ol>
+            <p class="ayuda" id="sin-chat" hidden>Este aspirante aún no tiene conversación registrada.</p>
           </section>
         </aside>
       </div>

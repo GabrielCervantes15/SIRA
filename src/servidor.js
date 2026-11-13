@@ -148,7 +148,7 @@ export function crearServidor(opciones = {}) {
 
       // Adaptador de lectura para el expediente de Gabriel (EQ-40).
       // Utiliza el MISMO repositorio de la lista, no la semilla provisional de Gabriel.
-      const rutaExpediente = url.pathname.match(/^\/api\/(?:v1\/)?monitoreo\/aspirantes\/([^/]+)(?:\/(actividades))?\/?$/);
+      const rutaExpediente = url.pathname.match(/^\/api\/(?:v1\/)?monitoreo\/aspirantes\/([^/]+)(?:\/(actividades|conversacion))?\/?$/);
       if (rutaExpediente && req.method === 'GET') {
         const sesion = obtenerSesion(req);
         if (!sesion) return responderJson(res, 401, { codigo: 'NO_AUTORIZADO', mensaje: 'Inicia sesión para consultar el expediente.' });
@@ -173,6 +173,25 @@ export function crearServidor(opciones = {}) {
         }
 
         if (!rutaExpediente[2]) return responderJson(res, 200, { aspirante });
+
+        // Vista de mensajería de solo lectura (EQ-46 · HU3-7).
+        // Reutiliza obtenerConversacionAspirante, ya implementado en el repositorio
+        // de Monitoreo (dominio/repositorio-monitoreo.js) pero sin ruta hasta ahora.
+        if (rutaExpediente[2] === 'conversacion') {
+          if (typeof repositorio?.obtenerConversacionAspirante !== 'function') {
+            return responderJson(res, 501, { codigo: 'NO_IMPLEMENTADO', mensaje: 'El repositorio no ofrece la conversación del aspirante.' });
+          }
+          const mensajes = await repositorio.obtenerConversacionAspirante(aspirante.id);
+          return responderJson(res, 200, {
+            mensajes: mensajes.map((m) => ({
+              id: m.id,
+              direccion: m.direccion,
+              remitenteTipo: m.remitenteTipo,
+              contenido: m.contenido,
+              fecha: m.fechaEnvio,
+            })),
+          });
+        }
 
         const desde = url.searchParams.get('desde');
         const hasta = url.searchParams.get('hasta');

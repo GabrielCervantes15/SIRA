@@ -107,6 +107,12 @@ export const api = {
     const cuerpo = await pedir(`/api/monitoreo/aspirantes/${encodeURIComponent(id)}`);
     return adaptarDetalle(cuerpo);
   },
+  // EQ-46 · HU3-7: conversación de solo lectura.
+  async conversacion(id) {
+    const cuerpo = await pedir(`/api/monitoreo/aspirantes/${encodeURIComponent(id)}/conversacion`);
+    const datos = cuerpo.mensajes ?? cuerpo.datos ?? [];
+    return { datos: datos.map((m) => ({ ...m, fecha: m.fecha ?? m.fechaEnvio })) };
+  },
   async actividades(id, rango = {}) {
     const cuerpo = await pedir(`/api/monitoreo/aspirantes/${encodeURIComponent(id)}/actividades`, rango);
     const datos = cuerpo.actividades ?? cuerpo.datos ?? [];
