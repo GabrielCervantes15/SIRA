@@ -15,7 +15,7 @@ const estado = {
   ordenarPor: "semaforo",
   direccion: "desc",
   busqueda: "",
-  incluirCerrados: false,
+  incluirAceptados: false,
   aspiranteId: null,
   solicitud: 0, // para descartar respuestas viejas
 };
@@ -54,7 +54,8 @@ function haceCuanto(iso) {
 function elemento(etiqueta, atributos = {}, hijos = []) {
   const el = document.createElement(etiqueta);
   for (const [k, v] of Object.entries(atributos)) {
-    if (k === "class") el.className = v;
+    if (k === "onclick" && typeof v === "function") el.addEventListener("click", v);
+    else if (k === "class") el.className = v;
     else if (k === "text") el.textContent = v;
     else el.setAttribute(k, v);
   }
@@ -128,14 +129,13 @@ async function cargarTabla() {
       tamano: TAMANO,
       ordenarPor: estado.ordenarPor,
       direccion: estado.direccion,
-      incluirCerrados: estado.incluirCerrados,
+      incluirAceptados: estado.incluirAceptados,
+      busqueda: estado.busqueda,
     });
     if (solicitud !== estado.solicitud) return; // llegó una respuesta vieja
 
-    // La búsqueda por nombre se aplica en el cliente sobre la página ya cargada,
-    // hasta que HU2-4 la mueva al servidor.
-    const termino = normalizar(estado.busqueda);
-    const filtrados = termino ? datos.filter((a) => normalizar(a.nombre).includes(termino)) : datos;
+    // La búsqueda se realiza en el servidor antes de paginar (HU2-4).
+    const filtrados = datos;
 
     if (paginacion.totalResultados === 0) {
       mostrarEstadoTabla("", "No hay aspirantes en tu cartera.");
@@ -143,7 +143,7 @@ async function cargarTabla() {
     }
     if (filtrados.length === 0) {
       mostrarEstadoTabla("", "No se encontraron resultados.", {
-        restablecer: () => { estado.busqueda = ""; $("buscar").value = ""; estado.incluirCerrados = false; $("incluir-cerrados").checked = false; estado.pagina = 1; cargarTabla(); },
+        restablecer: () => { estado.busqueda = ""; $("buscar").value = ""; estado.incluirAceptados = false; $("incluir-aceptados").checked = false; estado.pagina = 1; cargarTabla(); },
       });
       return;
     }
@@ -297,8 +297,8 @@ function configurarEventos() {
     temporizador = setTimeout(() => { estado.busqueda = e.target.value; cargarTabla(); }, 250);
   });
 
-  $("incluir-cerrados").addEventListener("change", (e) => {
-    estado.incluirCerrados = e.target.checked;
+  $("incluir-aceptados").addEventListener("change", (e) => {
+    estado.incluirAceptados = e.target.checked;
     estado.pagina = 1;
     cargarTabla();
   });
@@ -311,15 +311,41 @@ function configurarEventos() {
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("panel").hidden) cerrarPanel(); });
 }
 
+let validandoSesion = false;
+async function revisarSesion() {
+  if (validandoSesion) return;
+  validandoSesion = true;
+  try {
+    await api.sesion();
+  } catch (error) {
+    if (error.estado === 401) window.location.replace('/?expired=1');
+  } finally {
+    validandoSesion = false;
+  }
+}
+
 async function iniciar() {
-  configurarEventos();
   try {
     const sesion = await api.sesion();
     $("nombre-usuario").textContent = sesion.nombre;
-  } catch {
-    $("nombre-usuario").textContent = "Sin sesión";
+  } catch (error) {
+    if (error.estado === 401) window.location.replace('/?expired=1');
+    else $("nombre-usuario").textContent = "Sin conexión al servicio de sesión";
+    return;
   }
+  configurarEventos();
+  $("cerrar-sesion").addEventListener("click", async () => {
+    $("cerrar-sesion").disabled = true;
+    try {
+      await api.cerrarSesion();
+      window.location.replace('/');
+    } catch (error) {
+      $("cerrar-sesion").disabled = false;
+      window.alert("No se pudo cerrar la sesión. Inténtalo nuevamente.");
+    }
+  });
   cargarTabla();
+  window.setInterval(revisarSesion, 5000);
 }
 
 iniciar();

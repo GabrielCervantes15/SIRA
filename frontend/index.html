@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CRM Admisiones · Monitoreo de aspirantes</title>
-  <link rel="stylesheet" href="css/estilos.css">
+  <link rel="stylesheet" href="/app/css/estilos.css">
 </head>
 <body>
   <header class="barra-superior">
@@ -16,6 +16,7 @@
     <div class="usuario" id="usuario">
       <span class="avatar" aria-hidden="true">EO</span>
       <span id="nombre-usuario">Cargando…</span>
+      <button type="button" class="boton" id="cerrar-sesion">Cerrar sesión</button>
     </div>
   </header>
 
@@ -32,9 +33,9 @@
           <input id="buscar" type="search" placeholder="Buscar por nombre de aspirante" autocomplete="off">
         </label>
         <label class="interruptor">
-          <input id="incluir-cerrados" type="checkbox" role="switch">
+          <input id="incluir-aceptados" type="checkbox" role="switch">
           <span class="pista" aria-hidden="true"></span>
-          <span>Mostrar aceptados o rechazados</span>
+          <span>Mostrar aspirantes aceptados</span>
         </label>
       </div>
 
@@ -101,7 +102,6 @@
     </section>
   </main>
 
-  <script src="js/api.js" type="module"></script>
-  <script src="js/app.js" type="module"></script>
+  <script src="/app/js/app.js" type="module"></script>
 </body>
 </html>

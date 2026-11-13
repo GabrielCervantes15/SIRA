@@ -10,6 +10,7 @@ import { crearModuloMonitoreo } from './modulos/monitoreo/index.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const PUBLIC = path.join(ROOT, 'public');
+const FRONTEND_GABRIEL = path.join(ROOT, 'frontend');
 const COOKIE_NAME = 'sira_session';
 const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
 
@@ -80,6 +81,8 @@ export function crearServidor(opciones = {}) {
   const reloj = opciones.reloj || Date.now;
   const sinAcceso = new Set([...(permisos.usuariosSinAcceso || []), ...(process.env.SIRA_DENIED_IDS || '').split(',').map((v) => v.trim()).filter(Boolean)]);
   const moduloMonitoreo = opciones.moduloMonitoreo || crearModuloMonitoreo();
+  // Historial común del proyecto para el panel de actividades del frontend de Gabriel.
+  const historialMonitoreo = opciones.historialMonitoreo || leerJson(path.join(ROOT, 'datos-semilla/aspirantes.json'), { historial: [] }).historial || [];
 
   function obtenerSesion(req) {
     const token = cookiesDe(req)[COOKIE_NAME];
@@ -143,18 +146,72 @@ export function crearServidor(opciones = {}) {
         return responderJson(res, 200, { cerrado: true }, { 'Set-Cookie': `${COOKIE_NAME}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${NODE_ENV === 'production' ? '; Secure' : ''}` });
       }
 
+      // Adaptador de lectura para el expediente de Gabriel (EQ-40).
+      // Utiliza el MISMO repositorio de la lista, no la semilla provisional de Gabriel.
+      const rutaExpediente = url.pathname.match(/^\/api\/(?:v1\/)?monitoreo\/aspirantes\/([^/]+)(?:\/(actividades))?\/?$/);
+      if (rutaExpediente && req.method === 'GET') {
+        const sesion = obtenerSesion(req);
+        if (!sesion) return responderJson(res, 401, { codigo: 'NO_AUTORIZADO', mensaje: 'Inicia sesión para consultar el expediente.' });
+
+        let aspiranteId;
+        try { aspiranteId = decodeURIComponent(rutaExpediente[1]); }
+        catch { return responderJson(res, 400, { codigo: 'PARAMETRO_INVALIDO', mensaje: 'Identificador inválido.' }); }
+        const repositorio = moduloMonitoreo.repositorio;
+        if (typeof repositorio?.obtenerAspirantePorId !== 'function') {
+          return responderJson(res, 501, { codigo: 'NO_IMPLEMENTADO', mensaje: 'El repositorio no ofrece lectura de expedientes.' });
+        }
+        const aspirante = await repositorio.obtenerAspirantePorId(aspiranteId);
+        if (!aspirante) return responderJson(res, 404, { codigo: 'NO_ENCONTRADO', mensaje: 'Aspirante no encontrado.' });
+
+        // Nunca confiar en un ID de colaborador enviado por el cliente.
+        // Aceptar el ID institucional y su alias en la semilla del repositorio en memoria.
+        const idsCartera = typeof repositorio._obtenerIdsColaborador === 'function'
+          ? repositorio._obtenerIdsColaborador(sesion.usuario.idInstitucional)
+          : new Set([sesion.usuario.idInstitucional]);
+        if (!idsCartera.has(aspirante.colaboradorId)) {
+          return responderJson(res, 403, { codigo: 'SIN_PERMISO', mensaje: 'Este aspirante no pertenece a tu cartera.' });
+        }
+
+        if (!rutaExpediente[2]) return responderJson(res, 200, { aspirante });
+
+        const desde = url.searchParams.get('desde');
+        const hasta = url.searchParams.get('hasta');
+        const desdeMs = desde ? Date.parse(desde) : null;
+        const hastaMs = hasta ? Date.parse(hasta) : null;
+        if ((desde && Number.isNaN(desdeMs)) || (hasta && Number.isNaN(hastaMs)) ||
+            (desdeMs !== null && hastaMs !== null && desdeMs > hastaMs)) {
+          return responderJson(res, 400, { codigo: 'PARAMETRO_INVALIDO', mensaje: 'Rango de fechas inválido.' });
+        }
+        const actividades = historialMonitoreo
+          .filter((h) => h.aspiranteId === aspirante.id)
+          .filter((h) => {
+            const fechaMs = Date.parse(h.fechaEvento ?? h.fecha);
+            return Number.isFinite(fechaMs) && (desdeMs === null || fechaMs >= desdeMs) && (hastaMs === null || fechaMs <= hastaMs);
+          })
+          .sort((a, b) => Date.parse(b.fechaEvento ?? b.fecha) - Date.parse(a.fechaEvento ?? a.fecha) || String(b.id).localeCompare(String(a.id)))
+          .map((h) => ({
+            id: h.id,
+            tipo: h.tipoEvento ?? h.tipo ?? 'ACTIVIDAD',
+            fecha: h.fechaEvento ?? h.fecha,
+            texto: [h.titulo, h.detalle].filter(Boolean).join(' — ') || 'Actividad registrada',
+          }));
+        return responderJson(res, 200, { actividades });
+      }
+
       // Módulo Monitoreo: /api/monitoreo/... y /api/v1/monitoreo/...
       if (url.pathname.startsWith('/api/monitoreo') || url.pathname.startsWith('/api/v1/monitoreo')) {
         const sesion = obtenerSesion(req);
-        const contexto = { usuario: sesion?.usuario || null };
+        if (!sesion) return responderJson(res, 401, { codigo: 'NO_AUTORIZADO', mensaje: 'Inicia sesión para consultar monitoreo.' });
+        const contexto = { usuario: sesion.usuario };
         const manejado = await moduloMonitoreo.enrutador(req, res, contexto);
         if (manejado) return;
       }
 
       if (url.pathname === '/' && req.method === 'GET') return servirArchivo(res, path.join(PUBLIC, 'login/index.html'));
-      if (url.pathname === '/app' && req.method === 'GET') {
+      // Integración SIRA: después del login, servir únicamente el monitoreo de Gabriel.
+      if ((url.pathname === '/app' || url.pathname === '/app/') && req.method === 'GET') {
         if (!obtenerSesion(req)) { res.writeHead(302, { Location: '/', 'Cache-Control': 'no-store' }); return res.end(); }
-        return servirArchivo(res, path.join(PUBLIC, 'app/index.html'));
+        return servirArchivo(res, path.join(FRONTEND_GABRIEL, 'index.html'));
       }
       if (url.pathname.startsWith('/login/') && req.method === 'GET') {
         const relative = url.pathname.replace(/^\/login\//, '');
@@ -162,9 +219,13 @@ export function crearServidor(opciones = {}) {
         return servirArchivo(res, path.join(PUBLIC, 'login', relative));
       }
       if (url.pathname.startsWith('/app/') && req.method === 'GET') {
+        // Evitar servir CSS/JS o recursos de monitoreo sin sesión activa.
+        if (!obtenerSesion(req)) return responderJson(res, 401, { codigo: 'SESION_NO_VALIDA', mensaje: 'Inicia sesión para acceder al monitoreo.' });
         const relative = url.pathname.replace(/^\/app\//, '');
         if (!relative || relative.includes('..') || relative.includes('\\')) return responderJson(res, 400, { codigo: 'RUTA_INVALIDA' });
-        return servirArchivo(res, path.join(PUBLIC, 'app', relative));
+        const archivo = path.resolve(FRONTEND_GABRIEL, relative);
+        if (!archivo.startsWith(FRONTEND_GABRIEL + path.sep)) return responderJson(res, 400, { codigo: 'RUTA_INVALIDA' });
+        return servirArchivo(res, archivo);
       }
 
       return responderJson(res, 404, { error: 'Ruta no encontrada', path: url.pathname });

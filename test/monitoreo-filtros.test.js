@@ -49,6 +49,18 @@ test("[HU2-7] ObtenerFiltrosCasoUso rechaza petición sin colaborador autenticad
   );
 });
 
+async function obtenerCookieDePrueba(puerto, idInstitucional) {
+  const respuesta = await fetch(`http://127.0.0.1:${puerto}/api/v1/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ identificador: idInstitucional, password: 'Password123!' }),
+  });
+  assert.equal(respuesta.status, 200);
+  const cookie = respuesta.headers.get('set-cookie')?.split(';')[0];
+  assert.ok(cookie);
+  return cookie;
+}
+
 // ---------- Pruebas de Integración HTTP del Endpoint GET /api/monitoreo/filtros ----------
 
 test("[HU2-7] HTTP GET /api/monitoreo/filtros requiere autenticación (401)", async () => {
@@ -79,15 +91,14 @@ test("[HU2-7] HTTP GET /api/monitoreo/filtros retorna JSON con catálogos para c
   const puerto = servidor.address().port;
 
   try {
+    const cookie = await obtenerCookieDePrueba(puerto, '00000252115');
     const respuesta = await new Promise((resolve, reject) => {
       const opciones = {
         hostname: "127.0.0.1",
         port: puerto,
         path: "/api/monitoreo/filtros",
         method: "GET",
-        headers: {
-          "x-colaborador-id": "00000252115",
-        },
+        headers: { Cookie: cookie },
       };
 
       const req = http.request(opciones, (res) => {
@@ -120,15 +131,14 @@ test("[HU2-7] HTTP GET /api/v1/monitoreo/filtros soporta alias de ruta versionad
   const puerto = servidor.address().port;
 
   try {
+    const cookie = await obtenerCookieDePrueba(puerto, '00000233231');
     const respuesta = await new Promise((resolve, reject) => {
       const opciones = {
         hostname: "127.0.0.1",
         port: puerto,
         path: "/api/v1/monitoreo/filtros",
         method: "GET",
-        headers: {
-          "x-colaborador-id": "00000233231",
-        },
+        headers: { Cookie: cookie },
       };
 
       const req = http.request(opciones, (res) => {
