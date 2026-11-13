@@ -112,7 +112,7 @@ Término oficial para la interfaz y la documentación: **«estado de la solicitu
 
 | Quién | Uso |
 |---|---|
-| Módulo dueño del esquema Aspirantes (se decide en BASE-2) | Consume el evento: actualiza el estado y agrega el cambio al historial del expediente. Un rechazo con motivo aparece en la línea de tiempo de HU 3 |
+| Módulo Monitoreo, propietario actual del esquema Aspirantes (definido en BASE-2) | Consume el evento: actualiza el estado y agrega el cambio al historial del expediente. Un rechazo con motivo aparece en la línea de tiempo de HU 3 |
 | Monitoreo (HU 2 y HU 3) | Lee el estado desde Aspirantes: columna y filtro de HU 2, y datos generales del expediente de HU 3 |
 | Adaptador real (después del Sprint 1) | Implementa la interfaz con la API REST y publica los eventos. Puede usar webhooks o consultas periódicas con `obtenerCambiosDesde` |
 
@@ -138,5 +138,5 @@ node scripts/demo-registro-escolar.js        # demo con datos semilla
 | 2 | Si el motivo de rechazo es obligatorio cuando el estado es `RECHAZADA` | PO |
 | 3 | Qué identificador comparten el CRM y Registro Escolar (folio de solicitud, matrícula u otro) | Equipo y Registro Escolar |
 | 4 | Nombres definitivos de exchange y routing keys | BASE-3 |
-| 5 | Qué módulo es dueño del esquema Aspirantes y consume el evento | BASE-2 |
+| 5 | | 5 | Resuelto en BASE-2: Monitoreo administra Aspirantes en la arquitectura actual. | BASE-2 |
 | 6 | Cómo avisará la API real los cambios: webhook o consulta periódica | Mtro. Borrego / Registro Escolar |
