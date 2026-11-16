@@ -8,6 +8,7 @@ import { crearProveedorAutenticacionSimulado, ErrorAutenticacion } from './modul
 import { crearModuloMonitoreo } from './modulos/monitoreo/index.js';
 import { crearServicioBorradores } from './modulos/colaboradores/borradores.js';
 import { crearCatalogoRegistroDemo } from './modulos/colaboradores/catalogo-registro-demo.js';
+import { crearBusEnMemoria } from './compartido/eventos/bus-en-memoria.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -134,6 +135,7 @@ export function crearServidor(opciones = {}) {
   const catalogoRegistro = opciones.catalogoRegistro || crearCatalogoRegistroDemo(aspirantesDemo);
   const borradoresRegistro = opciones.borradoresRegistro || crearServicioBorradores();
   const idsRegistrados = new Set(opciones.idsColaboradoresYaRegistrados || []);
+  const busEventos = opciones.bus || crearBusEnMemoria();
   // Historial común del proyecto para el panel de actividades del frontend de Gabriel.
   const historialMonitoreo = opciones.historialMonitoreo || leerJson(path.join(ROOT, 'datos-semilla/aspirantes.json'), { historial: [] }).historial || [];
 
@@ -316,6 +318,112 @@ export function crearServidor(opciones = {}) {
           const borrador = borradoresRegistro.obtenerBorrador(decodeURIComponent(rutaBorrador[1]));
           if (!borrador) return responderJson(res, 404, { codigo: 'NO_ENCONTRADO', mensaje: 'Borrador no encontrado.' });
           return responderJson(res, 200, { borrador });
+        }
+
+        // EQ-64 / HU6-22 (Rama 6A): Confirmación de registro completo de colaborador, asignación y publicación en el bus.
+        const esRutaConfirmarRegistro =
+          url.pathname === raizRegistro ||
+          url.pathname === `${raizRegistro}/` ||
+          url.pathname === `${raizRegistro}/confirmar` ||
+          url.pathname === '/api/colaboradores/registro';
+
+        if (esRutaConfirmarRegistro && req.method === 'POST') {
+          const body = await leerCuerpo(req);
+          const id = String(body.idInstitucional ?? '').trim();
+          const campus = typeof body.campus === 'string' ? body.campus.trim() : '';
+
+          if (!/^\d{5,20}$/.test(id)) {
+            return responderJson(res, 400, { codigo: 'ID_INVALIDO', mensaje: 'El ID institucional es obligatorio y debe ser numérico.' });
+          }
+          if (idsRegistrados.has(id)) {
+            return responderJson(res, 409, { codigo: 'YA_REGISTRADO', mensaje: 'Este colaborador ya está registrado.' });
+          }
+          if (!campus) {
+            return responderJson(res, 400, { codigo: 'CAMPUS_OBLIGATORIO', mensaje: 'Selecciona un campus para registrar al colaborador.' });
+          }
+          if (!catalogoRegistro.contieneCampus(campus)) {
+            return responderJson(res, 400, { codigo: 'CAMPUS_INVALIDO', mensaje: 'El campus seleccionado no está disponible.' });
+          }
+          if (!Array.isArray(body.carreras) || body.carreras.length === 0) {
+            return responderJson(res, 400, { codigo: 'CARRERAS_OBLIGATORIAS', mensaje: 'Selecciona al menos una carrera para completar el registro.' });
+          }
+          const carreras = [...new Set(body.carreras.map((c) => String(c || '').trim()).filter(Boolean))];
+          if (carreras.length === 0) {
+            return responderJson(res, 400, { codigo: 'CARRERAS_OBLIGATORIAS', mensaje: 'Selecciona al menos una carrera para completar el registro.' });
+          }
+          if (!carreras.every((c) => catalogoRegistro.contieneCarrera(campus, c))) {
+            return responderJson(res, 400, { codigo: 'CARRERA_INVALIDA', mensaje: 'Una o más carreras no corresponden al campus seleccionado.' });
+          }
+
+          let perfil;
+          try { perfil = await proveedor.obtenerPorIdInstitucional(id); }
+          catch (error) {
+            if (error instanceof ErrorAutenticacion && error.codigo === 'SERVICIO_NO_DISPONIBLE') {
+              return responderJson(res, 503, { codigo: 'SERVICIO_NO_DISPONIBLE', mensaje: 'El directorio institucional no está disponible.' });
+            }
+            throw error;
+          }
+          if (!perfil) {
+            return responderJson(res, 404, { codigo: 'ID_NO_ENCONTRADO', mensaje: 'No se encontró un colaborador con ese ID.' });
+          }
+
+          // 1. Marcar colaborador como registrado y activo con sus carreras asignadas
+          idsRegistrados.add(id);
+          const repositorio = moduloMonitoreo.repositorio;
+          if (repositorio?.carrerasPorColaborador) {
+            repositorio.carrerasPorColaborador[id] = [...carreras];
+          }
+          if (repositorio?.aliasColaborador && !repositorio.aliasColaborador[id]) {
+            repositorio.aliasColaborador[id] = [id];
+          }
+
+          // 2. Asignar aspirantes correspondientes al campus y carreras seleccionadas (conservando su historial y conversación ligados a aspirante.id)
+          const setCarreras = new Set(carreras);
+          const aspirantesAsignados = [];
+          if (Array.isArray(repositorio?.aspirantes)) {
+            for (const asp of repositorio.aspirantes) {
+              if (asp.campus === campus && setCarreras.has(asp.carreraSolicitada)) {
+                asp.colaboradorId = id;
+                aspirantesAsignados.push(asp.id);
+              }
+            }
+          }
+
+          // 3. Publicar evento de confirmación en el bus de eventos
+          const ahoraIso = new Date().toISOString();
+          const evento = {
+            eventId: `evt-reg-${randomBytes(6).toString('hex')}`,
+            tipo: 'colaboradores.registro.confirmado',
+            colaboradorId: id,
+            nombreCompleto: perfil.nombreCompleto,
+            correoInstitucional: perfil.correoInstitucional,
+            campus,
+            carrerasAsignadas: carreras,
+            aspirantesAsignados,
+            fechaConfirmacion: ahoraIso,
+          };
+          await busEventos.publicar('colaboradores.registro.confirmado', evento);
+
+          return responderJson(res, 201, {
+            confirmado: true,
+            colaborador: {
+              idInstitucional: id,
+              nombreCompleto: perfil.nombreCompleto,
+              correoInstitucional: perfil.correoInstitucional,
+              telefono: perfil.telefono,
+              campus,
+              rol: 'colaborador',
+              activo: true,
+              carrerasAsignadas: carreras,
+            },
+            asignacion: {
+              campus,
+              carreras,
+              totalAspirantesAsignados: aspirantesAsignados.length,
+              aspirantesIds: aspirantesAsignados,
+            },
+            evento,
+          });
         }
 
         // EQ-64 y otros endpoints fuera de este alcance conservan su estado.

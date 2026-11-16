@@ -8,10 +8,12 @@ export class MonitoreoControlador {
    * @param {Object} dependencias
    * @param {import('../aplicacion/obtener-filtros.caso-uso.js').ObtenerFiltrosCasoUso} dependencias.obtenerFiltrosCasoUso
    * @param {import('../aplicacion/listar-aspirantes.caso-uso.js').ListarAspirantesCasoUso} [dependencias.listarAspirantesCasoUso]
+   * @param {import('../aplicacion/obtener-conversacion.caso-uso.js').ObtenerConversacionCasoUso} [dependencias.obtenerConversacionCasoUso]
    */
-  constructor({ obtenerFiltrosCasoUso, listarAspirantesCasoUso }) {
+  constructor({ obtenerFiltrosCasoUso, listarAspirantesCasoUso, obtenerConversacionCasoUso }) {
     this.obtenerFiltrosCasoUso = obtenerFiltrosCasoUso;
     this.listarAspirantesCasoUso = listarAspirantesCasoUso;
+    this.obtenerConversacionCasoUso = obtenerConversacionCasoUso;
   }
 
   /**
@@ -124,6 +126,64 @@ export class MonitoreoControlador {
         JSON.stringify({
           codigo: error.codigo || "ERROR_INTERNO",
           mensaje: error.message || "Error al consultar los aspirantes.",
+        })
+      );
+    }
+  }
+
+  /**
+   * GET /api/monitoreo/aspirantes/:id/conversacion (HU3-5)
+   * Devuelve la lista de mensajes de la conversación del aspirante ordenados cronológicamente (fecha ascendente),
+   * validando previamente que el aspirante exista (404) y pertenezca al colaborador autenticado (403).
+   *
+   * @param {import('node:http').IncomingMessage} req
+   * @param {import('node:http').ServerResponse} res
+   * @param {Object} [contexto] - Información de la sesión del usuario autenticado.
+   * @param {string} [aspiranteIdParam] - ID del aspirante recibido en la URL.
+   */
+  async obtenerConversacion(req, res, contexto = {}, aspiranteIdParam = null) {
+    try {
+      const colaboradorId =
+        contexto.usuario?.idInstitucional ||
+        req.headers["x-colaborador-id"] ||
+        new URL(req.url, "http://localhost").searchParams.get("colaborador_id");
+
+      if (!colaboradorId) {
+        res.writeHead(401, { "Content-Type": "application/json; charset=utf-8" });
+        res.end(
+          JSON.stringify({
+            codigo: "NO_AUTORIZADO",
+            mensaje: "Se requiere iniciar sesión para consultar la conversación del aspirante.",
+          })
+        );
+        return;
+      }
+
+      if (!this.obtenerConversacionCasoUso) {
+        res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
+        res.end(
+          JSON.stringify({
+            codigo: "CASO_USO_NO_CONFIGURADO",
+            mensaje: "ObtenerConversacionCasoUso no está inicializado en el controlador.",
+          })
+        );
+        return;
+      }
+
+      const resultado = await this.obtenerConversacionCasoUso.ejecutar({
+        colaboradorId,
+        aspiranteId: aspiranteIdParam,
+      });
+
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify(resultado));
+    } catch (error) {
+      const status = error.status || 500;
+      res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(
+        JSON.stringify({
+          codigo: error.codigo || "ERROR_INTERNO",
+          mensaje: error.message || "Error al consultar la conversación del aspirante.",
         })
       );
     }
