@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
 import { crearProveedorAutenticacionSimulado, ErrorAutenticacion } from './modulos/autenticacion/index.js';
 import { crearModuloMonitoreo } from './modulos/monitoreo/index.js';
+import { crearModuloMensajes } from './modulos/mensajes/index.js';
 import { crearServicioBorradores } from './modulos/colaboradores/borradores.js';
 import { crearCatalogoRegistroDemo } from './modulos/colaboradores/catalogo-registro-demo.js';
 import { crearBusEnMemoria } from './compartido/eventos/bus-en-memoria.js';
@@ -136,6 +137,7 @@ export function crearServidor(opciones = {}) {
   const borradoresRegistro = opciones.borradoresRegistro || crearServicioBorradores();
   const idsRegistrados = new Set(opciones.idsColaboradoresYaRegistrados || []);
   const busEventos = opciones.bus || crearBusEnMemoria();
+  const moduloMensajes = opciones.moduloMensajes || crearModuloMensajes({ busEventos });
   // Historial común del proyecto para el panel de actividades del frontend de Gabriel.
   const historialMonitoreo = opciones.historialMonitoreo || leerJson(path.join(ROOT, 'datos-semilla/aspirantes.json'), { historial: [] }).historial || [];
 
@@ -628,6 +630,21 @@ export function crearServidor(opciones = {}) {
                   texto: [h.titulo, h.detalle].filter(Boolean).join(' — ') || 'Actividad registrada',
                 }));
               return responderJson(res, 200, { actividades });
+            }
+
+            // Módulo Mensajes: /api/mensajes/... y /api/v1/mensajes/... (HU 9: EQ-106, EQ-107)
+            if (url.pathname.startsWith('/api/mensajes') || url.pathname.startsWith('/api/v1/mensajes')) {
+              const sesion = obtenerSesion(req);
+              const acceso = verificarAccesoRol(sesion, ['administrador']);
+              if (acceso) {
+                return responderJson(res, acceso.status, {
+                  codigo: acceso.codigo,
+                  mensaje: acceso.mensaje,
+                });
+              }
+              const contexto = { usuario: sesion.usuario };
+              const manejado = await moduloMensajes.enrutador(req, res, contexto);
+              if (manejado) return;
             }
 
             // Módulo Monitoreo: /api/monitoreo/... y /api/v1/monitoreo/...
