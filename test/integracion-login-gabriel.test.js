@@ -73,6 +73,25 @@ test('[INTEGRACION EQ-40] contacto e historial comparten cartera y protegen dato
   });
 });
 
+test('[INTEGRACION EQ-46] la conversación respeta la cartera y queda ordenada', async () => {
+  await conServidor(async (base) => {
+    const cookie = await iniciarSesion(base);
+    const chat = await fetch(`${base}/api/monitoreo/aspirantes/asp-001/conversacion`, { headers: { Cookie: cookie } });
+    assert.equal(chat.status, 200);
+    const { mensajes } = await chat.json();
+    assert.ok(Array.isArray(mensajes) && mensajes.length > 0);
+    for (const m of mensajes) {
+      assert.ok(['ENTRANTE', 'SALIENTE'].includes(m.direccion));
+      assert.ok(m.contenido && m.fecha);
+    }
+
+    const ajeno = await fetch(`${base}/api/monitoreo/aspirantes/asp-003/conversacion`, { headers: { Cookie: cookie } });
+    assert.equal(ajeno.status, 403);
+    const anonimo = await fetch(`${base}/api/monitoreo/aspirantes/asp-001/conversacion`);
+    assert.equal(anonimo.status, 401);
+  });
+});
+
 test('[SEGURIDAD] no se puede suplir una sesión enviando x-colaborador-id', async () => {
   await conServidor(async (base) => {
     const ruta = `${base}/api/monitoreo/aspirantes`;

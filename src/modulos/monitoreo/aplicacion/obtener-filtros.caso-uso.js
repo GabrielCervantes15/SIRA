@@ -33,7 +33,7 @@ export class ObtenerFiltrosCasoUso {
       preparatorias: opciones.preparatorias || [],
       periodos: opciones.periodos || [],
       estadosSolicitud: opciones.estadosSolicitud || [],
-      semaforos: opciones.semaforos || ["Verde", "Amarillo", "Naranja", "Rojo"],
+      semaforos: opciones.semaforos || ["Verde", "Naranja", "Rojo"],
     };
   }
 }

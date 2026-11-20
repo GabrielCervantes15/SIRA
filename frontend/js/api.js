@@ -5,20 +5,26 @@
 
 async function pedir(ruta, parametros = {}, opciones = {}) {
   const url = new URL(ruta, window.location.origin);
-  for (const [clave, valor] of Object.entries(parametros)) {
-    if (valor !== undefined && valor !== null && valor !== "") url.searchParams.set(clave, String(valor));
+  // PUT/POST con cuerpo: opciones.body ya es el objeto a enviar, no query params.
+  const sinCuerpo = !opciones.body;
+  if (sinCuerpo) {
+    for (const [clave, valor] of Object.entries(parametros)) {
+      if (valor !== undefined && valor !== null && valor !== "") url.searchParams.set(clave, String(valor));
+    }
   }
   const respuesta = await fetch(url, {
     method: opciones.method || "GET",
-    headers: { Accept: "application/json" },
+    headers: sinCuerpo ? { Accept: "application/json" } : { Accept: "application/json", "Content-Type": "application/json" },
     credentials: "same-origin",
     cache: "no-store",
+    body: opciones.body ? JSON.stringify(opciones.body) : undefined,
   });
   const cuerpo = await respuesta.json().catch(() => ({}));
   if (!respuesta.ok) {
     const error = new Error(cuerpo.mensaje ?? cuerpo?.error?.mensaje ?? "No se pudo completar la operación.");
     error.estado = respuesta.status;
     error.codigo = cuerpo.codigo ?? cuerpo?.error?.codigo ?? "ERROR";
+    error.errores = cuerpo.errores;
     if (respuesta.status === 401 && ruta !== "/api/v1/auth/session") {
       window.location.replace("/?expired=1");
     }
@@ -79,6 +85,15 @@ export const api = {
     return { nombre: respuesta.usuario?.nombreCompleto ?? "Usuario SIRA", usuario: respuesta.usuario };
   },
   cerrarSesion: () => pedir("/api/v1/auth/logout", {}, { method: "POST" }),
+  // HU 9 (EQ-109, EQ-110): configuración de envío, solo administrador.
+  // HU 8 (EQ-98, EQ-99): catálogo de mensajes predefinidos de la IA.
+  mensajesIA: {
+    listar: (params) => pedir("/api/v1/mensajes-ia", params),
+  },
+  configuracionEnvio: {
+    obtener: () => pedir("/api/v1/configuracion/envio"),
+    guardar: (payload) => pedir("/api/v1/configuracion/envio", {}, { method: "PUT", body: payload }),
+  },
   async listarAspirantes({ pagina = 1, tamano = 13, ordenarPor = "semaforo", direccion = "desc", incluirAceptados = false, busqueda = "" } = {}) {
     const limite = tamano;
     const offset = (pagina - 1) * limite;
@@ -106,6 +121,12 @@ export const api = {
   async detalle(id) {
     const cuerpo = await pedir(`/api/monitoreo/aspirantes/${encodeURIComponent(id)}`);
     return adaptarDetalle(cuerpo);
+  },
+  // EQ-46 · HU3-7: conversación de solo lectura.
+  async conversacion(id) {
+    const cuerpo = await pedir(`/api/monitoreo/aspirantes/${encodeURIComponent(id)}/conversacion`);
+    const datos = cuerpo.mensajes ?? cuerpo.datos ?? [];
+    return { datos: datos.map((m) => ({ ...m, fecha: m.fecha ?? m.fechaEnvio })) };
   },
   async actividades(id, rango = {}) {
     const cuerpo = await pedir(`/api/monitoreo/aspirantes/${encodeURIComponent(id)}/actividades`, rango);

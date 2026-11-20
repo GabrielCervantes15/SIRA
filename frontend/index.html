@@ -9,9 +9,11 @@
 <body>
   <header class="barra-superior">
     <nav class="menu-principal" aria-label="Principal">
-      <a href="#" class="activo" aria-current="page">Aspirantes</a>
+      <a href="#" id="nav-aspirantes" class="activo" aria-current="page">Aspirantes</a>
       <a href="#" aria-disabled="true" title="Fuera de este sprint">Colaboradores</a>
-      <a href="#" aria-disabled="true" title="Fuera de este sprint">Mensajes</a>
+      <a href="#" id="nav-mensajes">Mensajes</a>
+      <!-- HU 9 (EQ-109): solo se muestra para rol administrador; ver app.js -->
+      <a href="#" id="nav-configuracion" hidden>Configuración</a>
     </nav>
     <div class="usuario" id="usuario">
       <span class="avatar" aria-hidden="true">EO</span>
@@ -85,6 +87,7 @@
           <div class="pestanas" role="tablist">
             <button type="button" role="tab" id="pestana-contacto" aria-selected="true" aria-controls="vista-contacto" class="pestana activa">Contacto</button>
             <button type="button" role="tab" id="pestana-actividades" aria-selected="false" aria-controls="vista-actividades" class="pestana">Actividades</button>
+            <button type="button" role="tab" id="pestana-chat" aria-selected="false" aria-controls="vista-chat" class="pestana">Chat</button>
           </div>
 
           <section id="vista-contacto" role="tabpanel" aria-labelledby="pestana-contacto" class="vista-panel"></section>
@@ -97,7 +100,78 @@
             <ol class="linea-tiempo" id="lista-actividades"></ol>
             <p class="ayuda" id="sin-actividades" hidden>Este aspirante aún no tiene movimientos en el rango seleccionado.</p>
           </section>
+
+          <!-- EQ-46 · HU3-7: vista de mensajería de solo lectura. -->
+          <section id="vista-chat" role="tabpanel" aria-labelledby="pestana-chat" class="vista-panel" hidden>
+            <p class="ayuda chat-nota">Solo lectura por ahora. Enviar mensajes depende de los módulos Chat y WhatsApp.</p>
+            <ol class="chat-lista" id="lista-chat"></ol>
+            <p class="ayuda" id="sin-chat" hidden>Este aspirante aún no tiene conversación registrada.</p>
+          </section>
         </aside>
+      </div>
+    </section>
+
+    <!-- HU 9 (EQ-109, EQ-110): configuración de envío, solo administrador. -->
+    <section class="tarjeta" id="vista-configuracion" hidden aria-labelledby="titulo-configuracion">
+      <h1 id="titulo-configuracion">Configuración de envío</h1>
+      <p class="ayuda">Parámetros generales para el disparo de mensajes automáticos (HU 1) y las alertas de inactividad (HU 5).</p>
+      <form id="form-configuracion" novalidate>
+        <fieldset class="campo-config">
+          <legend>Tiempo máximo de espera de respuesta a un mensaje</legend>
+          <input type="number" id="cfg-respuesta-valor" min="1" step="1" required aria-label="Valor">
+          <select id="cfg-respuesta-unidad" aria-label="Unidad">
+            <option value="HORAS">Horas</option>
+            <option value="DIAS">Días</option>
+          </select>
+          <p class="error-campo" id="error-tiempoMaximoRespuesta" role="alert"></p>
+        </fieldset>
+        <fieldset class="campo-config">
+          <legend>Tiempo de espera de notificación por inactividad</legend>
+          <input type="number" id="cfg-inactividad-valor" min="1" step="1" required aria-label="Valor">
+          <select id="cfg-inactividad-unidad" aria-label="Unidad">
+            <option value="HORAS">Horas</option>
+            <option value="DIAS">Días</option>
+          </select>
+          <p class="error-campo" id="error-tiempoInactividad" role="alert"></p>
+        </fieldset>
+        <fieldset class="campo-config">
+          <legend>Horario permitido de envío (jornada laboral)</legend>
+          <input type="time" id="cfg-horario-inicio" required aria-label="Inicio">
+          <span aria-hidden="true">a</span>
+          <input type="time" id="cfg-horario-fin" required aria-label="Fin">
+          <p class="error-campo" id="error-horario" role="alert"></p>
+        </fieldset>
+        <button type="submit" id="btn-guardar-configuracion">Guardar</button>
+        <p class="ayuda" id="mensaje-configuracion" role="status"></p>
+      </form>
+    </section>
+
+    <!-- HU 8 (EQ-98, EQ-99): mensajes predefinidos de la IA, solo lectura. -->
+    <section class="tarjeta" id="vista-mensajes-ia" hidden aria-labelledby="titulo-mensajes-ia">
+      <h1 id="titulo-mensajes-ia">Mensajes Predefinidos del Asistente de IA</h1>
+      <p class="ayuda">Total de mensajes: <strong id="mia-total">—</strong></p>
+      <div class="mia-cuerpo">
+        <nav class="mia-categorias" aria-label="Tipo de mensaje">
+          <button type="button" id="mia-cat-envio" data-categoria="ENVIO">Envío</button>
+          <button type="button" id="mia-cat-respuesta" data-categoria="RESPUESTA">Respuesta</button>
+        </nav>
+        <div class="mia-lista">
+          <div class="mia-filtros">
+            <label>Semáforo:
+              <select id="mia-filtro-semaforo">
+                <option value="">Todos</option>
+                <option value="Rojo">Rojo</option>
+                <option value="Naranja">Naranja</option>
+                <option value="Verde">Verde</option>
+              </select>
+            </label>
+            <span id="mia-indicador" class="mia-indicador"></span>
+            <button type="button" id="mia-anterior" aria-label="Página anterior">←</button>
+            <button type="button" id="mia-siguiente" aria-label="Página siguiente">→</button>
+          </div>
+          <div class="mia-tarjetas" id="mia-tarjetas"></div>
+          <p class="ayuda" id="mia-sin-resultados" hidden>No hay mensajes que coincidan con ese filtro.</p>
+        </div>
       </div>
     </section>
   </main>

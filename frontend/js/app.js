@@ -6,7 +6,7 @@
 import { api } from "./api.js";
 
 const TAMANO = 13;
-const ETIQUETA_SEMAFORO = { ROJO: "Rojo", NARANJA: "Naranja", AMARILLO: "Amarillo", VERDE: "Verde" };
+const ETIQUETA_SEMAFORO = { ROJO: "Rojo", NARANJA: "Naranja", VERDE: "Verde" };
 const FORMATO_FECHA = new Intl.DateTimeFormat("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" });
 const FORMATO_HORA = new Intl.DateTimeFormat("es-MX", { hour: "2-digit", minute: "2-digit", hour12: true });
 
@@ -208,7 +208,17 @@ function pintarActividades(datos) {
 }
 
 function etiquetaTipo(tipo) {
-  return { MENSAJE_ENVIADO: "Mensaje", CONSTANCIA_ENTREGADA: "Constancia", RECHAZO: "Rechazo" }[tipo] ?? "Actividad";
+  // RECHAZO_SOLICITUD y CAMBIO_ESTADO/NOTA_SEGUIMIENTO son los nombres reales
+  // del historial integrado (datos-semilla/aspirantes.json); RECHAZO se deja
+  // por compatibilidad con datos más antiguos.
+  return {
+    MENSAJE_ENVIADO: "Mensaje",
+    CONSTANCIA_ENTREGADA: "Constancia",
+    RECHAZO: "Rechazo",
+    RECHAZO_SOLICITUD: "Rechazo",
+    CAMBIO_ESTADO: "Estado",
+    NOTA_SEGUIMIENTO: "Seguimiento",
+  }[tipo] ?? "Actividad";
 }
 
 async function cargarActividades() {
@@ -231,15 +241,50 @@ async function cargarActividades() {
   }
 }
 
+// EQ-46 · HU3-7: vista de mensajería, de solo lectura en este sprint.
+function pintarChat(mensajes) {
+  const lista = $("lista-chat");
+  $("sin-chat").hidden = mensajes.length > 0;
+  lista.replaceChildren(...mensajes.map((m) => elemento("li", { class: `burbuja ${m.direccion}` }, [
+    elemento("div", { class: "remitente", text: etiquetaRemitente(m.remitenteTipo) }),
+    elemento("p", { text: m.contenido }),
+    elemento("time", { datetime: m.fecha, text: `${fechaCorta(m.fecha)} · ${FORMATO_HORA.format(new Date(m.fecha))}` }),
+  ])));
+}
+
+function etiquetaRemitente(tipo) {
+  return { ASPIRANTE: "Aspirante", COLABORADOR: "Colaborador", BOT_IA: "Mensaje automático", SISTEMA: "Sistema" }[tipo] ?? tipo;
+}
+
+async function cargarChat() {
+  const id = estado.aspiranteId;
+  if (!id) return;
+  try {
+    const { datos } = await api.conversacion(id);
+    if (id !== estado.aspiranteId) return;
+    // Orden cronológico (el más antiguo primero), como en una conversación real.
+    pintarChat([...datos].sort((a, b) => new Date(a.fecha) - new Date(b.fecha)));
+  } catch (error) {
+    if (id !== estado.aspiranteId) return;
+    $("lista-chat").replaceChildren();
+    $("sin-chat").hidden = false;
+    $("sin-chat").textContent = error.codigo === "SIN_PERMISO"
+      ? "No tienes permiso para ver este aspirante."
+      : "No pudimos cargar la conversación. Inténtalo de nuevo.";
+  }
+}
+
+const PESTANAS = ["contacto", "actividades", "chat"];
+
 function seleccionarPestana(nombre) {
-  const esContacto = nombre === "contacto";
-  $("pestana-contacto").setAttribute("aria-selected", String(esContacto));
-  $("pestana-contacto").classList.toggle("activa", esContacto);
-  $("pestana-actividades").setAttribute("aria-selected", String(!esContacto));
-  $("pestana-actividades").classList.toggle("activa", !esContacto);
-  $("vista-contacto").hidden = !esContacto;
-  $("vista-actividades").hidden = esContacto;
-  if (!esContacto) cargarActividades();
+  for (const otra of PESTANAS) {
+    const activa = otra === nombre;
+    $(`pestana-${otra}`).setAttribute("aria-selected", String(activa));
+    $(`pestana-${otra}`).classList.toggle("activa", activa);
+    $(`vista-${otra}`).hidden = !activa;
+  }
+  if (nombre === "actividades") cargarActividades();
+  if (nombre === "chat") cargarChat();
 }
 
 async function abrirPanel(id) {
@@ -271,9 +316,133 @@ function cerrarPanel() {
   for (const fila of cuerpo.querySelectorAll("tr")) fila.setAttribute("aria-selected", "false");
 }
 
+// ---------- HU 9 (EQ-109, EQ-110): configuración de envío ----------
+
+const VISTAS = {
+  monitoreo: "nav-aspirantes",
+  configuracion: "nav-configuracion",
+  "mensajes-ia": "nav-mensajes",
+};
+
+function mostrarVista(nombre) {
+  document.querySelector(".monitoreo").hidden = nombre !== "monitoreo";
+  $("vista-configuracion").hidden = nombre !== "configuracion";
+  $("vista-mensajes-ia").hidden = nombre !== "mensajes-ia";
+  for (const [clave, idNav] of Object.entries(VISTAS)) {
+    $(idNav).classList.toggle("activo", clave === nombre);
+    $(idNav).setAttribute("aria-current", clave === nombre ? "page" : "false");
+  }
+  if (nombre === "configuracion") cargarConfiguracion();
+  if (nombre === "mensajes-ia") cargarMensajesIA();
+}
+
+// ---------- HU 8 (EQ-98, EQ-99): mensajes predefinidos de la IA ----------
+
+const estadoMensajesIA = { categoria: "ENVIO", pagina: 1, semaforo: "" };
+
+function pintarLlave(llave) {
+  return elemento("span", { class: "mia-llave" }, [
+    elemento("span", { class: "mia-llave-tipo", text: `${llave.tipo}:` }),
+    elemento("span", { class: "mia-llave-valor", text: llave.valor }),
+  ]);
+}
+
+function pintarTarjetaMensaje(m) {
+  return elemento("article", { class: "mia-tarjeta" }, [
+    elemento("p", { class: "mia-etiqueta", text: "Llaves:" }),
+    elemento("div", { class: "mia-llaves" }, m.llaves.map(pintarLlave)),
+    elemento("p", { class: "mia-etiqueta", text: "Mensaje:" }),
+    elemento("p", { class: "mia-mensaje", text: m.mensaje }),
+  ]);
+}
+
+async function cargarMensajesIA() {
+  $("mia-cat-envio").classList.toggle("activo", estadoMensajesIA.categoria === "ENVIO");
+  $("mia-cat-respuesta").classList.toggle("activo", estadoMensajesIA.categoria === "RESPUESTA");
+  try {
+    const r = await api.mensajesIA.listar({
+      categoria: estadoMensajesIA.categoria,
+      semaforo: estadoMensajesIA.semaforo || undefined,
+      pagina: estadoMensajesIA.pagina,
+      tamano: 9,
+    });
+    $("mia-total").textContent = r.totalGeneral;
+    const totalPaginas = Math.max(1, Math.ceil(r.totalCategoria / r.tamano));
+    $("mia-indicador").textContent = r.totalCategoria === 0 ? "" : `${r.pagina} de ${totalPaginas}`;
+    $("mia-anterior").disabled = r.pagina <= 1;
+    $("mia-siguiente").disabled = r.pagina >= totalPaginas;
+    $("mia-tarjetas").replaceChildren(...r.datos.map(pintarTarjetaMensaje));
+    $("mia-sin-resultados").hidden = r.datos.length > 0;
+  } catch (error) {
+    $("mia-tarjetas").replaceChildren();
+    $("mia-sin-resultados").hidden = false;
+    $("mia-sin-resultados").textContent = "No se pudo cargar el catálogo de mensajes.";
+  }
+}
+
+function limpiarErroresConfiguracion() {
+  for (const campo of ["tiempoMaximoRespuesta", "tiempoInactividad", "horario"]) $(`error-${campo}`).textContent = "";
+  $("mensaje-configuracion").textContent = "";
+  $("mensaje-configuracion").classList.remove("error");
+}
+
+async function cargarConfiguracion() {
+  limpiarErroresConfiguracion();
+  try {
+    const cfg = await api.configuracionEnvio.obtener();
+    $("cfg-respuesta-valor").value = cfg.tiempoMaximoRespuesta.valor;
+    $("cfg-respuesta-unidad").value = cfg.tiempoMaximoRespuesta.unidad;
+    $("cfg-inactividad-valor").value = cfg.tiempoInactividad.valor;
+    $("cfg-inactividad-unidad").value = cfg.tiempoInactividad.unidad;
+    $("cfg-horario-inicio").value = cfg.horario.inicio;
+    $("cfg-horario-fin").value = cfg.horario.fin;
+  } catch (error) {
+    $("mensaje-configuracion").textContent = "No se pudo cargar la configuración actual.";
+    $("mensaje-configuracion").classList.add("error");
+  }
+}
+
+async function guardarConfiguracion(evento) {
+  evento.preventDefault();
+  limpiarErroresConfiguracion();
+  const payload = {
+    tiempoMaximoRespuesta: { valor: Number($("cfg-respuesta-valor").value), unidad: $("cfg-respuesta-unidad").value },
+    tiempoInactividad: { valor: Number($("cfg-inactividad-valor").value), unidad: $("cfg-inactividad-unidad").value },
+    horario: { inicio: $("cfg-horario-inicio").value, fin: $("cfg-horario-fin").value },
+  };
+  try {
+    await api.configuracionEnvio.guardar(payload);
+    $("mensaje-configuracion").textContent = "Configuración guardada.";
+  } catch (error) {
+    if (error.codigo === "CONFIGURACION_INVALIDA" && error.errores) {
+      for (const [campo, texto] of Object.entries(error.errores)) {
+        const base = campo.split(".")[0];
+        if ($(`error-${base}`)) $(`error-${base}`).textContent = texto;
+      }
+      $("mensaje-configuracion").textContent = "Revisa los campos marcados.";
+    } else {
+      $("mensaje-configuracion").textContent = error.codigo === "SIN_PERMISO"
+        ? "Solo un administrador puede guardar esta configuración."
+        : "No se pudo guardar. Inténtalo de nuevo.";
+    }
+    $("mensaje-configuracion").classList.add("error");
+  }
+}
+
 // ---------- Eventos ----------
 
 function configurarEventos() {
+  $("nav-aspirantes").addEventListener("click", (e) => { e.preventDefault(); mostrarVista("monitoreo"); });
+  $("nav-configuracion").addEventListener("click", (e) => { e.preventDefault(); mostrarVista("configuracion"); });
+  $("form-configuracion").addEventListener("submit", guardarConfiguracion);
+
+  $("nav-mensajes").addEventListener("click", (e) => { e.preventDefault(); mostrarVista("mensajes-ia"); });
+  $("mia-cat-envio").addEventListener("click", () => { estadoMensajesIA.categoria = "ENVIO"; estadoMensajesIA.pagina = 1; cargarMensajesIA(); });
+  $("mia-cat-respuesta").addEventListener("click", () => { estadoMensajesIA.categoria = "RESPUESTA"; estadoMensajesIA.pagina = 1; cargarMensajesIA(); });
+  $("mia-filtro-semaforo").addEventListener("change", (e) => { estadoMensajesIA.semaforo = e.target.value; estadoMensajesIA.pagina = 1; cargarMensajesIA(); });
+  $("mia-anterior").addEventListener("click", () => { estadoMensajesIA.pagina -= 1; cargarMensajesIA(); });
+  $("mia-siguiente").addEventListener("click", () => { estadoMensajesIA.pagina += 1; cargarMensajesIA(); });
+
   for (const boton of document.querySelectorAll(".orden")) {
     boton.addEventListener("click", () => {
       const columna = boton.dataset.columna;
@@ -305,6 +474,7 @@ function configurarEventos() {
 
   $("pestana-contacto").addEventListener("click", () => seleccionarPestana("contacto"));
   $("pestana-actividades").addEventListener("click", () => seleccionarPestana("actividades"));
+  $("pestana-chat").addEventListener("click", () => seleccionarPestana("chat"));
   $("desde").addEventListener("change", cargarActividades);
   $("hasta").addEventListener("change", cargarActividades);
   $("cerrar-panel").addEventListener("click", cerrarPanel);
@@ -328,6 +498,7 @@ async function iniciar() {
   try {
     const sesion = await api.sesion();
     $("nombre-usuario").textContent = sesion.nombre;
+    if (sesion.usuario?.rol === "administrador") $("nav-configuracion").hidden = false;
   } catch (error) {
     if (error.estado === 401) window.location.replace('/?expired=1');
     else $("nombre-usuario").textContent = "Sin conexión al servicio de sesión";

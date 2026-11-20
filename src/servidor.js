@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
 import { crearProveedorAutenticacionSimulado, ErrorAutenticacion } from './modulos/autenticacion/index.js';
 import { crearModuloMonitoreo } from './modulos/monitoreo/index.js';
+import { crearRepositorioConfiguracionEnvio, validarConfiguracion } from './modulos/configuracion-envio/configuracion-envio.js';
+import { listarMensajesIA } from './modulos/mensajes-ia/mensajes-ia.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -81,6 +83,7 @@ export function crearServidor(opciones = {}) {
   const reloj = opciones.reloj || Date.now;
   const sinAcceso = new Set([...(permisos.usuariosSinAcceso || []), ...(process.env.SIRA_DENIED_IDS || '').split(',').map((v) => v.trim()).filter(Boolean)]);
   const moduloMonitoreo = opciones.moduloMonitoreo || crearModuloMonitoreo();
+  const repositorioConfiguracionEnvio = opciones.repositorioConfiguracionEnvio || crearRepositorioConfiguracionEnvio();
   // Historial común del proyecto para el panel de actividades del frontend de Gabriel.
   const historialMonitoreo = opciones.historialMonitoreo || leerJson(path.join(ROOT, 'datos-semilla/aspirantes.json'), { historial: [] }).historial || [];
 
@@ -174,6 +177,25 @@ export function crearServidor(opciones = {}) {
 
         if (!rutaExpediente[2]) return responderJson(res, 200, { aspirante });
 
+        // Vista de mensajería de solo lectura (EQ-46 · HU3-7).
+        // Reutiliza obtenerConversacionAspirante, ya implementado en el repositorio
+        // de Monitoreo (dominio/repositorio-monitoreo.js) pero sin ruta hasta ahora.
+        if (rutaExpediente[2] === 'conversacion') {
+          if (typeof repositorio?.obtenerConversacionAspirante !== 'function') {
+            return responderJson(res, 501, { codigo: 'NO_IMPLEMENTADO', mensaje: 'El repositorio no ofrece la conversación del aspirante.' });
+          }
+          const mensajes = await repositorio.obtenerConversacionAspirante(aspirante.id);
+          return responderJson(res, 200, {
+            mensajes: mensajes.map((m) => ({
+              id: m.id,
+              direccion: m.direccion,
+              remitenteTipo: m.remitenteTipo,
+              contenido: m.contenido,
+              fecha: m.fechaEnvio,
+            })),
+          });
+        }
+
         const desde = url.searchParams.get('desde');
         const hasta = url.searchParams.get('hasta');
         const desdeMs = desde ? Date.parse(desde) : null;
@@ -209,6 +231,33 @@ export function crearServidor(opciones = {}) {
 
       if (url.pathname === '/' && req.method === 'GET') return servirArchivo(res, path.join(PUBLIC, 'login/index.html'));
       // Integración SIRA: después del login, servir únicamente el monitoreo de Gabriel.
+      // HU 9 (EQ-109, EQ-110): configuración de envío, solo para administradores.
+      if (url.pathname === '/api/v1/configuracion/envio' && (req.method === 'GET' || req.method === 'PUT')) {
+        const sesion = obtenerSesion(req);
+        if (!sesion) return responderJson(res, 401, { codigo: 'SESION_NO_VALIDA', mensaje: 'La sesión no existe o expiró.' });
+        if (sesion.usuario.rol !== 'administrador') {
+          return responderJson(res, 403, { codigo: 'SIN_PERMISO', mensaje: 'Solo un administrador puede ver o cambiar esta configuración.' });
+        }
+        if (req.method === 'GET') return responderJson(res, 200, repositorioConfiguracionEnvio.leer());
+
+        const cuerpo = await leerCuerpo(req);
+        const { valida, errores, datos } = validarConfiguracion(cuerpo);
+        if (!valida) return responderJson(res, 400, { codigo: 'CONFIGURACION_INVALIDA', mensaje: 'Revisa los campos marcados.', errores });
+        return responderJson(res, 200, repositorioConfiguracionEnvio.guardar(datos));
+      }
+
+      // HU 8 (EQ-98, EQ-99): catálogo de mensajes predefinidos de la IA, solo lectura.
+      if (url.pathname === '/api/v1/mensajes-ia' && req.method === 'GET') {
+        if (!obtenerSesion(req)) return responderJson(res, 401, { codigo: 'SESION_NO_VALIDA', mensaje: 'La sesión no existe o expiró.' });
+        const p = url.searchParams;
+        return responderJson(res, 200, listarMensajesIA({
+          categoria: p.get('categoria'),
+          semaforo: p.get('semaforo'),
+          pagina: Number(p.get('pagina')) || 1,
+          tamano: Number(p.get('tamano')) || 10,
+        }));
+      }
+
       if ((url.pathname === '/app' || url.pathname === '/app/') && req.method === 'GET') {
         if (!obtenerSesion(req)) { res.writeHead(302, { Location: '/', 'Cache-Control': 'no-store' }); return res.end(); }
         return servirArchivo(res, path.join(FRONTEND_GABRIEL, 'index.html'));

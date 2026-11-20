@@ -23,7 +23,7 @@ export class ListarAspirantesCasoUso {
    * @param {Object} params
    * @param {string} params.colaboradorId - ID institucional o de usuario del colaborador autenticado (obligatorio).
    * @param {string} [params.nombre] - Búsqueda parcial de texto por nombre.
-   * @param {string} [params.semaforo] - Filtro de semáforo ('VERDE', 'AMARILLO', 'ROJO', etc.).
+   * @param {string} [params.semaforo] - Filtro de semáforo ('VERDE', 'NARANJA', 'ROJO').
    * @param {string} [params.carrera] - Filtro por carrera solicitada.
    * @param {string} [params.preparatoria] - Filtro por preparatoria de procedencia.
    * @param {string} [params.periodo] - Filtro por período de admisión.

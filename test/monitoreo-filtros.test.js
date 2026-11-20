@@ -28,7 +28,7 @@ test("[HU2-7] ObtenerFiltrosCasoUso devuelve catálogos y carreras exclusivas de
   assert.ok(filtrosColab1.preparatorias.includes("CBTIS 37"));
   assert.ok(filtrosColab1.periodos.includes("2027-1"));
   assert.ok(filtrosColab1.estadosSolicitud.includes("EN_REVISION"));
-  assert.deepEqual(filtrosColab1.semaforos, ["Verde", "Amarillo", "Naranja", "Rojo"]);
+  assert.deepEqual(filtrosColab1.semaforos, ["Verde", "Naranja", "Rojo"]);
 
   // Colaborador 2 (carreras distintas)
   const filtrosColab2 = await casoUso.ejecutar("00000233231");
@@ -115,7 +115,7 @@ test("[HU2-7] HTTP GET /api/monitoreo/filtros retorna JSON con catálogos para c
     assert.ok(Array.isArray(respuesta.data.preparatorias), "preparatorias debe ser un array");
     assert.ok(Array.isArray(respuesta.data.periodos), "periodos debe ser un array");
     assert.ok(Array.isArray(respuesta.data.estadosSolicitud), "estadosSolicitud debe ser un array");
-    assert.deepEqual(respuesta.data.semaforos, ["Verde", "Amarillo", "Naranja", "Rojo"]);
+    assert.deepEqual(respuesta.data.semaforos, ["Verde", "Naranja", "Rojo"]);
 
     // Debe contener las carreras asignadas al colaborador 00000252115
     assert.ok(respuesta.data.carreras.includes("Ingeniería en Software"));

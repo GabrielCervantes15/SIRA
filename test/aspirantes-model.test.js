@@ -53,7 +53,7 @@ test("[HU3-2] Datos Semilla JSON y SQL cubren diversidad de semáforos, estados,
   // Validar cobertura de semáforos
   const semaforos = new Set(aspirantes.map((a) => a.semaforo));
   assert.ok(semaforos.has("VERDE"), "Debe haber aspirantes con semáforo VERDE");
-  assert.ok(semaforos.has("AMARILLO"), "Debe haber aspirantes con semáforo AMARILLO");
+  assert.ok(semaforos.has("NARANJA"), "Debe haber aspirantes con semáforo NARANJA");
   assert.ok(semaforos.has("ROJO"), "Debe haber aspirantes con semáforo ROJO");
 
   // Validar cobertura de estados de solicitud
