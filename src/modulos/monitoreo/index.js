@@ -1,6 +1,6 @@
 /**
- * M├│dulo de Negocio: Monitoreo
- * Punto de entrada p├║blico e inyecci├│n de dependencias.
+ * Módulo de Negocio: Monitoreo
+ * Punto de entrada público e inyección de dependencias.
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { RepositorioMonitoreoMemoria } from "./infraestructura/repositorio-monitoreo-memoria.js";
 import { ObtenerFiltrosCasoUso } from "./aplicacion/obtener-filtros.caso-uso.js";
 import { ListarAspirantesCasoUso } from "./aplicacion/listar-aspirantes.caso-uso.js";
+import { ObtenerDetalleAspiranteCasoUso } from "./aplicacion/obtener-detalle-aspirante.caso-uso.js";
 import { MonitoreoControlador } from "./infraestructura/controlador-monitoreo.js";
 import { crearEnrutadorMonitoreo } from "./rutas.js";
 
@@ -42,9 +43,14 @@ export function crearModuloMonitoreo(opciones = {}) {
     repositorioMonitoreo: repositorio,
   });
 
+  const obtenerDetalleAspiranteCasoUso = new ObtenerDetalleAspiranteCasoUso({
+    repositorioMonitoreo: repositorio,
+  });
+
   const controlador = new MonitoreoControlador({
     obtenerFiltrosCasoUso,
     listarAspirantesCasoUso,
+    obtenerDetalleAspiranteCasoUso,
   });
 
   const enrutador = crearEnrutadorMonitoreo({ controlador });
@@ -53,6 +59,7 @@ export function crearModuloMonitoreo(opciones = {}) {
     repositorio,
     obtenerFiltrosCasoUso,
     listarAspirantesCasoUso,
+    obtenerDetalleAspiranteCasoUso,
     controlador,
     enrutador,
   };
@@ -61,6 +68,7 @@ export function crearModuloMonitoreo(opciones = {}) {
 export {
   ObtenerFiltrosCasoUso,
   ListarAspirantesCasoUso,
+  ObtenerDetalleAspiranteCasoUso,
   MonitoreoControlador,
   RepositorioMonitoreoMemoria,
   crearEnrutadorMonitoreo,
