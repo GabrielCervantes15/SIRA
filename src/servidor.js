@@ -148,7 +148,7 @@ export function crearServidor(opciones = {}) {
 
       // Adaptador de lectura para el expediente de Gabriel (EQ-40).
       // Utiliza el MISMO repositorio de la lista, no la semilla provisional de Gabriel.
-      const rutaExpediente = url.pathname.match(/^\/api\/(?:v1\/)?monitoreo\/aspirantes\/([^/]+)(?:\/(actividades))?\/?$/);
+      const rutaExpediente = url.pathname.match(/^\/api\/(?:v1\/)?monitoreo\/aspirantes\/([^/]+)\/(actividades|conversacion)\/?$/);
       if (rutaExpediente && req.method === 'GET') {
         const sesion = obtenerSesion(req);
         if (!sesion) return responderJson(res, 401, { codigo: 'NO_AUTORIZADO', mensaje: 'Inicia sesión para consultar el expediente.' });

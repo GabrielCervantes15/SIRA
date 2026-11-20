@@ -25,6 +25,13 @@ export function crearEnrutadorMonitoreo({ controlador }) {
       return true;
     }
 
+    // GET /api/monitoreo/aspirantes/:id (HU3-3)
+    const rutaDetalle = rutaRelativa.match(/^\/aspirantes\/([^/]+)\/?$/);
+    if (rutaDetalle && req.method === "GET") {
+      await controlador.obtenerDetalleAspirante(req, res, contexto, rutaDetalle[1]);
+      return true;
+    }
+
     return false; // Ruta no manejada por este enrutador
   };
 }

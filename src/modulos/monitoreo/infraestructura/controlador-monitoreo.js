@@ -8,10 +8,12 @@ export class MonitoreoControlador {
    * @param {Object} dependencias
    * @param {import('../aplicacion/obtener-filtros.caso-uso.js').ObtenerFiltrosCasoUso} dependencias.obtenerFiltrosCasoUso
    * @param {import('../aplicacion/listar-aspirantes.caso-uso.js').ListarAspirantesCasoUso} [dependencias.listarAspirantesCasoUso]
+   * @param {import('../aplicacion/obtener-detalle-aspirante.caso-uso.js').ObtenerDetalleAspiranteCasoUso} [dependencias.obtenerDetalleAspiranteCasoUso]
    */
-  constructor({ obtenerFiltrosCasoUso, listarAspirantesCasoUso }) {
+  constructor({ obtenerFiltrosCasoUso, listarAspirantesCasoUso, obtenerDetalleAspiranteCasoUso }) {
     this.obtenerFiltrosCasoUso = obtenerFiltrosCasoUso;
     this.listarAspirantesCasoUso = listarAspirantesCasoUso;
+    this.obtenerDetalleAspiranteCasoUso = obtenerDetalleAspiranteCasoUso;
   }
 
   /**
@@ -124,6 +126,46 @@ export class MonitoreoControlador {
         JSON.stringify({
           codigo: error.codigo || "ERROR_INTERNO",
           mensaje: error.message || "Error al consultar los aspirantes.",
+        })
+      );
+    }
+  }
+
+  /**
+   * GET /api/monitoreo/aspirantes/:id (HU3-3)
+   * Detalle de un aspirante de la cartera: 200, 401, 403 o 404.
+   * El colaborador sale SOLO de la sesión; nunca de un encabezado ni de la URL.
+   *
+   * @param {import('node:http').IncomingMessage} req
+   * @param {import('node:http').ServerResponse} res
+   * @param {Object} [contexto] - Información de la sesión del usuario autenticado.
+   * @param {string} [aspiranteIdCrudo] - Segmento de la URL, aún codificado.
+   */
+  async obtenerDetalleAspirante(req, res, contexto = {}, aspiranteIdCrudo = "") {
+    try {
+      let aspiranteId;
+      try {
+        aspiranteId = decodeURIComponent(aspiranteIdCrudo);
+      } catch {
+        res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+        res.end(JSON.stringify({ codigo: "PARAMETRO_INVALIDO", mensaje: "Identificador inválido." }));
+        return;
+      }
+
+      const resultado = await this.obtenerDetalleAspiranteCasoUso.ejecutar({
+        colaboradorId: contexto.usuario?.idInstitucional,
+        aspiranteId,
+      });
+
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify(resultado));
+    } catch (error) {
+      const status = error.status || 500;
+      res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(
+        JSON.stringify({
+          codigo: error.codigo || "ERROR_INTERNO",
+          mensaje: error.status ? error.message : "Error al consultar el aspirante.",
         })
       );
     }
