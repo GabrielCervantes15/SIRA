@@ -30,11 +30,6 @@ COMMENT ON SCHEMA alertas IS 'Módulo Alertas: Registro y gestión de alertas op
 CREATE SCHEMA IF NOT EXISTS conocimiento;
 COMMENT ON SCHEMA conocimiento IS 'Módulo Conocimiento: Repositorio de FAQs y catálogo de preparatorias para el agente IA.';
 
--- 5. Esquema: mensajes
--- Responsabilidad: Catálogo de mensajes automáticos, programación y configuración de jornada laboral y parámetros de espera (HU 8 y HU 9).
-CREATE SCHEMA IF NOT EXISTS mensajes;
-COMMENT ON SCHEMA mensajes IS 'Módulo Mensajes: Catálogo de mensajes predefinidos, programación y configuración de jornada y tiempos.';
-
 -- Configurar permisos para el usuario predeterminado de la aplicación
 DO $$
 DECLARE
@@ -44,12 +39,10 @@ BEGIN
     EXECUTE format('GRANT ALL PRIVILEGES ON SCHEMA aspirantes TO %I', current_usr);
     EXECUTE format('GRANT ALL PRIVILEGES ON SCHEMA alertas TO %I', current_usr);
     EXECUTE format('GRANT ALL PRIVILEGES ON SCHEMA conocimiento TO %I', current_usr);
-    EXECUTE format('GRANT ALL PRIVILEGES ON SCHEMA mensajes TO %I', current_usr);
     
     EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA usuarios GRANT ALL ON TABLES TO %I', current_usr);
     EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA aspirantes GRANT ALL ON TABLES TO %I', current_usr);
     EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA alertas GRANT ALL ON TABLES TO %I', current_usr);
     EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA conocimiento GRANT ALL ON TABLES TO %I', current_usr);
-    EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA mensajes GRANT ALL ON TABLES TO %I', current_usr);
 END
 $$;

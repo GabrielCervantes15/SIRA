@@ -73,12 +73,7 @@ form.addEventListener('submit', async (event) => {
       return;
     }
 
-    // El backend determina el rol autorizado; el frontend solo elige la vista inicial.
-    // El servidor sigue protegiendo las rutas administrativas (EQ-17).
-    const destino = result.usuario?.rol === 'administrador'
-      ? '/app/colaboradores/registro.html'
-      : '/app';
-    window.location.assign(destino);
+    window.location.assign('/app');
   } catch {
     mostrarMensaje('No se pudo conectar con SIRA. Revisa tu conexión e inténtalo nuevamente.');
   } finally {

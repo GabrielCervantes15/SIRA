@@ -10,7 +10,7 @@
 export function crearServicioBorradores() {
   const borradores = new Map();
 
-  function guardarBorrador({ idInstitucional, campus, carreras } = {}) {
+  function guardarBorrador({ idInstitucional, campus } = {}) {
     const id = String(idInstitucional ?? '').trim();
 
     const campusNormalizado =
@@ -24,32 +24,22 @@ export function crearServicioBorradores() {
       throw new Error('El campus es obligatorio.');
     }
 
-    // Navegar de regreso al paso 1 no debe borrar carreras guardadas si
-    // el campus sigue siendo el mismo. Cambiar de campus sí las invalida.
-    const anterior = borradores.get(id);
-    const carrerasElegidas = Array.isArray(carreras)
-      ? [...carreras]
-      : anterior?.campus === campusNormalizado && Array.isArray(anterior.carreras)
-        ? [...anterior.carreras]
-        : undefined;
-
     const borrador = {
       idInstitucional: id,
       campus: campusNormalizado,
-      estado: 'BORRADOR',
-      ...(carrerasElegidas ? { carreras: carrerasElegidas } : {})
+      estado: 'BORRADOR'
     };
 
     borradores.set(id, borrador);
 
-    return { ...borrador, ...(borrador.carreras ? { carreras: [...borrador.carreras] } : {}) };
+    return { ...borrador };
   }
 
   function obtenerBorrador(idInstitucional) {
     const id = String(idInstitucional ?? '').trim();
     const borrador = borradores.get(id);
 
-    return borrador ? { ...borrador, ...(borrador.carreras ? { carreras: [...borrador.carreras] } : {}) } : null;
+    return borrador ? { ...borrador } : null;
   }
 
   return {

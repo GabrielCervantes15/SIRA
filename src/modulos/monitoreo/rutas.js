@@ -25,26 +25,6 @@ export function crearEnrutadorMonitoreo({ controlador }) {
       return true;
     }
 
-    // GET /api/monitoreo/aspirantes/:id/conversacion (HU3-5)
-    const matchConversacion = rutaRelativa.match(/^\/aspirantes\/([^/]+)\/conversacion\/?$/);
-    if (matchConversacion && req.method === "GET") {
-      let aspiranteId;
-      try {
-        aspiranteId = decodeURIComponent(matchConversacion[1]);
-      } catch {
-        res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
-        res.end(
-          JSON.stringify({
-            codigo: "PARAMETRO_INVALIDO",
-            mensaje: "Identificador del aspirante inválido.",
-          })
-        );
-        return true;
-      }
-      await controlador.obtenerConversacion(req, res, contexto, aspiranteId);
-      return true;
-    }
-
     return false; // Ruta no manejada por este enrutador
   };
 }

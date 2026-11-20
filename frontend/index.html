@@ -1,417 +1,181 @@
 <!doctype html>
 <html lang="es">
-
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CRM Admisiones · Monitoreo de aspirantes</title>
   <link rel="stylesheet" href="/app/css/estilos.css">
 </head>
-
 <body>
   <header class="barra-superior">
     <nav class="menu-principal" aria-label="Principal">
-      <a href="/app" id="enlace-aspirantes" class="activo" aria-current="page">Aspirantes</a>
-      <a href="/app/colaboradores/registro.html" id="enlace-colaboradores"
-        title="Gestión de colaboradores">Colaboradores</a>
-      <a href="#" aria-disabled="true" title="Fuera de este sprint">Mensajes</a>
+      <a href="#" id="nav-aspirantes" class="activo" aria-current="page">Aspirantes</a>
+      <a href="#" aria-disabled="true" title="Fuera de este sprint">Colaboradores</a>
+      <a href="#" id="nav-mensajes">Mensajes</a>
+      <!-- HU 9 (EQ-109): solo se muestra para rol administrador; ver app.js -->
+      <a href="#" id="nav-configuracion" hidden>Configuración</a>
     </nav>
     <div class="usuario" id="usuario">
-      <button type="button" class="icono-mensajes-superior" id="btn-abrir-chat-superior"
-        aria-label="Abrir ventana de mensajes" aria-expanded="false" title="Mensajes de aspirantes">
-        <svg width="21" height="21" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path d="M4 4h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H8l-4 4V6a2 2 0 0 1 2-2zm3 5v2h10V9H7zm0 4v2h7v-2H7z" />
-        </svg>
-      </button>
-      <span class="avatar" id="avatar-usuario" aria-hidden="true">SI</span>
+      <span class="avatar" aria-hidden="true">EO</span>
       <span id="nombre-usuario">Cargando…</span>
-      <button type="button" class="boton-salir" id="cerrar-sesion">Cerrar sesión</button>
+      <button type="button" class="boton" id="cerrar-sesion">Cerrar sesión</button>
     </div>
   </header>
 
-  <main class="contenedor layout-monitoreo">
-    <!-- Columna izquierda: Bienvenida y Alertas dinámicas de la cartera del colaborador -->
-    <aside class="columna-izquierda" aria-label="Resumen y alertas del colaborador">
-      <section class="tarjeta-bienvenida">
-        <p class="bienvenida-saludo" id="saludo-usuario">Bienvenido!</p>
-        <h2 class="bienvenida-titulo">Seguimiento de Aspirantes</h2>
-        <p class="bienvenida-periodo" id="etiqueta-periodo-activo">Agosto - Diciembre 2027</p>
-      </section>
-
-      <section class="tarjeta-alertas" aria-labelledby="titulo-alertas">
-        <header class="alertas-encabezado">
-          <div class="alertas-titulo-grupo">
-            <span class="icono-campana" aria-hidden="true">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="#f5b400">
-                <path
-                  d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4a1.5 1.5 0 0 0-3 0v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z" />
-              </svg>
-            </span>
-            <h2 id="titulo-alertas">Alertas</h2>
-            <span class="alertas-pendientes" id="contador-alertas">0 pendientes</span>
-          </div>
-          <button type="button" class="boton-puntos" aria-label="Opciones de alertas" disabled>•••</button>
-        </header>
-
-        <p class="alertas-ayuda">
-          Haz <strong>click</strong> en una notificación para abrir la conversación del aspirante.
-        </p>
-
-        <ol class="lista-alertas" id="lista-alertas"></ol>
-      </section>
-    </aside>
-
-    <!-- Columna derecha: Monitoreo de aspirantes -->
+  <main class="contenedor">
     <section class="tarjeta monitoreo" aria-labelledby="titulo-monitoreo">
       <div class="monitoreo-encabezado">
         <h1 id="titulo-monitoreo">Monitoreo</h1>
-        <p class="ayuda">Seleccione un aspirante para ver su información de contacto, historial de actividades o abrir
-          su chat.</p>
+        <p class="ayuda">Seleccione un aspirante para ver su información de contacto y su historial de actividades.</p>
       </div>
 
-      <!-- [HU2-9] Barra de herramientas superior con selector de filtro, búsqueda, interruptor y selector de filtros/columnas -->
       <div class="barra-herramientas" role="toolbar" aria-label="Filtros de la tabla">
-        <div class="herramientas-izquierda">
-          <label class="selector-criterio">
-            <span class="sr-only">Criterio de filtro</span>
-            <select id="criterio-filtro" aria-label="Criterio de filtro">
-              <option value="nombre" selected>Nombre</option>
-              <option value="semaforo">Semáforo</option>
-              <option value="carrera">Carrera</option>
-              <option value="preparatoria">Preparatoria</option>
-              <option value="periodo">Período</option>
-              <option value="estadoSolicitud">Estado de solicitud</option>
-            </select>
-          </label>
-
-          <label class="buscador" id="contenedor-buscador">
-            <span class="sr-only">Buscar por nombre</span>
-            <input id="buscar" type="search" placeholder="Buscar por nombre de aspirante" autocomplete="off">
-            <svg class="icono-lupa" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-          </label>
-
-          <!-- Menús desplegables contextuales para filtros combinables (HU2-9) -->
-          <select id="filtro-semaforo" class="select-filtro-barra" aria-label="Filtrar por semáforo" hidden>
-            <option value="">Semáforo: Todos</option>
-            <option value="ROJO">Rojo</option>
-            <option value="NARANJA">Naranja</option>
-            <option value="VERDE">Verde</option>
-          </select>
-
-          <select id="filtro-carrera" class="select-filtro-barra" aria-label="Filtrar por carrera" hidden>
-            <option value="">Carrera: Todas</option>
-          </select>
-
-          <select id="filtro-preparatoria" class="select-filtro-barra" aria-label="Filtrar por preparatoria" hidden>
-            <option value="">Preparatoria: Todas</option>
-          </select>
-
-          <select id="filtro-periodo" class="select-filtro-barra" aria-label="Filtrar por período" hidden>
-            <option value="">Período: Todos</option>
-          </select>
-
-          <select id="filtro-estado" class="select-filtro-barra" aria-label="Filtrar por estado de la solicitud" hidden>
-            <option value="">Estado: Todos</option>
-          </select>
-
-          <div id="chips-filtros" class="chips-filtros" aria-live="polite"></div>
-        </div>
-
-        <div class="herramientas-derecha">
-          <label class="interruptor">
-            <span>Mostrar aceptados o rechazados</span>
-            <input id="incluir-aceptados" type="checkbox" role="switch">
-            <span class="pista" aria-hidden="true"></span>
-          </label>
-
-          <div class="contenedor-columnas">
-            <button type="button" class="boton-columnas" id="boton-columnas" aria-expanded="false"
-              aria-controls="menu-columnas" title="Columnas visibles">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                aria-hidden="true">
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <line x1="12" y1="3" x2="12" y2="21" />
-              </svg>
-            </button>
-
-            <div class="menu-columnas" id="menu-columnas" hidden>
-              <p class="menu-columnas-titulo">Columnas visibles</p>
-              <label><input type="checkbox" data-col-toggle="semaforo" checked> Semáforo</label>
-              <label><input type="checkbox" data-col-toggle="nombre" checked> Nombre</label>
-              <label><input type="checkbox" data-col-toggle="carrera" checked> Carrera</label>
-              <label><input type="checkbox" data-col-toggle="preparatoria" checked> Preparatoria</label>
-              <label><input type="checkbox" data-col-toggle="fechaSolicitud" checked> Fecha de solicitud</label>
-              <label><input type="checkbox" data-col-toggle="ultimaActividad" checked> Última actividad</label>
-            </div>
-          </div>
-        </div>
+        <label class="buscador">
+          <span class="sr-only">Buscar por nombre</span>
+          <input id="buscar" type="search" placeholder="Buscar por nombre de aspirante" autocomplete="off">
+        </label>
+        <label class="interruptor">
+          <input id="incluir-aceptados" type="checkbox" role="switch">
+          <span class="pista" aria-hidden="true"></span>
+          <span>Mostrar aspirantes aceptados</span>
+        </label>
       </div>
 
       <div class="cuerpo-monitoreo">
         <div class="tabla-contenedor" id="tabla-contenedor">
-          <!-- Estados generales de la tabla: cargando o error -->
+          <!-- Estados de la tabla: cargando, error, sin resultados o datos (lo pinta app.js) -->
           <div id="estado-tabla" class="estado-tabla" role="status" hidden></div>
 
-          <!-- [HU2-10] Estado sin resultados con opción de restablecer filtros -->
-          <div id="estado-vacio" class="estado-vacio" role="status" aria-live="polite" hidden>
-            <div class="estado-vacio-icono" aria-hidden="true">
-              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
-                stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                <line x1="8" y1="11" x2="14" y2="11"></line>
-              </svg>
-            </div>
-            <p class="estado-vacio-titulo">No se encontraron resultados</p>
-            <p class="estado-vacio-subtitulo">Ningún aspirante coincide con los criterios de búsqueda o filtros
-              seleccionados.</p>
-            <button type="button" class="boton-restablecer" id="btn-restablecer-vacio">Restablecer filtros</button>
-          </div>
-
-          <div class="tabla-area">
-            <table class="tabla" id="tabla" hidden>
-              <thead>
-                <tr>
-                  <th scope="col" class="col-semaforo" data-col="semaforo">
-                    <button type="button" class="orden" data-columna="semaforo" aria-sort="descending">Semáforo <span
-                        class="flecha" aria-hidden="true"></span></button>
-                  </th>
-                  <th scope="col" data-col="nombre">
-                    <button type="button" class="orden" data-columna="nombre" aria-sort="none">Nombre <span
-                        class="flecha" aria-hidden="true"></span></button>
-                  </th>
-                  <th scope="col" data-col="carrera">
-                    <button type="button" class="orden" data-columna="carrera" aria-sort="none">Carrera <span
-                        class="flecha" aria-hidden="true"></span></button>
-                  </th>
-                  <th scope="col" data-col="preparatoria">
-                    <button type="button" class="orden" data-columna="preparatoria" aria-sort="none">Preparatoria <span
-                        class="flecha" aria-hidden="true"></span></button>
-                  </th>
-                  <th scope="col" data-col="fechaSolicitud">
-                    <button type="button" class="orden" data-columna="fechaSolicitud" aria-sort="none">Fecha de
-                      solicitud <span class="flecha" aria-hidden="true"></span></button>
-                  </th>
-                  <th scope="col" data-col="ultimaActividad">
-                    <button type="button" class="orden" data-columna="ultimaActividad" aria-sort="none">Última actividad
-                      <span class="flecha" aria-hidden="true"></span></button>
-                  </th>
-                </tr>
-              </thead>
-              <tbody id="cuerpo-tabla"></tbody>
-            </table>
-
-            <!-- Panel flotante superpuesto sobre el lado derecho de la tabla (Contacto y Actividades) -->
-            <aside class="panel" id="panel" aria-live="polite" hidden>
-              <header class="panel-encabezado">
-                <h2 id="panel-nombre"></h2>
-                <div class="panel-acciones-encabezado">
-                  <button type="button" id="pestana-chat" class="icono-chat" title="Abrir chat con este aspirante"
-                    aria-label="Abrir chat con este aspirante">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                      <path
-                        d="M4 4h11a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H8l-4 3V6a2 2 0 0 1 2-2zm15 5h1a2 2 0 0 1 2 2v9l-3-2h-6a2 2 0 0 1-2-2v-1h6a3 3 0 0 0 3-3V9z" />
-                    </svg>
-                  </button>
-                  <button type="button" class="icono" id="cerrar-panel" aria-label="Cerrar panel">✕</button>
-                </div>
-              </header>
-
-              <div class="pestanas" role="tablist">
-                <button type="button" role="tab" id="pestana-contacto" aria-selected="true"
-                  aria-controls="vista-contacto" class="pestana activa">Contacto</button>
-                <button type="button" role="tab" id="pestana-actividades" aria-selected="false"
-                  aria-controls="vista-actividades" class="pestana">Actividades</button>
-              </div>
-
-              <section id="vista-contacto" role="tabpanel" aria-labelledby="pestana-contacto" class="vista-panel">
-                <div class="contacto-caja" id="contacto-caja"></div>
-              </section>
-
-              <section id="vista-actividades" role="tabpanel" aria-labelledby="pestana-actividades" class="vista-panel"
-                hidden>
-                <div class="rango">
-                  <label class="rango-campo">
-                    <span>Inicio:</span>
-                    <input type="date" id="desde">
-                  </label>
-                  <label class="rango-campo">
-                    <span>Fin:</span>
-                    <input type="date" id="hasta">
-                  </label>
-                  <button type="button" class="boton-limpiar-fechas" id="btn-limpiar-filtros"
-                    title="Limpiar fechas seleccionadas">
-                    Limpiar filtros
-                  </button>
-                </div>
-                <ol class="linea-tiempo" id="lista-actividades"></ol>
-                <p class="ayuda sin-datos-panel" id="sin-actividades" hidden>Este aspirante aún no tiene movimientos en
-                  el rango seleccionado.</p>
-              </section>
-
-              <!-- Respaldo oculto para compatibilidad de selectores existentes -->
-              <section id="vista-chat" role="tabpanel" aria-labelledby="pestana-chat" class="vista-panel" hidden>
-                <ol class="chat-lista" id="lista-chat"></ol>
-                <p class="ayuda sin-datos-panel" id="sin-chat" hidden>Este aspirante aún no tiene conversación
-                  registrada.</p>
-              </section>
-            </aside>
-          </div>
+          <table class="tabla" id="tabla" hidden>
+            <thead>
+              <tr>
+                <th scope="col" class="col-semaforo">
+                  <button type="button" class="orden" data-columna="semaforo" aria-sort="none">Semáforo <span class="flecha" aria-hidden="true"></span></button>
+                </th>
+                <th scope="col">
+                  <button type="button" class="orden" data-columna="nombre" aria-sort="none">Nombre <span class="flecha" aria-hidden="true"></span></button>
+                </th>
+                <th scope="col">
+                  <button type="button" class="orden" data-columna="carrera" aria-sort="none">Carrera <span class="flecha" aria-hidden="true"></span></button>
+                </th>
+                <th scope="col">
+                  <button type="button" class="orden" data-columna="preparatoria" aria-sort="none">Preparatoria <span class="flecha" aria-hidden="true"></span></button>
+                </th>
+                <th scope="col">
+                  <button type="button" class="orden" data-columna="fechaSolicitud" aria-sort="none">Fecha de solicitud <span class="flecha" aria-hidden="true"></span></button>
+                </th>
+                <th scope="col">
+                  <button type="button" class="orden" data-columna="ultimaActividad" aria-sort="none">Última actividad <span class="flecha" aria-hidden="true"></span></button>
+                </th>
+              </tr>
+            </thead>
+            <tbody id="cuerpo-tabla"></tbody>
+          </table>
 
           <nav class="paginacion" id="paginacion" aria-label="Paginación" hidden>
-            <button type="button" id="anterior" class="pag-nav">← Anterior</button>
-            <div id="indicador-pagina" class="pag-numeros"></div>
-            <button type="button" id="siguiente" class="pag-nav">Siguiente →</button>
+            <button type="button" id="anterior">← Anterior</button>
+            <span id="indicador-pagina"></span>
+            <button type="button" id="siguiente">Siguiente →</button>
           </nav>
+        </div>
+
+        <aside class="panel" id="panel" aria-live="polite" hidden>
+          <header class="panel-encabezado">
+            <h2 id="panel-nombre"></h2>
+            <button type="button" class="icono" id="cerrar-panel" aria-label="Cerrar panel">✕</button>
+          </header>
+          <div class="pestanas" role="tablist">
+            <button type="button" role="tab" id="pestana-contacto" aria-selected="true" aria-controls="vista-contacto" class="pestana activa">Contacto</button>
+            <button type="button" role="tab" id="pestana-actividades" aria-selected="false" aria-controls="vista-actividades" class="pestana">Actividades</button>
+            <button type="button" role="tab" id="pestana-chat" aria-selected="false" aria-controls="vista-chat" class="pestana">Chat</button>
+          </div>
+
+          <section id="vista-contacto" role="tabpanel" aria-labelledby="pestana-contacto" class="vista-panel"></section>
+
+          <section id="vista-actividades" role="tabpanel" aria-labelledby="pestana-actividades" class="vista-panel" hidden>
+            <div class="rango">
+              <label>Inicio: <input type="date" id="desde"></label>
+              <label>Fin: <input type="date" id="hasta"></label>
+            </div>
+            <ol class="linea-tiempo" id="lista-actividades"></ol>
+            <p class="ayuda" id="sin-actividades" hidden>Este aspirante aún no tiene movimientos en el rango seleccionado.</p>
+          </section>
+
+          <!-- EQ-46 · HU3-7: vista de mensajería de solo lectura. -->
+          <section id="vista-chat" role="tabpanel" aria-labelledby="pestana-chat" class="vista-panel" hidden>
+            <p class="ayuda chat-nota">Solo lectura por ahora. Enviar mensajes depende de los módulos Chat y WhatsApp.</p>
+            <ol class="chat-lista" id="lista-chat"></ol>
+            <p class="ayuda" id="sin-chat" hidden>Este aspirante aún no tiene conversación registrada.</p>
+          </section>
+        </aside>
+      </div>
+    </section>
+
+    <!-- HU 9 (EQ-109, EQ-110): configuración de envío, solo administrador. -->
+    <section class="tarjeta" id="vista-configuracion" hidden aria-labelledby="titulo-configuracion">
+      <h1 id="titulo-configuracion">Configuración de envío</h1>
+      <p class="ayuda">Parámetros generales para el disparo de mensajes automáticos (HU 1) y las alertas de inactividad (HU 5).</p>
+      <form id="form-configuracion" novalidate>
+        <fieldset class="campo-config">
+          <legend>Tiempo máximo de espera de respuesta a un mensaje</legend>
+          <input type="number" id="cfg-respuesta-valor" min="1" step="1" required aria-label="Valor">
+          <select id="cfg-respuesta-unidad" aria-label="Unidad">
+            <option value="HORAS">Horas</option>
+            <option value="DIAS">Días</option>
+          </select>
+          <p class="error-campo" id="error-tiempoMaximoRespuesta" role="alert"></p>
+        </fieldset>
+        <fieldset class="campo-config">
+          <legend>Tiempo de espera de notificación por inactividad</legend>
+          <input type="number" id="cfg-inactividad-valor" min="1" step="1" required aria-label="Valor">
+          <select id="cfg-inactividad-unidad" aria-label="Unidad">
+            <option value="HORAS">Horas</option>
+            <option value="DIAS">Días</option>
+          </select>
+          <p class="error-campo" id="error-tiempoInactividad" role="alert"></p>
+        </fieldset>
+        <fieldset class="campo-config">
+          <legend>Horario permitido de envío (jornada laboral)</legend>
+          <input type="time" id="cfg-horario-inicio" required aria-label="Inicio">
+          <span aria-hidden="true">a</span>
+          <input type="time" id="cfg-horario-fin" required aria-label="Fin">
+          <p class="error-campo" id="error-horario" role="alert"></p>
+        </fieldset>
+        <button type="submit" id="btn-guardar-configuracion">Guardar</button>
+        <p class="ayuda" id="mensaje-configuracion" role="status"></p>
+      </form>
+    </section>
+
+    <!-- HU 8 (EQ-98, EQ-99): mensajes predefinidos de la IA, solo lectura. -->
+    <section class="tarjeta" id="vista-mensajes-ia" hidden aria-labelledby="titulo-mensajes-ia">
+      <h1 id="titulo-mensajes-ia">Mensajes Predefinidos del Asistente de IA</h1>
+      <p class="ayuda">Total de mensajes: <strong id="mia-total">—</strong></p>
+      <div class="mia-cuerpo">
+        <nav class="mia-categorias" aria-label="Tipo de mensaje">
+          <button type="button" id="mia-cat-envio" data-categoria="ENVIO">Envío</button>
+          <button type="button" id="mia-cat-respuesta" data-categoria="RESPUESTA">Respuesta</button>
+        </nav>
+        <div class="mia-lista">
+          <div class="mia-filtros">
+            <label>Semáforo:
+              <select id="mia-filtro-semaforo">
+                <option value="">Todos</option>
+                <option value="Rojo">Rojo</option>
+                <option value="Naranja">Naranja</option>
+                <option value="Verde">Verde</option>
+              </select>
+            </label>
+            <span id="mia-indicador" class="mia-indicador"></span>
+            <button type="button" id="mia-anterior" aria-label="Página anterior">←</button>
+            <button type="button" id="mia-siguiente" aria-label="Página siguiente">→</button>
+          </div>
+          <div class="mia-tarjetas" id="mia-tarjetas"></div>
+          <p class="ayuda" id="mia-sin-resultados" hidden>No hay mensajes que coincidan con ese filtro.</p>
         </div>
       </div>
     </section>
   </main>
 
-  <!-- ========================================================================
-       Ventana General y Detallada de Chat (conectada a las conversaciones reales
-       de los aspirantes de la cartera del colaborador y preparada para WhatsApp)
-       ======================================================================== -->
-  <section class="ventana-chat" id="ventana-chat" role="dialog" aria-label="Mensajería con aspirantes" hidden>
-    <!-- Columna izquierda azul: listado real de conversaciones del colaborador -->
-    <aside class="chat-sidebar" aria-label="Conversaciones con aspirantes">
-      <header class="chat-sidebar-cabecera">
-        <h2>Chat</h2>
-        <label class="chat-buscador-contactos">
-          <span class="sr-only">Buscar aspirante en el chat</span>
-          <input type="search" id="buscar-chat-aspirante" placeholder="Buscar aspirante..." autocomplete="off">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-        </label>
-      </header>
-
-      <ol class="chat-contactos-lista" id="chat-contactos-lista" role="listbox" aria-label="Lista de chats"></ol>
-    </aside>
-
-    <!-- Columna derecha: conversación activa del aspirante -->
-    <div class="chat-principal">
-      <header class="chat-encabezado">
-        <div class="chat-encabezado-info">
-          <span class="chat-avatar-grande" id="chat-avatar-activo" aria-hidden="true">--</span>
-          <div class="chat-encabezado-textos">
-            <h3 id="chat-nombre-activo">Seleccione una conversación</h3>
-            <p id="chat-subtitulo-activo"></p>
-          </div>
-        </div>
-
-        <div class="chat-encabezado-acciones">
-          <div class="chat-buscador-mensajes-contenedor" id="chat-buscador-mensajes-contenedor" hidden>
-            <input type="search" id="chat-buscar-en-conversacion" placeholder="Buscar en la conversación..."
-              autocomplete="off">
-          </div>
-
-          <button type="button" class="chat-accion-icono" id="chat-btn-buscar-msg" title="Buscar en la conversación"
-            aria-label="Buscar en la conversación">
-            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-          </button>
-
-          <div class="chat-menu-contenedor">
-            <button type="button" class="chat-accion-icono" id="chat-btn-opciones" title="Opciones de la conversación"
-              aria-label="Opciones de la conversación" aria-expanded="false">
-              <svg width="21" height="21" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <circle cx="12" cy="5" r="2"></circle>
-                <circle cx="12" cy="12" r="2"></circle>
-                <circle cx="12" cy="19" r="2"></circle>
-              </svg>
-            </button>
-            <div class="chat-menu-desplegable" id="chat-menu-opciones" hidden>
-              <button type="button" id="chat-ir-expediente">📋 Ver expediente del aspirante</button>
-              <button type="button" id="chat-ir-actividades">🕓 Ver historial de actividades</button>
-              <hr>
-              <button type="button" id="chat-cerrar-menu">✕ Cerrar ventana de chat</button>
-            </div>
-          </div>
-
-          <button type="button" class="chat-accion-icono" id="chat-btn-expandir"
-            title="Expandir o contraer ventana de chat" aria-label="Expandir o contraer ventana de chat">
-            <svg id="icono-expandir-chat" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <polyline points="15 3 21 3 21 9"></polyline>
-              <polyline points="9 21 3 21 3 15"></polyline>
-              <line x1="21" y1="3" x2="14" y2="10"></line>
-              <line x1="3" y1="21" x2="10" y2="14"></line>
-            </svg>
-            <svg id="icono-contraer-chat" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden>
-              <polyline points="4 14 10 14 10 20"></polyline>
-              <polyline points="20 10 14 10 14 4"></polyline>
-              <line x1="14" y1="10" x2="21" y2="3"></line>
-              <line x1="3" y1="21" x2="10" y2="14"></line>
-            </svg>
-          </button>
-        </div>
-      </header>
-
-      <!-- Cuerpo de mensajes reales del aspirante -->
-      <div class="chat-cuerpo-mensajes" id="chat-cuerpo-mensajes" aria-live="polite"></div>
-
-      <!-- Pie del chat dinámico según el estado real de la conversación -->
-      <footer class="chat-pie">
-        <!-- Se muestra cuando el aspirante ya respondió pero solo ha interactuado con BOT_IA -->
-        <div class="chat-banner-estado" id="chat-banner-ia" hidden>
-          <span class="chat-banner-icono" aria-hidden="true">ⓘ</span>
-          <span>Respuestas automáticas activas</span>
-          <span class="chat-banner-separador" aria-hidden="true">|</span>
-          <span>La IA puede responder fuera de horario de atención.</span>
-        </div>
-
-        <!-- Se muestra cuando solo hay avisos automáticos SALIENTES y el aspirante aún no responde -->
-        <div class="chat-banner-estado sin-respuesta" id="chat-banner-sin-respuesta" hidden>
-          <span class="chat-banner-icono" aria-hidden="true">ⓘ</span>
-          <span>El aspirante no ha respondido al aviso automático.</span>
-        </div>
-
-        <!-- Barra de escritura para enviar mensajes por WhatsApp -->
-        <form class="chat-barra-escritura" id="chat-form-enviar" autocomplete="off">
-          <button type="button" class="chat-btn-herramienta" id="chat-btn-emoji" title="Insertar saludo"
-            aria-label="Insertar saludo">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="10"></circle>
-              <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
-              <line x1="9" y1="9" x2="9.01" y2="9"></line>
-              <line x1="15" y1="9" x2="15.01" y2="9"></line>
-            </svg>
-          </button>
-          <button type="button" class="chat-btn-herramienta" id="chat-btn-adjuntar"
-            title="Adjuntar archivo para WhatsApp" aria-label="Adjuntar archivo">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path
-                d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48">
-              </path>
-            </svg>
-          </button>
-          <input type="text" id="chat-input-mensaje" placeholder="Escribe un mensaje..."
-            aria-label="Escribe un mensaje">
-          <button type="submit" class="chat-btn-enviar" id="chat-btn-enviar" title="Enviar mensaje por WhatsApp"
-            aria-label="Enviar mensaje">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
-            </svg>
-          </button>
-        </form>
-      </footer>
-    </div>
-  </section>
-
   <script src="/app/js/app.js" type="module"></script>
 </body>
-
 </html>
