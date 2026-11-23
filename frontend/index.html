@@ -12,8 +12,6 @@
       <a href="#" id="nav-aspirantes" class="activo" aria-current="page">Aspirantes</a>
       <a href="#" aria-disabled="true" title="Fuera de este sprint">Colaboradores</a>
       <a href="#" id="nav-mensajes">Mensajes</a>
-      <!-- HU 9 (EQ-109): solo se muestra para rol administrador; ver app.js -->
-      <a href="#" id="nav-configuracion" hidden>Configuración</a>
     </nav>
     <div class="usuario" id="usuario">
       <span class="avatar" aria-hidden="true">EO</span>
@@ -111,41 +109,6 @@
       </div>
     </section>
 
-    <!-- HU 9 (EQ-109, EQ-110): configuración de envío, solo administrador. -->
-    <section class="tarjeta" id="vista-configuracion" hidden aria-labelledby="titulo-configuracion">
-      <h1 id="titulo-configuracion">Configuración de envío</h1>
-      <p class="ayuda">Parámetros generales para el disparo de mensajes automáticos (HU 1) y las alertas de inactividad (HU 5).</p>
-      <form id="form-configuracion" novalidate>
-        <fieldset class="campo-config">
-          <legend>Tiempo máximo de espera de respuesta a un mensaje</legend>
-          <input type="number" id="cfg-respuesta-valor" min="1" step="1" required aria-label="Valor">
-          <select id="cfg-respuesta-unidad" aria-label="Unidad">
-            <option value="HORAS">Horas</option>
-            <option value="DIAS">Días</option>
-          </select>
-          <p class="error-campo" id="error-tiempoMaximoRespuesta" role="alert"></p>
-        </fieldset>
-        <fieldset class="campo-config">
-          <legend>Tiempo de espera de notificación por inactividad</legend>
-          <input type="number" id="cfg-inactividad-valor" min="1" step="1" required aria-label="Valor">
-          <select id="cfg-inactividad-unidad" aria-label="Unidad">
-            <option value="HORAS">Horas</option>
-            <option value="DIAS">Días</option>
-          </select>
-          <p class="error-campo" id="error-tiempoInactividad" role="alert"></p>
-        </fieldset>
-        <fieldset class="campo-config">
-          <legend>Horario permitido de envío (jornada laboral)</legend>
-          <input type="time" id="cfg-horario-inicio" required aria-label="Inicio">
-          <span aria-hidden="true">a</span>
-          <input type="time" id="cfg-horario-fin" required aria-label="Fin">
-          <p class="error-campo" id="error-horario" role="alert"></p>
-        </fieldset>
-        <button type="submit" id="btn-guardar-configuracion">Guardar</button>
-        <p class="ayuda" id="mensaje-configuracion" role="status"></p>
-      </form>
-    </section>
-
     <!-- HU 8 (EQ-98, EQ-99): mensajes predefinidos de la IA, solo lectura. -->
     <section class="tarjeta" id="vista-mensajes-ia" hidden aria-labelledby="titulo-mensajes-ia">
       <h1 id="titulo-mensajes-ia">Mensajes Predefinidos del Asistente de IA</h1>
@@ -166,12 +129,78 @@
               </select>
             </label>
             <span id="mia-indicador" class="mia-indicador"></span>
+            <button type="button" id="abrir-configuracion" class="boton-configuracion"
+              aria-controls="panel-configuracion" aria-expanded="false" hidden>
+              ⚙ Configurar envío de mensajes
+            </button>
             <button type="button" id="mia-anterior" aria-label="Página anterior">←</button>
             <button type="button" id="mia-siguiente" aria-label="Página siguiente">→</button>
           </div>
           <div class="mia-tarjetas" id="mia-tarjetas"></div>
           <p class="ayuda" id="mia-sin-resultados" hidden>No hay mensajes que coincidan con ese filtro.</p>
         </div>
+
+        <!-- HU9 (EQ-103, EQ-109, EQ-110): panel lateral exclusivo de Administrador. -->
+        <aside id="panel-configuracion" class="panel-configuracion"
+          aria-labelledby="titulo-configuracion" hidden>
+          <header class="encabezado-panel">
+            <h2 id="titulo-configuracion">Envío de mensajes automáticos</h2>
+            <button type="button" id="cerrar-configuracion" class="cerrar-panel"
+              aria-label="Cerrar configuración">×</button>
+          </header>
+
+          <form id="form-configuracion" novalidate>
+            <div class="contenido-panel">
+              <fieldset class="seccion-configuracion">
+                <legend>Horario permitido para el envío de mensajes automáticos</legend>
+                <p class="ayuda">Configura la jornada laboral de cada día. Los envíos automáticos solo podrán realizarse dentro de estos horarios.</p>
+                <p class="zona-horaria">Zona horaria institucional: <strong>America/Hermosillo</strong></p>
+                <div id="lista-jornada" class="lista-jornada" aria-label="Jornada laboral por día"></div>
+                <p class="ayuda">El horario permitido abarca toda la jornada configurada de cada día. No existe una segunda ventana de envío.</p>
+                <p id="error-jornada" class="error-campo" role="alert"></p>
+              </fieldset>
+
+              <fieldset class="seccion-configuracion">
+                <legend>Tiempo máximo de espera para la respuesta de un mensaje</legend>
+                <div class="control-tiempo">
+                  <div class="stepper" aria-label="Valor de espera de respuesta">
+                    <button type="button" class="boton-stepper" data-target="cfg-respuesta-valor" data-step="-1" aria-label="Disminuir tiempo de respuesta">−</button>
+                    <input type="number" id="cfg-respuesta-valor" min="1" max="30" step="1" value="1" required>
+                    <button type="button" class="boton-stepper" data-target="cfg-respuesta-valor" data-step="1" aria-label="Aumentar tiempo de respuesta">+</button>
+                  </div>
+                  <select id="cfg-respuesta-unidad" aria-label="Unidad del tiempo máximo de espera">
+                    <option value="dias" selected>días</option>
+                    <option value="horas">horas</option>
+                  </select>
+                </div>
+                <p class="ayuda">Tiempo máximo que debe transcurrir para enviar otro mensaje automático si el aspirante no ha respondido. Valor inicial: 24 horas (1 día).</p>
+                <p id="error-respuesta" class="error-campo" role="alert"></p>
+              </fieldset>
+
+              <fieldset class="seccion-configuracion">
+                <legend>Tiempo de espera por contacto previo</legend>
+                <div class="control-tiempo">
+                  <div class="stepper" aria-label="Valor del tiempo de espera por contacto previo">
+                    <button type="button" class="boton-stepper" data-target="cfg-contacto-valor" data-step="-1" aria-label="Disminuir tiempo por contacto previo">−</button>
+                    <input type="number" id="cfg-contacto-valor" min="1" max="30" step="1" value="2" required>
+                    <button type="button" class="boton-stepper" data-target="cfg-contacto-valor" data-step="1" aria-label="Aumentar tiempo por contacto previo">+</button>
+                  </div>
+                  <select id="cfg-contacto-unidad" aria-label="Unidad del tiempo por contacto previo">
+                    <option value="dias" selected>días</option>
+                    <option value="horas">horas</option>
+                  </select>
+                </div>
+                <p class="ayuda">Periodo durante el cual el aspirante queda excluido temporalmente de los lotes de contacto de HU1 después de un mensaje saliente exitoso. Valor inicial: 48 horas (2 días).</p>
+                <p id="error-contacto" class="error-campo" role="alert"></p>
+              </fieldset>
+            </div>
+
+            <footer class="pie-panel">
+              <button type="submit" id="guardar-configuracion" class="boton-guardar">Guardar</button>
+              <p id="mensaje-configuracion" class="mensaje-configuracion" role="status" aria-live="polite"></p>
+            </footer>
+          </form>
+        </aside>
       </div>
     </section>
   </main>

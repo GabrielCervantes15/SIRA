@@ -6,8 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
 import { crearProveedorAutenticacionSimulado, ErrorAutenticacion } from './modulos/autenticacion/index.js';
 import { crearModuloMonitoreo } from './modulos/monitoreo/index.js';
-import { crearRepositorioConfiguracionEnvio, validarConfiguracion } from './modulos/configuracion-envio/configuracion-envio.js';
 import { listarMensajesIA } from './modulos/mensajes-ia/mensajes-ia.js';
+import { crearModuloMensajes } from './modulos/mensajes/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -83,7 +83,11 @@ export function crearServidor(opciones = {}) {
   const reloj = opciones.reloj || Date.now;
   const sinAcceso = new Set([...(permisos.usuariosSinAcceso || []), ...(process.env.SIRA_DENIED_IDS || '').split(',').map((v) => v.trim()).filter(Boolean)]);
   const moduloMonitoreo = opciones.moduloMonitoreo || crearModuloMonitoreo();
-  const repositorioConfiguracionEnvio = opciones.repositorioConfiguracionEnvio || crearRepositorioConfiguracionEnvio();
+  // HU9: una sola instancia del módulo Mensajes para administrar y consultar
+  // la configuración; en pruebas puede inyectarse mediante opciones.moduloMensajes.
+  const moduloMensajes = opciones.moduloMensajes || crearModuloMensajes({
+    repositorio: opciones.repositorioConfiguracionMensajes,
+  });
   // Historial común del proyecto para el panel de actividades del frontend de Gabriel.
   const historialMonitoreo = opciones.historialMonitoreo || leerJson(path.join(ROOT, 'datos-semilla/aspirantes.json'), { historial: [] }).historial || [];
 
@@ -230,20 +234,15 @@ export function crearServidor(opciones = {}) {
       }
 
       if (url.pathname === '/' && req.method === 'GET') return servirArchivo(res, path.join(PUBLIC, 'login/index.html'));
-      // Integración SIRA: después del login, servir únicamente el monitoreo de Gabriel.
-      // HU 9 (EQ-109, EQ-110): configuración de envío, solo para administradores.
-      if (url.pathname === '/api/v1/configuracion/envio' && (req.method === 'GET' || req.method === 'PUT')) {
+      // HU9 (EQ-106 / EQ-107): configuración administrativa del módulo Mensajes.
+      // La identidad y el rol provienen exclusivamente de la cookie de sesión
+      // HttpOnly; nunca se aceptan desde el cuerpo ni desde parámetros del cliente.
+      if (url.pathname.startsWith('/api/v1/mensajes/') || url.pathname.startsWith('/api/mensajes/')) {
         const sesion = obtenerSesion(req);
-        if (!sesion) return responderJson(res, 401, { codigo: 'SESION_NO_VALIDA', mensaje: 'La sesión no existe o expiró.' });
-        if (sesion.usuario.rol !== 'administrador') {
-          return responderJson(res, 403, { codigo: 'SIN_PERMISO', mensaje: 'Solo un administrador puede ver o cambiar esta configuración.' });
-        }
-        if (req.method === 'GET') return responderJson(res, 200, repositorioConfiguracionEnvio.leer());
-
-        const cuerpo = await leerCuerpo(req);
-        const { valida, errores, datos } = validarConfiguracion(cuerpo);
-        if (!valida) return responderJson(res, 400, { codigo: 'CONFIGURACION_INVALIDA', mensaje: 'Revisa los campos marcados.', errores });
-        return responderJson(res, 200, repositorioConfiguracionEnvio.guardar(datos));
+        const manejado = await moduloMensajes.enrutador(req, res, {
+          usuario: sesion?.usuario ?? null,
+        });
+        if (manejado) return;
       }
 
       // HU 8 (EQ-98, EQ-99): catálogo de mensajes predefinidos de la IA, solo lectura.

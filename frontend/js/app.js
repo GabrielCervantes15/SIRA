@@ -4,6 +4,7 @@
  *   EQ-40 · HU3-1 / HU3-6 / HU3-8  → panel de contacto y de actividades (historial)
  */
 import { api } from "./api.js";
+import { inicializarConfiguracionMensajes } from "./configuracion-mensajes.js";
 
 const TAMANO = 13;
 const ETIQUETA_SEMAFORO = { ROJO: "Rojo", NARANJA: "Naranja", VERDE: "Verde" };
@@ -320,19 +321,16 @@ function cerrarPanel() {
 
 const VISTAS = {
   monitoreo: "nav-aspirantes",
-  configuracion: "nav-configuracion",
   "mensajes-ia": "nav-mensajes",
 };
 
 function mostrarVista(nombre) {
   document.querySelector(".monitoreo").hidden = nombre !== "monitoreo";
-  $("vista-configuracion").hidden = nombre !== "configuracion";
   $("vista-mensajes-ia").hidden = nombre !== "mensajes-ia";
   for (const [clave, idNav] of Object.entries(VISTAS)) {
     $(idNav).classList.toggle("activo", clave === nombre);
     $(idNav).setAttribute("aria-current", clave === nombre ? "page" : "false");
   }
-  if (nombre === "configuracion") cargarConfiguracion();
   if (nombre === "mensajes-ia") cargarMensajesIA();
 }
 
@@ -380,62 +378,10 @@ async function cargarMensajesIA() {
   }
 }
 
-function limpiarErroresConfiguracion() {
-  for (const campo of ["tiempoMaximoRespuesta", "tiempoInactividad", "horario"]) $(`error-${campo}`).textContent = "";
-  $("mensaje-configuracion").textContent = "";
-  $("mensaje-configuracion").classList.remove("error");
-}
-
-async function cargarConfiguracion() {
-  limpiarErroresConfiguracion();
-  try {
-    const cfg = await api.configuracionEnvio.obtener();
-    $("cfg-respuesta-valor").value = cfg.tiempoMaximoRespuesta.valor;
-    $("cfg-respuesta-unidad").value = cfg.tiempoMaximoRespuesta.unidad;
-    $("cfg-inactividad-valor").value = cfg.tiempoInactividad.valor;
-    $("cfg-inactividad-unidad").value = cfg.tiempoInactividad.unidad;
-    $("cfg-horario-inicio").value = cfg.horario.inicio;
-    $("cfg-horario-fin").value = cfg.horario.fin;
-  } catch (error) {
-    $("mensaje-configuracion").textContent = "No se pudo cargar la configuración actual.";
-    $("mensaje-configuracion").classList.add("error");
-  }
-}
-
-async function guardarConfiguracion(evento) {
-  evento.preventDefault();
-  limpiarErroresConfiguracion();
-  const payload = {
-    tiempoMaximoRespuesta: { valor: Number($("cfg-respuesta-valor").value), unidad: $("cfg-respuesta-unidad").value },
-    tiempoInactividad: { valor: Number($("cfg-inactividad-valor").value), unidad: $("cfg-inactividad-unidad").value },
-    horario: { inicio: $("cfg-horario-inicio").value, fin: $("cfg-horario-fin").value },
-  };
-  try {
-    await api.configuracionEnvio.guardar(payload);
-    $("mensaje-configuracion").textContent = "Configuración guardada.";
-  } catch (error) {
-    if (error.codigo === "CONFIGURACION_INVALIDA" && error.errores) {
-      for (const [campo, texto] of Object.entries(error.errores)) {
-        const base = campo.split(".")[0];
-        if ($(`error-${base}`)) $(`error-${base}`).textContent = texto;
-      }
-      $("mensaje-configuracion").textContent = "Revisa los campos marcados.";
-    } else {
-      $("mensaje-configuracion").textContent = error.codigo === "SIN_PERMISO"
-        ? "Solo un administrador puede guardar esta configuración."
-        : "No se pudo guardar. Inténtalo de nuevo.";
-    }
-    $("mensaje-configuracion").classList.add("error");
-  }
-}
-
 // ---------- Eventos ----------
 
 function configurarEventos() {
   $("nav-aspirantes").addEventListener("click", (e) => { e.preventDefault(); mostrarVista("monitoreo"); });
-  $("nav-configuracion").addEventListener("click", (e) => { e.preventDefault(); mostrarVista("configuracion"); });
-  $("form-configuracion").addEventListener("submit", guardarConfiguracion);
-
   $("nav-mensajes").addEventListener("click", (e) => { e.preventDefault(); mostrarVista("mensajes-ia"); });
   $("mia-cat-envio").addEventListener("click", () => { estadoMensajesIA.categoria = "ENVIO"; estadoMensajesIA.pagina = 1; cargarMensajesIA(); });
   $("mia-cat-respuesta").addEventListener("click", () => { estadoMensajesIA.categoria = "RESPUESTA"; estadoMensajesIA.pagina = 1; cargarMensajesIA(); });
@@ -498,7 +444,10 @@ async function iniciar() {
   try {
     const sesion = await api.sesion();
     $("nombre-usuario").textContent = sesion.nombre;
-    if (sesion.usuario?.rol === "administrador") $("nav-configuracion").hidden = false;
+    inicializarConfiguracionMensajes({
+      api,
+      esAdministrador: sesion.usuario?.rol === "administrador",
+    });
   } catch (error) {
     if (error.estado === 401) window.location.replace('/?expired=1');
     else $("nombre-usuario").textContent = "Sin conexión al servicio de sesión";

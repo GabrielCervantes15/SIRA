@@ -26,6 +26,18 @@ export function crearEnrutadorMensajes({ controlador }) {
         await controlador.guardarConfiguracion(req, res, contexto);
         return true;
       }
+
+      res.writeHead(405, {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+        Allow: "GET, PUT",
+      });
+      res.end(JSON.stringify({
+        codigo: "METODO_NO_PERMITIDO",
+        mensaje: "Método no permitido para la configuración de mensajes.",
+      }));
+      return true;
     }
 
     return false; // Ruta no manejada por este enrutador
