@@ -1,7 +1,7 @@
 /**
  * Enrutador del módulo de Mensajes.
  * Despacha rutas bajo /api/mensajes/... y /api/v1/mensajes/...
- * Tareas: EQ-106 (HU9-5) y EQ-107 (HU9-6)
+ * Tareas: EQ-106 (HU9-5), EQ-107 (HU9-6) y EQ-108 (HU9-7)
  */
 
 export function crearEnrutadorMensajes({ controlador }) {
@@ -26,6 +26,28 @@ export function crearEnrutadorMensajes({ controlador }) {
         await controlador.guardarConfiguracion(req, res, contexto);
         return true;
       }
+
+      res.writeHead(405, {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+        Allow: "GET, PUT",
+      });
+      res.end(JSON.stringify({
+        codigo: "METODO_NO_PERMITIDO",
+        mensaje: "Método no permitido para la configuración de mensajes.",
+      }));
+      return true;
+    }
+
+    // GET /api/mensajes/configuracion/bitacora (EQ-108 / HU9-7)
+    if (
+      (rutaRelativa === "/configuracion/bitacora" ||
+        rutaRelativa === "/configuracion/bitacora/") &&
+      req.method === "GET"
+    ) {
+      await controlador.listarBitacora(req, res, contexto);
+      return true;
     }
 
     return false; // Ruta no manejada por este enrutador

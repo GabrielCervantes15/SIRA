@@ -1,6 +1,6 @@
 /**
  * Controlador HTTP para la Configuración del Módulo de Mensajes.
- * Tareas: EQ-106 (HU9-5: GET) y EQ-107 (HU9-6: PUT)
+ * Tareas: EQ-106 (HU9-5: GET), EQ-107 (HU9-6: PUT) y EQ-108 (HU9-7: GET bitácora)
  */
 
 const cabecerasJson = Object.freeze({
@@ -48,10 +48,16 @@ export class MensajesConfiguracionControlador {
    * @param {Object} dependencias
    * @param {import('../aplicacion/obtener-configuracion.caso-uso.js').ObtenerConfiguracionCasoUso} dependencias.obtenerConfiguracionCasoUso
    * @param {import('../aplicacion/guardar-configuracion.caso-uso.js').GuardarConfiguracionCasoUso} dependencias.guardarConfiguracionCasoUso
+   * @param {import('../aplicacion/listar-bitacora-configuracion.caso-uso.js').ListarBitacoraConfiguracionCasoUso} [dependencias.listarBitacoraConfiguracionCasoUso]
    */
-  constructor({ obtenerConfiguracionCasoUso, guardarConfiguracionCasoUso }) {
+  constructor({
+    obtenerConfiguracionCasoUso,
+    guardarConfiguracionCasoUso,
+    listarBitacoraConfiguracionCasoUso = null,
+  }) {
     this.obtenerConfiguracionCasoUso = obtenerConfiguracionCasoUso;
     this.guardarConfiguracionCasoUso = guardarConfiguracionCasoUso;
+    this.listarBitacoraConfiguracionCasoUso = listarBitacoraConfiguracionCasoUso;
   }
 
   /**
@@ -128,6 +134,51 @@ export class MensajesConfiguracionControlador {
       }
       res.writeHead(status, cabecerasJson);
       res.end(JSON.stringify(respuestaError));
+    }
+  }
+
+  /**
+   * GET /api/mensajes/configuracion/bitacora y GET /api/v1/mensajes/configuracion/bitacora (EQ-108 / HU9-7)
+   *
+   * @param {import('node:http').IncomingMessage} req
+   * @param {import('node:http').ServerResponse} res
+   * @param {Object} [contexto]
+   */
+  async listarBitacora(req, res, contexto = {}) {
+    try {
+      if (!this.listarBitacoraConfiguracionCasoUso) {
+        res.writeHead(500, cabecerasJson);
+        res.end(
+          JSON.stringify({
+            codigo: "CASO_USO_NO_CONFIGURADO",
+            mensaje: "ListarBitacoraConfiguracionCasoUso no está inicializado.",
+          })
+        );
+        return;
+      }
+
+      const url = new URL(req.url, `http://${req.headers?.host || "localhost"}`);
+      const limite =
+        url.searchParams.get("limite") ?? url.searchParams.get("limit") ?? undefined;
+      const offset = url.searchParams.get("offset") ?? undefined;
+
+      const resultado = await this.listarBitacoraConfiguracionCasoUso.ejecutar({
+        ...contexto,
+        limite,
+        offset,
+      });
+
+      res.writeHead(200, cabecerasJson);
+      res.end(JSON.stringify(resultado));
+    } catch (error) {
+      const status = error.status || 500;
+      res.writeHead(status, cabecerasJson);
+      res.end(
+        JSON.stringify({
+          codigo: error.codigo || "ERROR_INTERNO",
+          mensaje: error.message || "Error al consultar la bitácora de configuración.",
+        })
+      );
     }
   }
 }

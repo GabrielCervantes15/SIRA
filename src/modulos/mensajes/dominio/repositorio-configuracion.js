@@ -1,6 +1,6 @@
 /**
  * Puerto de Dominio y Valores Iniciales: Configuración del Envío de Mensajes Automáticos
- * Tarea: EQ-104 · HU9-3 (Sprint 2)
+ * Tareas: EQ-104 (HU9-3) y EQ-108 (HU9-7)
  * Módulo: Mensajes (`src/modulos/mensajes/dominio/repositorio-configuracion.js`)
  */
 
@@ -37,6 +37,7 @@ export const LIMITES_TIEMPO_HORAS = Object.freeze({
 export const METODOS_REPOSITORIO_CONFIGURACION = Object.freeze([
   "obtenerConfiguracion",
   "guardarConfiguracion",
+  "listarBitacora",
 ]);
 
 /**
@@ -128,6 +129,27 @@ export function clonarConfiguracion(config, opciones = {}) {
     actualizadoPor: base.actualizadoPor ?? null,
   };
 
+  return opciones.congelar ? Object.freeze(clon) : clon;
+}
+
+/**
+ * Clona un registro de bitácora de configuración (EQ-108 / HU9-7).
+ *
+ * @param {Object} registro
+ * @param {{ congelar?: boolean }} [opciones]
+ * @returns {Object}
+ */
+export function clonarRegistroBitacora(registro, opciones = {}) {
+  const clon = {
+    id: String(registro.id),
+    usuarioId: String(registro.usuarioId),
+    fechaCambio:
+      registro.fechaCambio instanceof Date
+        ? registro.fechaCambio.toISOString()
+        : String(registro.fechaCambio),
+    valorAnterior: clonarConfiguracion(registro.valorAnterior, opciones),
+    valorNuevo: clonarConfiguracion(registro.valorNuevo, opciones),
+  };
   return opciones.congelar ? Object.freeze(clon) : clon;
 }
 

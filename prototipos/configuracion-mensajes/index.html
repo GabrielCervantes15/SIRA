@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Administrador · Mensajes automáticos de la IA</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="barra-superior">
+    <nav class="menu-principal" aria-label="Navegación principal">
+      <a href="#" aria-disabled="true">Colaboradores</a>
+      <a href="#" class="activo" aria-current="page">Mensajes</a>
+      <a href="#" aria-disabled="true">Conocimiento</a>
+    </nav>
+    <div class="usuario">
+      <span class="icono-usuario" aria-hidden="true">G</span>
+      <span>Gabriel</span>
+    </div>
+  </header>
+
+  <main class="contenedor">
+    <section class="pagina-mensajes" aria-labelledby="titulo-mensajes">
+      <header class="encabezado-pagina">
+        <h1 id="titulo-mensajes">Mensajes Predefinidos del Asistente de IA</h1>
+        <p>Total de mensajes: 72</p>
+      </header>
+
+      <div class="barra-filtros">
+        <div class="columna-tipo-titulo">Tipo</div>
+        <div class="barra-filtros-contenido">
+          <div class="filtros">
+            <button type="button" class="filtro-select">Semáforo <span>⌄</span></button>
+            <button type="button" class="filtro-select">Todos <span>⌄</span></button>
+            <span class="filtro-chip">Filtro <span aria-hidden="true">×</span></span>
+            <span class="filtro-chip">Filtro <span aria-hidden="true">×</span></span>
+            <span class="filtro-chip">Filtro <span aria-hidden="true">×</span></span>
+          </div>
+          <div class="acciones-paginacion">
+            <button type="button" id="abrir-configuracion" class="boton-configuracion"
+              aria-controls="panel-configuracion" aria-expanded="false">
+              <span aria-hidden="true">⚙</span> Configurar envío de mensajes
+            </button>
+            <button type="button" class="boton-pagina" aria-label="Página anterior">‹</button>
+            <span class="pagina-indicador">1 - 10 de 17</span>
+            <button type="button" class="boton-pagina" aria-label="Página siguiente">›</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="cuerpo-mensajes">
+        <aside class="menu-tipo" aria-label="Tipo de mensaje">
+          <button type="button" class="tipo-activo">Envío</button>
+          <button type="button">Respuesta</button>
+        </aside>
+
+        <div class="rejilla-mensajes" aria-label="Mensajes predefinidos">
+          <article class="tarjeta-mensaje">
+            <div class="llaves"><strong>Llaves:</strong><span>Semáforo <b class="rojo">Rojo</b></span><span>Estado <b>Sin documentos entregados</b></span></div>
+            <h2>Mensaje:</h2>
+            <p>¡Saludos <strong>{aspirante}</strong>! Somos muy afortunados de que desees formar parte de esta universidad. Este aviso es para recordarte que debes entregar tu kardex oficial de calificaciones y tu certificado de preparatoria para completar tu proceso de admisión y convertirte en un nuevo potro.</p>
+          </article>
+
+          <article class="tarjeta-mensaje">
+            <div class="llaves"><strong>Llaves:</strong><span>Semáforo <b class="naranja">Naranja</b></span><span>Estado <b>Falta de entregar el certificado</b></span></div>
+            <h2>Mensaje:</h2>
+            <p>¡Hola <strong>{aspirante}</strong>! Hace tiempo que no hemos contactado con usted, así que queremos avisarle que se encuentra a tan solo un paso de terminar su admisión con ITSON: tan solo debes entregar tu certificado de preparatoria.</p>
+          </article>
+
+          <article class="tarjeta-mensaje">
+            <div class="llaves"><strong>Llaves:</strong><span>Semáforo <b class="naranja">Naranja</b></span><span>Estado <b>Constancia rechazada</b></span></div>
+            <h2>Mensaje:</h2>
+            <p>¡Hola <strong>{aspirante}</strong>! Hace tiempo que no hemos contactado con usted y queremos informarle que su constancia lamentablemente ha sido rechazada por Registro Escolar. Si tienes más dudas, recuerda que puedes solicitar comunicarte con una persona o comunicarte directamente con la mesa de ayuda.</p>
+          </article>
+
+          <article class="tarjeta-mensaje">
+            <div class="llaves"><strong>Llaves:</strong><span>Semáforo <b class="naranja">Naranja</b></span><span>Tiempo de inactividad <b>valor · magnitud</b></span></div>
+            <h2>Mensaje:</h2>
+            <p>¡Hola <strong>{aspirante}</strong>! Han pasado <strong>{valor}{magnitud}</strong> desde la última vez que te contactaste con nosotros. Te recordamos que tu proceso de admisión no ha concluido.</p>
+          </article>
+
+          <article class="tarjeta-mensaje">
+            <div class="llaves"><strong>Llaves:</strong><span>Semáforo <b class="rojo">Rojo</b></span><span>Estado <b>Falta de entregar el certificado</b></span></div>
+            <h2>Mensaje:</h2>
+            <p>¡Hola <strong>{aspirante}</strong>! Somos muy afortunados de que desees formar parte de ITSON. Este aviso es para recordarte que estás a tan solo un paso de terminar tu proceso de admisión.</p>
+          </article>
+
+          <article class="tarjeta-mensaje">
+            <div class="llaves"><strong>Llaves:</strong><span>Estado <b>Falta de entregar el certificado</b></span><span>Proximidad <b>1 semana</b></span></div>
+            <h2>Mensaje:</h2>
+            <p>¡Hola <strong>{aspirante}</strong>! Te avisamos que tan solo falta una semana y te falta entregar tu certificado de preparatoria para concluir el periodo de admisiones.</p>
+          </article>
+        </div>
+
+        <aside id="panel-configuracion" class="panel-configuracion"
+          aria-labelledby="titulo-configuracion" hidden>
+          <header class="encabezado-panel">
+            <h2 id="titulo-configuracion">Envío de mensajes automáticos</h2>
+            <button type="button" id="cerrar-configuracion" class="cerrar-panel"
+              aria-label="Cerrar configuración">×</button>
+          </header>
+
+          <form id="form-configuracion" novalidate>
+            <div class="contenido-panel">
+              <fieldset class="seccion-configuracion">
+                <legend>Horario permitido para el envío de mensajes automáticos</legend>
+                <p class="ayuda">Configura la jornada laboral de cada día. Los envíos automáticos solo podrán realizarse dentro de estos horarios.</p>
+                <p class="zona-horaria">Zona horaria institucional: <strong>America/Hermosillo</strong></p>
+                <div id="lista-jornada" class="lista-jornada" aria-label="Jornada laboral por día"></div>
+                <p class="ayuda">El horario permitido abarca toda la jornada configurada de cada día. No existe una segunda ventana de envío.</p>
+                <p id="error-jornada" class="error-campo" role="alert"></p>
+              </fieldset>
+
+              <fieldset class="seccion-configuracion">
+                <legend>Tiempo máximo de espera para la respuesta de un mensaje</legend>
+                <div class="control-tiempo">
+                  <div class="stepper" aria-label="Valor de espera de respuesta">
+                    <button type="button" class="boton-stepper" data-target="cfg-respuesta-valor" data-step="-1" aria-label="Disminuir tiempo de respuesta">−</button>
+                    <input type="number" id="cfg-respuesta-valor" min="1" max="30" step="1" value="1" required>
+                    <button type="button" class="boton-stepper" data-target="cfg-respuesta-valor" data-step="1" aria-label="Aumentar tiempo de respuesta">+</button>
+                  </div>
+                  <select id="cfg-respuesta-unidad" aria-label="Unidad del tiempo máximo de espera">
+                    <option value="dias" selected>días</option>
+                    <option value="horas">horas</option>
+                  </select>
+                </div>
+                <p class="ayuda">Tiempo máximo que debe transcurrir para enviar otro mensaje automático si el aspirante no ha respondido. Valor inicial: 24 horas (1 día).</p>
+                <p id="error-respuesta" class="error-campo" role="alert"></p>
+              </fieldset>
+
+              <fieldset class="seccion-configuracion">
+                <legend>Tiempo de espera por contacto previo</legend>
+                <div class="control-tiempo">
+                  <div class="stepper" aria-label="Valor del tiempo de espera por contacto previo">
+                    <button type="button" class="boton-stepper" data-target="cfg-contacto-valor" data-step="-1" aria-label="Disminuir tiempo por contacto previo">−</button>
+                    <input type="number" id="cfg-contacto-valor" min="1" max="30" step="1" value="2" required>
+                    <button type="button" class="boton-stepper" data-target="cfg-contacto-valor" data-step="1" aria-label="Aumentar tiempo por contacto previo">+</button>
+                  </div>
+                  <select id="cfg-contacto-unidad" aria-label="Unidad del tiempo por contacto previo">
+                    <option value="dias" selected>días</option>
+                    <option value="horas">horas</option>
+                  </select>
+                </div>
+                <p class="ayuda">Periodo durante el cual el aspirante queda excluido temporalmente de los lotes de contacto de HU1 después de un mensaje saliente exitoso. Valor inicial: 48 horas (2 días).</p>
+                <p id="error-contacto" class="error-campo" role="alert"></p>
+              </fieldset>
+            </div>
+
+            <footer class="pie-panel">
+              <button type="submit" id="guardar-configuracion" class="boton-guardar">Guardar</button>
+              <p id="mensaje-configuracion" class="mensaje-configuracion" role="status" aria-live="polite"></p>
+            </footer>
+          </form>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

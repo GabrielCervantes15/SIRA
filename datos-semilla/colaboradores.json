@@ -1,0 +1,45 @@
+{
+  "_nota": "Simulación de usuarios.usuario + usuarios.colaborador_carrera (EQ-53) para el Sprint 1. Sin contraseñas ni datos personales: nombre, correo y teléfono salen del directorio (autenticacion.json). El campus es el campus base del colaborador; las carreras coinciden con las asignaciones de RepositorioMonitoreoMemoria.",
+  "colaboradores": [
+    {
+      "idInstitucional": "00000252115",
+      "rol": "colaborador",
+      "estado": "activo",
+      "campus": "Campus Obregón Náinari",
+      "carreras": ["Ingeniería en Software", "Licenciatura en Administración"],
+      "fechaRegistro": "2026-08-03T16:00:00.000Z"
+    },
+    {
+      "idInstitucional": "00000233231",
+      "rol": "colaborador",
+      "estado": "activo",
+      "campus": "Campus Obregón Centro",
+      "carreras": ["Ingeniería Industrial", "Licenciatura en Psicología"],
+      "fechaRegistro": "2026-08-05T16:00:00.000Z"
+    },
+    {
+      "idInstitucional": "00000247933",
+      "rol": "colaborador",
+      "estado": "activo",
+      "campus": "Campus Navojoa",
+      "carreras": ["Ingeniería en Software"],
+      "fechaRegistro": "2026-08-10T16:00:00.000Z"
+    },
+    {
+      "idInstitucional": "00000235352",
+      "rol": "colaborador",
+      "estado": "activo",
+      "campus": "Campus Guaymas",
+      "carreras": ["Ingeniería en Software", "Ingeniería Industrial"],
+      "fechaRegistro": "2026-08-12T16:00:00.000Z"
+    },
+    {
+      "idInstitucional": "00000252390",
+      "rol": "colaborador",
+      "estado": "activo",
+      "campus": "Campus Obregón Náinari",
+      "carreras": ["Licenciatura en Administración", "Licenciatura en Psicología"],
+      "fechaRegistro": "2026-08-20T16:00:00.000Z"
+    }
+  ]
+}
