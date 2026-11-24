@@ -6,14 +6,11 @@ import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
 import { crearProveedorAutenticacionSimulado, ErrorAutenticacion } from './modulos/autenticacion/index.js';
 import { crearModuloMonitoreo } from './modulos/monitoreo/index.js';
-import { crearModuloMensajes } from './modulos/mensajes/index.js';
-import { crearServicioBorradores } from './modulos/colaboradores/borradores.js';
-import { crearCatalogoRegistroDemo } from './modulos/colaboradores/catalogo-registro-demo.js';
-import { crearModuloColaboradores } from './modulos/colaboradores/index.js';
-import { crearModuloNotificaciones } from './modulos/notificaciones/index.js';
-import { crearBusEnMemoria } from './compartido/eventos/bus-en-memoria.js';
 import { crearRepositorioConfiguracionEnvio, validarConfiguracion } from './modulos/configuracion-envio/configuracion-envio.js';
 import { listarMensajesIA } from './modulos/mensajes-ia/mensajes-ia.js';
+import {
+  validarFiltrosLote, calcularElegibles, generarMensajePersonalizado, intentarEnvioCorreo, dentroDeHorario,
+} from './modulos/disparo-automatico/disparo-automatico.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -64,55 +61,9 @@ function normalizarIdentificador(identificador, usuarios) {
   return usuario?.idInstitucional || valor;
 }
 
-function resolverRol(id, permisos, usuariosCrm) {
-  if (Array.isArray(usuariosCrm)) {
-    const usuario = usuariosCrm.find(
-      (item) => String(item.idInstitucional) === String(id)
-    );
-
-    if (usuario) {
-      if (usuario.activo === false) {
-        return 'sin_acceso';
-      }
-
-      return usuario.rol === 'administrador'
-        ? 'administrador'
-        : 'colaborador';
-    }
-  }
-
-  const administradores = new Set([
-    ...(permisos.administradores || []),
-    ...(process.env.SIRA_ADMIN_IDS || '')
-      .split(',')
-      .map((v) => v.trim())
-      .filter(Boolean)
-  ]);
-
-  return administradores.has(id)
-    ? 'administrador'
-    : 'colaborador';
-}
-
-// EQ-17: Validación de acceso según el rol del usuario.
-function verificarAccesoRol(sesion, rolesPermitidos = []) {
-  if (!sesion) {
-    return {
-      status: 401,
-      codigo: 'SESION_NO_VALIDA',
-      mensaje: 'Debes iniciar sesión para acceder a esta funcionalidad.'
-    };
-  }
-
-  if (!rolesPermitidos.includes(sesion.usuario?.rol)) {
-    return {
-      status: 403,
-      codigo: 'SIN_PERMISO',
-      mensaje: 'No tienes permisos para acceder a esta funcionalidad.'
-    };
-  }
-
-  return null;
+function resolverRol(id, permisos) {
+  const administradores = new Set([...(permisos.administradores || []), ...(process.env.SIRA_ADMIN_IDS || '').split(',').map((v) => v.trim()).filter(Boolean)]);
+  return administradores.has(id) ? 'administrador' : 'colaborador';
 }
 
 function servirArchivo(res, ruta) {
@@ -135,41 +86,9 @@ export function crearServidor(opciones = {}) {
   const reloj = opciones.reloj || Date.now;
   const sinAcceso = new Set([...(permisos.usuariosSinAcceso || []), ...(process.env.SIRA_DENIED_IDS || '').split(',').map((v) => v.trim()).filter(Boolean)]);
   const moduloMonitoreo = opciones.moduloMonitoreo || crearModuloMonitoreo();
-  // EQ-62/EQ-63: adaptadores TEMPORALES hasta integrar EQ-55 y EQ-57.
-  const aspirantesDemo = leerJson(path.join(ROOT, 'datos-semilla/aspirantes.json'), { aspirantes: [] }).aspirantes;
-  const catalogoRegistro = opciones.catalogoRegistro || crearCatalogoRegistroDemo(aspirantesDemo);
-  const borradoresRegistro = opciones.borradoresRegistro || crearServicioBorradores();
-  const busEventos = opciones.busEventos || opciones.bus || crearBusEnMemoria();
-  // HU 6: módulo Colaboradores (EQ-55, EQ-59, EQ-64, EQ-71). La semilla de colaboradores
-  // registrados solo acompaña a los usuarios semilla; si una prueba inyecta sus propios
-  // usuarios, arranca sin colaboradores salvo los de idsColaboradoresYaRegistrados.
-  const colaboradoresSemilla = opciones.colaboradores
-    ?? (opciones.usuarios ? [] : leerJson(path.join(ROOT, 'datos-semilla/colaboradores.json'), { colaboradores: [] }).colaboradores);
-  const moduloColaboradores = opciones.moduloColaboradores || crearModuloColaboradores({
-    proveedorAutenticacion: proveedor,
-    cartera: moduloMonitoreo.cartera,
-    catalogo: catalogoRegistro,
-    bus: busEventos,
-    borradores: borradoresRegistro,
-    repositorio: opciones.repositorioColaboradores,
-    colaboradores: [
-      ...colaboradoresSemilla,
-      ...(opciones.idsColaboradoresYaRegistrados || []).map((idInstitucional) => ({ idInstitucional })),
-    ],
-  });
-  // HU6-14 (EQ-61): correo de bienvenida al confirmar el registro (correo simulado).
-  const moduloNotificaciones = opciones.moduloNotificaciones || crearModuloNotificaciones({
-    bus: busEventos,
-    servicioCorreo: opciones.servicioCorreo,
-    opcionesConsumidor: opciones.opcionesNotificaciones,
-  });
-  // HU9: una sola instancia del módulo Mensajes para administrar y consultar
-  // la configuración; en pruebas puede inyectarse mediante opciones.moduloMensajes.
-  const moduloMensajes = opciones.moduloMensajes || crearModuloMensajes({
-    repositorio: opciones.repositorioConfiguracionMensajes,
-    busEventos,
-  });
   const repositorioConfiguracionEnvio = opciones.repositorioConfiguracionEnvio || crearRepositorioConfiguracionEnvio();
+  // Historial común del proyecto para el panel de actividades del frontend de Gabriel.
+  const historialMonitoreo = opciones.historialMonitoreo || leerJson(path.join(ROOT, 'datos-semilla/aspirantes.json'), { historial: [] }).historial || [];
 
   function obtenerSesion(req) {
     const token = cookiesDe(req)[COOKIE_NAME];
@@ -180,7 +99,7 @@ export function crearServidor(opciones = {}) {
     return { token, ...sesion };
   }
 
-  const servidor = http.createServer(async (req, res) => {
+  return http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     try {
       if ((url.pathname === '/health' || url.pathname === '/api/v1/health') && req.method === 'GET') {
@@ -208,26 +127,11 @@ export function crearServidor(opciones = {}) {
         }
 
         const id = resultado.colaborador.idInstitucional;
-        const usuarioCrm = Array.isArray(opciones.usuariosCrm)
-          ? opciones.usuariosCrm.find(
-            (usuario) => String(usuario.idInstitucional) === String(id)
-          )
-          : null;
-
-        if (usuarioCrm?.activo === false) {
-          return responderJson(res, 403, {
-            codigo: 'USUARIO_SIN_ACCESO',
-            mensaje: 'La cuenta está inactiva.'
-          });
-        }
         if (sinAcceso.has(id)) return responderJson(res, 403, { codigo: 'USUARIO_SIN_ACCESO', mensaje: 'La cuenta no tiene autorización para acceder a SIRA.' });
 
         const token = randomBytes(32).toString('base64url');
         const ahora = reloj();
-        const usuario = {
-          ...resultado.colaborador,
-          rol: resolverRol(id, permisos, opciones.usuariosCrm)
-        };
+        const usuario = { ...resultado.colaborador, rol: resolverRol(id, permisos) };
         sesiones.set(token, { usuario, creadoEn: ahora, expiraEn: ahora + duracionSesionMs });
         const maxAge = Math.max(1, Math.floor(duracionSesionMs / 1000));
         const secure = NODE_ENV === 'production' ? '; Secure' : '';
@@ -248,185 +152,10 @@ export function crearServidor(opciones = {}) {
         return responderJson(res, 200, { cerrado: true }, { 'Set-Cookie': `${COOKIE_NAME}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${NODE_ENV === 'production' ? '; Secure' : ''}` });
       }
 
-      // EQ-71 (Figma «Vista de colaborador»): cualquier usuario con sesión consulta el listado de
-      // colaboradores. Registrar, inactivar y ver inactivos sigue siendo solo del administrador.
-      const recursosListado = new Set(['listado.html', 'listado.js', 'listado-colaboradores.js', 'registro.css', 'validaciones.js']);
-      const recursoColaboradores = url.pathname.replace(/^\/app\/colaboradores\//, '');
-      const esListadoApi = /^\/api\/(?:v1\/)?colaboradores\/?$/.test(url.pathname) && req.method === 'GET';
-      const esListadoFrontend = url.pathname.startsWith('/app/colaboradores/') && req.method === 'GET' && recursosListado.has(recursoColaboradores);
-      if (esListadoApi || esListadoFrontend) {
-        const sesion = obtenerSesion(req);
-        if (!sesion) return responderJson(res, 401, { codigo: 'SESION_NO_VALIDA', mensaje: 'Debes iniciar sesión para acceder a esta funcionalidad.' });
-        if (esListadoFrontend) return servirArchivo(res, path.join(FRONTEND_GABRIEL, 'colaboradores', recursoColaboradores));
-        if (await moduloColaboradores.enrutador(req, res, { usuario: sesion.usuario })) return;
-      }
-
-      // EQ-17: Rutas exclusivas del administrador.
-      const rutaAdminApi =
-        /^\/api\/(?:v1\/)?colaboradores(?:\/|$)/.test(url.pathname);
-
-      const rutaAdminFrontend =
-        /^\/app\/colaboradores(?:\/|$)/.test(url.pathname);
-
-      if (rutaAdminApi || rutaAdminFrontend) {
-        const sesion = obtenerSesion(req);
-
-        const acceso = verificarAccesoRol(
-          sesion,
-          ['administrador']
-        );
-
-        if (acceso) {
-          return responderJson(res, acceso.status, {
-            codigo: acceso.codigo,
-            mensaje: acceso.mensaje
-          });
-        }
-
-        const recursosRegistro = new Set([
-          'registro.html', 'registro.js', 'registro.css', 'validaciones.js'
-        ]);
-        const recursoRegistro = url.pathname.replace(/^\/app\/colaboradores\//, '');
-        if (rutaAdminFrontend && req.method === 'GET' && recursosRegistro.has(recursoRegistro)) {
-          return servirArchivo(res, path.join(FRONTEND_GABRIEL, 'colaboradores', recursoRegistro));
-        }
-
-        // HU 6: listado (EQ-71), perfil (EQ-55), vista previa (EQ-64) y confirmación (EQ-59).
-        if (rutaAdminApi && await moduloColaboradores.enrutador(req, res, { usuario: sesion.usuario })) return;
-
-        const raizRegistro = '/api/v1/colaboradores/registro';
-        if (url.pathname === `${raizRegistro}/catalogo` && req.method === 'GET') {
-          const campus = catalogoRegistro.listarCampus();
-          return responderJson(res, 200, {
-            campus, carrerasPorCampus: Object.fromEntries(campus.map((c) => [c, catalogoRegistro.listarCarreras(c)])),
-            origen: catalogoRegistro.origen || 'ADAPTADOR_TEMPORAL'
-          });
-        }
-
-        if (url.pathname === `${raizRegistro}/borrador` && req.method === 'POST') {
-          const body = await leerCuerpo(req);
-          const id = String(body.idInstitucional ?? '').trim();
-          const campus = typeof body.campus === 'string' ? body.campus.trim() : '';
-          if (!/^\d{5,20}$/.test(id)) return responderJson(res, 400, { codigo: 'ID_INVALIDO', mensaje: 'El ID institucional es obligatorio y debe ser numérico.' });
-          if (await moduloColaboradores.repositorio.existe(id)) return responderJson(res, 409, { codigo: 'YA_REGISTRADO', mensaje: 'Este colaborador ya está registrado.' });
-          let perfil;
-          try { perfil = await proveedor.obtenerPorIdInstitucional(id); }
-          catch (error) {
-            if (error instanceof ErrorAutenticacion && error.codigo === 'SERVICIO_NO_DISPONIBLE') {
-              return responderJson(res, 503, { codigo: 'SERVICIO_NO_DISPONIBLE', mensaje: 'El directorio institucional no está disponible.' });
-            }
-            throw error;
-          }
-          if (!perfil) return responderJson(res, 404, { codigo: 'ID_NO_ENCONTRADO', mensaje: 'No se encontró un colaborador con ese ID.' });
-          if (!campus) return responderJson(res, 422, { codigo: 'CAMPUS_OBLIGATORIO', mensaje: 'Selecciona un campus para continuar.' });
-          if (!catalogoRegistro.contieneCampus(campus)) return responderJson(res, 422, { codigo: 'CAMPUS_INVALIDO', mensaje: 'El campus seleccionado no está disponible.' });
-
-          let carreras;
-          if (body.carreras !== undefined) {
-            if (!Array.isArray(body.carreras) || body.carreras.length === 0) {
-              return responderJson(res, 422, { codigo: 'CARRERAS_OBLIGATORIAS', mensaje: 'Selecciona al menos una carrera para guardar el borrador.' });
-            }
-            carreras = [...new Set(body.carreras)];
-            if (carreras.length > 100 || !carreras.every((c) => typeof c === 'string' && catalogoRegistro.contieneCarrera(campus, c))) {
-              return responderJson(res, 422, { codigo: 'CARRERA_INVALIDA', mensaje: 'Una o más carreras no corresponden al campus seleccionado.' });
-            }
-          }
-          const borrador = borradoresRegistro.guardarBorrador({ idInstitucional: id, campus, ...(carreras ? { carreras } : {}) });
-          return responderJson(res, 200, { borrador, confirmado: false });
-        }
-
-        const rutaBorrador = url.pathname.match(/^\/api\/v1\/colaboradores\/registro\/borrador\/([^/]+)$/);
-        if (rutaBorrador && req.method === 'GET') {
-          const borrador = borradoresRegistro.obtenerBorrador(decodeURIComponent(rutaBorrador[1]));
-          if (!borrador) return responderJson(res, 404, { codigo: 'NO_ENCONTRADO', mensaje: 'Borrador no encontrado.' });
-          return responderJson(res, 200, { borrador });
-        }
-
-        return responderJson(res, 404, {
-          codigo: 'NO_ENCONTRADO',
-          mensaje: 'La funcionalidad administrativa aún no está disponible.'
-        });
-      }
-
-      // Listado general de conversaciones reales de la cartera del colaborador (HU 3 / HU 4).
-      const rutaColeccionChat = url.pathname.match(/^\/api\/(?:v1\/)?monitoreo\/conversaciones\/?$/);
-      if (rutaColeccionChat && req.method === 'GET') {
-        const sesion = obtenerSesion(req);
-        if (!sesion) return responderJson(res, 401, { codigo: 'NO_AUTORIZADO', mensaje: 'Inicia sesión para consultar monitoreo.' });
-
-        const repositorio = moduloMonitoreo.repositorio;
-        const idsCartera = typeof repositorio?._obtenerIdsColaborador === 'function'
-          ? repositorio._obtenerIdsColaborador(sesion.usuario.idInstitucional)
-          : new Set([sesion.usuario.idInstitucional]);
-
-        const aspirantesCartera = (repositorio?.aspirantes || []).filter((a) => idsCartera.has(a.colaboradorId));
-        const conversacionesCartera = [];
-
-        for (const asp of aspirantesCartera) {
-          const mensajes = typeof repositorio?.obtenerConversacionAspirante === 'function'
-            ? await repositorio.obtenerConversacionAspirante(asp.id)
-            : [];
-          if (mensajes.length === 0) continue;
-
-          const mensajesFormateados = mensajes.map((m) => ({
-            id: m.id,
-            aspiranteId: asp.id,
-            direccion: m.direccion,
-            remitenteTipo: m.remitenteTipo,
-            remitenteId: m.remitenteId,
-            contenido: m.contenido,
-            tipoContenido: m.tipoContenido || 'TEXTO',
-            estadoEntrega: m.estadoEntrega || 'ENTREGADO',
-            whatsappMessageId: m.whatsappMessageId || null,
-            fecha: m.fechaEnvio ?? m.fecha,
-          }));
-
-          const ultimo = mensajesFormateados[mensajesFormateados.length - 1];
-          const tieneEntrantes = mensajesFormateados.some((m) => m.direccion === 'ENTRANTE');
-          const tieneColaborador = mensajesFormateados.some((m) => m.remitenteTipo === 'COLABORADOR');
-
-          let noLeidos = 0;
-          for (let i = mensajesFormateados.length - 1; i >= 0; i--) {
-            if (mensajesFormateados[i].remitenteTipo === 'COLABORADOR') break;
-            if (mensajesFormateados[i].direccion === 'ENTRANTE') noLeidos++;
-          }
-
-          conversacionesCartera.push({
-            aspirante: {
-              id: asp.id,
-              folioSolicitud: asp.folioSolicitud,
-              nombre: asp.nombreCompleto ?? asp.nombre,
-              carrera: asp.carreraSolicitada ?? asp.carrera,
-              preparatoria: asp.preparatoriaProcedencia ?? asp.preparatoria,
-              periodo: asp.periodo,
-              telefono: asp.telefono,
-              correo: asp.correo,
-              estadoSolicitud: asp.estadoSolicitud,
-              semaforo: asp.semaforo,
-            },
-            mensajes: mensajesFormateados,
-            ultimoMensaje: ultimo,
-            fechaUltimoMensaje: ultimo?.fecha ?? asp.fechaUltimaActividad,
-            tieneRespuestaAspirante: tieneEntrantes,
-            tieneColaborador,
-            noLeidos,
-          });
-        }
-
-        conversacionesCartera.sort(
-          (a, b) => Date.parse(b.fechaUltimoMensaje || 0) - Date.parse(a.fechaUltimoMensaje || 0)
-        );
-
-        return responderJson(res, 200, {
-          conversaciones: conversacionesCartera,
-          total: conversacionesCartera.length,
-        });
-      }
-
-      // Adaptador de lectura y envío de mensajes para el expediente de Gabriel (EQ-40 / EQ-46).
-      // El detalle (EQ-42) y las actividades (EQ-43) ya los atiende el módulo Monitoreo.
-      const rutaExpediente = url.pathname.match(/^\/api\/(?:v1\/)?monitoreo\/aspirantes\/([^/]+)\/(conversacion)\/?$/);
-      if (rutaExpediente && (req.method === 'GET' || (req.method === 'POST' && rutaExpediente[2] === 'conversacion'))) {
+      // Adaptador de lectura para el expediente de Gabriel (EQ-40).
+      // Utiliza el MISMO repositorio de la lista, no la semilla provisional de Gabriel.
+      const rutaExpediente = url.pathname.match(/^\/api\/(?:v1\/)?monitoreo\/aspirantes\/([^/]+)(?:\/(actividades|conversacion))?\/?$/);
+      if (rutaExpediente && req.method === 'GET') {
         const sesion = obtenerSesion(req);
         if (!sesion) return responderJson(res, 401, { codigo: 'NO_AUTORIZADO', mensaje: 'Inicia sesión para consultar el expediente.' });
 
@@ -440,6 +169,8 @@ export function crearServidor(opciones = {}) {
         const aspirante = await repositorio.obtenerAspirantePorId(aspiranteId);
         if (!aspirante) return responderJson(res, 404, { codigo: 'NO_ENCONTRADO', mensaje: 'Aspirante no encontrado.' });
 
+        // Nunca confiar en un ID de colaborador enviado por el cliente.
+        // Aceptar el ID institucional y su alias en la semilla del repositorio en memoria.
         const idsCartera = typeof repositorio._obtenerIdsColaborador === 'function'
           ? repositorio._obtenerIdsColaborador(sesion.usuario.idInstitucional)
           : new Set([sesion.usuario.idInstitucional]);
@@ -447,56 +178,11 @@ export function crearServidor(opciones = {}) {
           return responderJson(res, 403, { codigo: 'SIN_PERMISO', mensaje: 'Este aspirante no pertenece a tu cartera.' });
         }
 
-        if (req.method === 'POST' && rutaExpediente[2] === 'conversacion') {
-          const body = await leerCuerpo(req);
-          const contenido = String(body.contenido ?? '').trim();
-          if (!contenido) {
-            return responderJson(res, 400, { codigo: 'MENSAJE_VACIO', mensaje: 'El contenido del mensaje es obligatorio.' });
-          }
-          const ahoraIso = new Date().toISOString();
-          const nuevoMensaje = {
-            id: `msg-${randomBytes(8).toString('hex')}`,
-            aspiranteId: aspirante.id,
-            direccion: 'SALIENTE',
-            remitenteTipo: 'COLABORADOR',
-            remitenteId: sesion.usuario.idInstitucional,
-            contenido,
-            tipoContenido: 'TEXTO',
-            estadoEntrega: 'ENVIADO',
-            whatsappMessageId: `wamid.HBgN${randomBytes(10).toString('hex').toUpperCase()}`,
-            fechaEnvio: ahoraIso,
-          };
-          if (Array.isArray(repositorio.conversaciones)) {
-            repositorio.conversaciones.push(nuevoMensaje);
-          }
-          aspirante.fechaUltimaActividad = ahoraIso;
-          // EQ-43: el envío queda en el historial del módulo Monitoreo.
-          await repositorio.registrarActividad?.({
-            id: `ev-${randomBytes(8).toString('hex')}`,
-            aspiranteId: aspirante.id,
-            tipoEvento: 'MENSAJE_ENVIADO',
-            titulo: 'Mensaje enviado por colaborador',
-            detalle: contenido,
-            autorTipo: 'COLABORADOR',
-            autorId: sesion.usuario.idInstitucional,
-            fechaEvento: ahoraIso,
-          });
-          return responderJson(res, 201, {
-            mensaje: {
-              id: nuevoMensaje.id,
-              aspiranteId: nuevoMensaje.aspiranteId,
-              direccion: nuevoMensaje.direccion,
-              remitenteTipo: nuevoMensaje.remitenteTipo,
-              remitenteId: nuevoMensaje.remitenteId,
-              contenido: nuevoMensaje.contenido,
-              tipoContenido: nuevoMensaje.tipoContenido,
-              estadoEntrega: nuevoMensaje.estadoEntrega,
-              whatsappMessageId: nuevoMensaje.whatsappMessageId,
-              fecha: nuevoMensaje.fechaEnvio,
-            },
-          });
-        }
+        if (!rutaExpediente[2]) return responderJson(res, 200, { aspirante });
 
+        // Vista de mensajería de solo lectura (EQ-46 · HU3-7).
+        // Reutiliza obtenerConversacionAspirante, ya implementado en el repositorio
+        // de Monitoreo (dominio/repositorio-monitoreo.js) pero sin ruta hasta ahora.
         if (rutaExpediente[2] === 'conversacion') {
           if (typeof repositorio?.obtenerConversacionAspirante !== 'function') {
             return responderJson(res, 501, { codigo: 'NO_IMPLEMENTADO', mensaje: 'El repositorio no ofrece la conversación del aspirante.' });
@@ -507,31 +193,34 @@ export function crearServidor(opciones = {}) {
               id: m.id,
               direccion: m.direccion,
               remitenteTipo: m.remitenteTipo,
-              remitenteId: m.remitenteId,
               contenido: m.contenido,
-              tipoContenido: m.tipoContenido || 'TEXTO',
-              estadoEntrega: m.estadoEntrega || 'ENTREGADO',
-              whatsappMessageId: m.whatsappMessageId || null,
               fecha: m.fechaEnvio,
             })),
           });
         }
-      }
 
-      // Módulo Mensajes: /api/mensajes/... y /api/v1/mensajes/... (HU 9: EQ-106, EQ-107, EQ-108)
-      if (url.pathname.startsWith('/api/mensajes') || url.pathname.startsWith('/api/v1/mensajes')) {
-        const sesion = obtenerSesion(req);
-        const acceso = verificarAccesoRol(sesion, ['administrador']);
-        if (acceso) {
-          return responderJson(res, acceso.status, {
-            codigo: acceso.codigo,
-            mensaje: acceso.mensaje,
-          });
+        const desde = url.searchParams.get('desde');
+        const hasta = url.searchParams.get('hasta');
+        const desdeMs = desde ? Date.parse(desde) : null;
+        const hastaMs = hasta ? Date.parse(hasta) : null;
+        if ((desde && Number.isNaN(desdeMs)) || (hasta && Number.isNaN(hastaMs)) ||
+            (desdeMs !== null && hastaMs !== null && desdeMs > hastaMs)) {
+          return responderJson(res, 400, { codigo: 'PARAMETRO_INVALIDO', mensaje: 'Rango de fechas inválido.' });
         }
-        const manejado = await moduloMensajes.enrutador(req, res, {
-          usuario: sesion?.usuario ?? null,
-        });
-        if (manejado) return;
+        const actividades = historialMonitoreo
+          .filter((h) => h.aspiranteId === aspirante.id)
+          .filter((h) => {
+            const fechaMs = Date.parse(h.fechaEvento ?? h.fecha);
+            return Number.isFinite(fechaMs) && (desdeMs === null || fechaMs >= desdeMs) && (hastaMs === null || fechaMs <= hastaMs);
+          })
+          .sort((a, b) => Date.parse(b.fechaEvento ?? b.fecha) - Date.parse(a.fechaEvento ?? a.fecha) || String(b.id).localeCompare(String(a.id)))
+          .map((h) => ({
+            id: h.id,
+            tipo: h.tipoEvento ?? h.tipo ?? 'ACTIVIDAD',
+            fecha: h.fechaEvento ?? h.fecha,
+            texto: [h.titulo, h.detalle].filter(Boolean).join(' — ') || 'Actividad registrada',
+          }));
+        return responderJson(res, 200, { actividades });
       }
 
       // Módulo Monitoreo: /api/monitoreo/... y /api/v1/monitoreo/...
@@ -544,6 +233,7 @@ export function crearServidor(opciones = {}) {
       }
 
       if (url.pathname === '/' && req.method === 'GET') return servirArchivo(res, path.join(PUBLIC, 'login/index.html'));
+      // Integración SIRA: después del login, servir únicamente el monitoreo de Gabriel.
       // HU 9 (EQ-109, EQ-110): configuración de envío, solo para administradores.
       if (url.pathname === '/api/v1/configuracion/envio' && (req.method === 'GET' || req.method === 'PUT')) {
         const sesion = obtenerSesion(req);
@@ -571,6 +261,90 @@ export function crearServidor(opciones = {}) {
         }));
       }
 
+      // HU 1 (EQ-86, EQ-88, EQ-89): disparo de mensajes automáticos.
+      if (url.pathname === '/api/v1/disparo-mensajes/vista-previa' && req.method === 'GET') {
+        const sesion = obtenerSesion(req);
+        if (!sesion) return responderJson(res, 401, { codigo: 'SESION_NO_VALIDA', mensaje: 'La sesión no existe o expiró.' });
+
+        const p = url.searchParams;
+        const filtros = {
+          semaforos: (p.get('semaforos') || '').split(',').filter(Boolean),
+          carreras: (p.get('carreras') || '').split(',').filter(Boolean),
+          inactividadValor: Number(p.get('inactividadValor')),
+          inactividadUnidad: p.get('inactividadUnidad'),
+        };
+        const { valido, errores } = validarFiltrosLote(filtros);
+        const { carreras: carrerasDisponibles } = await moduloMonitoreo.repositorio.obtenerFiltrosColaborador(sesion.usuario.idInstitucional);
+        const config = repositorioConfiguracionEnvio.leer();
+        const horarioOk = dentroDeHorario(config.horario);
+
+        if (!valido) return responderJson(res, 200, { valido, errores, carrerasDisponibles, dentroDeHorario: horarioOk, total: 0, mensajesEjemplo: [] });
+
+        const { aspirantes: cartera } = await moduloMonitoreo.repositorio.listarAspirantes({ colaboradorId: sesion.usuario.idInstitucional, mostrarAceptados: true, limit: 10000 });
+        const elegibles = calcularElegibles(cartera, filtros);
+        const mensajesEjemplo = [...new Set(elegibles.map(generarMensajePersonalizado))].slice(0, 5);
+
+        return responderJson(res, 200, { valido: true, errores: {}, carrerasDisponibles, dentroDeHorario: horarioOk, total: elegibles.length, mensajesEjemplo });
+      }
+
+      if (url.pathname === '/api/v1/disparo-mensajes/enviar' && req.method === 'POST') {
+        const sesion = obtenerSesion(req);
+        if (!sesion) return responderJson(res, 401, { codigo: 'SESION_NO_VALIDA', mensaje: 'La sesión no existe o expiró.' });
+
+        const cuerpo = await leerCuerpo(req);
+        const filtros = {
+          semaforos: Array.isArray(cuerpo.semaforos) ? cuerpo.semaforos : [],
+          carreras: Array.isArray(cuerpo.carreras) ? cuerpo.carreras : [],
+          inactividadValor: Number(cuerpo.inactividadValor),
+          inactividadUnidad: cuerpo.inactividadUnidad,
+        };
+        const { valido, errores } = validarFiltrosLote(filtros);
+        if (!valido) return responderJson(res, 400, { codigo: 'FILTROS_INVALIDOS', mensaje: 'Revisa los filtros del lote.', errores });
+
+        const config = repositorioConfiguracionEnvio.leer();
+        if (!dentroDeHorario(config.horario)) {
+          return responderJson(res, 400, { codigo: 'FUERA_DE_HORARIO', mensaje: `El envío solo está disponible de ${config.horario.inicio} a ${config.horario.fin}.` });
+        }
+
+        const { aspirantes: cartera } = await moduloMonitoreo.repositorio.listarAspirantes({ colaboradorId: sesion.usuario.idInstitucional, mostrarAceptados: true, limit: 10000 });
+        const elegibles = calcularElegibles(cartera, filtros);
+        if (elegibles.length === 0) {
+          return responderJson(res, 400, { codigo: 'SIN_ASPIRANTES', mensaje: 'No hay aspirantes que cumplan las condiciones de ese lote.' });
+        }
+
+        const resultado = { totalEnviados: 0, correo: { exitosos: 0, fallidos: 0, detalles: [] } };
+        const ahoraIso = new Date().toISOString();
+        for (const aspirante of elegibles) {
+          const mensaje = generarMensajePersonalizado(aspirante);
+
+          // Canal principal (simulado, igual que el resto del chat): se registra en conversaciones e historial.
+          moduloMonitoreo.repositorio.conversaciones.push({
+            id: `mia-${aspirante.id}-${Date.now()}`, aspiranteId: aspirante.id, direccion: 'SALIENTE',
+            remitenteTipo: 'BOT_IA', remitenteId: 'disparo-automatico', contenido: mensaje,
+            tipoContenido: 'TEXTO', estadoEntrega: 'ENVIADO', whatsappMessageId: null, fechaEnvio: ahoraIso,
+          });
+          historialMonitoreo.push({
+            id: `h-mia-${aspirante.id}-${Date.now()}`, aspiranteId: aspirante.id, tipoEvento: 'MENSAJE_ENVIADO',
+            titulo: 'Mensaje automático de reactivación', detalle: mensaje, motivoRechazo: null,
+            autorTipo: 'SISTEMA', fechaEvento: ahoraIso,
+          });
+
+          const registro = moduloMonitoreo.repositorio.aspirantes.find((a) => a.id === aspirante.id);
+          if (registro) {
+            registro.fechaUltimaActividad = ahoraIso;
+            registro.vecesNotificado = (registro.vecesNotificado || 0) + 1;
+          }
+          resultado.totalEnviados += 1;
+
+          if (cuerpo.enviarPorCorreo) {
+            const correo = intentarEnvioCorreo(aspirante);
+            if (correo.exito) resultado.correo.exitosos += 1;
+            else { resultado.correo.fallidos += 1; resultado.correo.detalles.push({ aspiranteId: aspirante.id, nombre: aspirante.nombreCompleto, motivo: correo.motivo }); }
+          }
+        }
+        return responderJson(res, 200, resultado);
+      }
+
       if ((url.pathname === '/app' || url.pathname === '/app/') && req.method === 'GET') {
         if (!obtenerSesion(req)) { res.writeHead(302, { Location: '/', 'Cache-Control': 'no-store' }); return res.end(); }
         return servirArchivo(res, path.join(FRONTEND_GABRIEL, 'index.html'));
@@ -581,6 +355,7 @@ export function crearServidor(opciones = {}) {
         return servirArchivo(res, path.join(PUBLIC, 'login', relative));
       }
       if (url.pathname.startsWith('/app/') && req.method === 'GET') {
+        // Evitar servir CSS/JS o recursos de monitoreo sin sesión activa.
         if (!obtenerSesion(req)) return responderJson(res, 401, { codigo: 'SESION_NO_VALIDA', mensaje: 'Inicia sesión para acceder al monitoreo.' });
         const relative = url.pathname.replace(/^\/app\//, '');
         if (!relative || relative.includes('..') || relative.includes('\\')) return responderJson(res, 400, { codigo: 'RUTA_INVALIDA' });
@@ -595,9 +370,4 @@ export function crearServidor(opciones = {}) {
       return responderJson(res, error.status || 500, { codigo: 'ERROR_INTERNO', mensaje: error.status ? error.message : 'Ocurrió un error interno.' });
     }
   });
-
-  // Acceso a los módulos para pruebas y demos (p. ej. revisar la bandeja de correo simulada).
-  servidor.modulos = { monitoreo: moduloMonitoreo, colaboradores: moduloColaboradores, notificaciones: moduloNotificaciones, bus: busEventos };
-  servidor.on('close', () => moduloNotificaciones.detener?.());
-  return servidor;
 }

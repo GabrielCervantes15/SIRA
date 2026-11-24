@@ -1,6 +1,7 @@
+
 /**
- * EQ-56 / EQ-63: Guardado temporal de borradores de colaboradores.
- * Validación de campus obligatorio y conservación de carreras del mismo campus.
+ * EQ-56: Guardado temporal de borradores de colaboradores.
+ * Validación de campus obligatorio.
  *
  * No registra definitivamente al colaborador.
  * Almacenamiento temporal en memoria.
@@ -9,7 +10,7 @@
 export function crearServicioBorradores() {
   const borradores = new Map();
 
-  function guardarBorrador({ idInstitucional, campus, carreras } = {}) {
+  function guardarBorrador({ idInstitucional, campus } = {}) {
     const id = String(idInstitucional ?? '').trim();
 
     const campusNormalizado =
@@ -23,40 +24,26 @@ export function crearServicioBorradores() {
       throw new Error('El campus es obligatorio.');
     }
 
-    const anterior = borradores.get(id);
-    const carrerasElegidas = Array.isArray(carreras)
-      ? [...carreras]
-      : anterior?.campus === campusNormalizado && Array.isArray(anterior.carreras)
-        ? [...anterior.carreras]
-        : undefined;
-
     const borrador = {
       idInstitucional: id,
       campus: campusNormalizado,
-      estado: 'BORRADOR',
-      ...(carrerasElegidas ? { carreras: carrerasElegidas } : {})
+      estado: 'BORRADOR'
     };
 
     borradores.set(id, borrador);
 
-    return { ...borrador, ...(borrador.carreras ? { carreras: [...borrador.carreras] } : {}) };
+    return { ...borrador };
   }
 
   function obtenerBorrador(idInstitucional) {
     const id = String(idInstitucional ?? '').trim();
     const borrador = borradores.get(id);
 
-    return borrador ? { ...borrador, ...(borrador.carreras ? { carreras: [...borrador.carreras] } : {}) } : null;
-  }
-
-  // EQ-59: al confirmar el registro el borrador deja de tener sentido.
-  function eliminarBorrador(idInstitucional) {
-    return borradores.delete(String(idInstitucional ?? '').trim());
+    return borrador ? { ...borrador } : null;
   }
 
   return {
     guardarBorrador,
-    obtenerBorrador,
-    eliminarBorrador
+    obtenerBorrador
   };
 }

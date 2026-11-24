@@ -2,12 +2,8 @@
  * Monitoreo de aspirantes (HU 2 y HU 3).
  *   EQ-26 · HU2-1 / HU2-8 / HU2-10 → tabla con semáforo, orden, paginación y estados
  *   EQ-40 · HU3-1 / HU3-6 / HU3-8  → panel de contacto y de actividades (historial)
- *   EQ-36 · HU2-11                 → abrir el expediente al seleccionar (y desde la URL)
  */
 import { api } from "./api.js";
-import { aspiranteDesdeUrl, urlConAspirante } from "./expediente-url.js";
-import { inicialesUsuario } from "./usuario.js";
-import { inicializarConfiguracionMensajes } from "./configuracion-mensajes.js";
 
 const TAMANO = 13;
 const ETIQUETA_SEMAFORO = { ROJO: "Rojo", NARANJA: "Naranja", VERDE: "Verde" };
@@ -291,17 +287,8 @@ function seleccionarPestana(nombre) {
   if (nombre === "chat") cargarChat();
 }
 
-function recordarEnUrl(id) {
-  try {
-    window.history.replaceState(null, "", urlConAspirante(window.location.href, id));
-  } catch {
-    // Sin History API (p. ej. vista incrustada): el panel funciona igual.
-  }
-}
-
 async function abrirPanel(id) {
   estado.aspiranteId = id;
-  recordarEnUrl(id);
   for (const fila of cuerpo.querySelectorAll("tr")) {
     fila.setAttribute("aria-selected", String(fila.dataset.id === id));
   }
@@ -325,7 +312,6 @@ async function abrirPanel(id) {
 
 function cerrarPanel() {
   estado.aspiranteId = null;
-  recordarEnUrl(null);
   $("panel").hidden = true;
   for (const fila of cuerpo.querySelectorAll("tr")) fila.setAttribute("aria-selected", "false");
 }
@@ -334,16 +320,19 @@ function cerrarPanel() {
 
 const VISTAS = {
   monitoreo: "nav-aspirantes",
+  configuracion: "nav-configuracion",
   "mensajes-ia": "nav-mensajes",
 };
 
 function mostrarVista(nombre) {
   document.querySelector(".monitoreo").hidden = nombre !== "monitoreo";
+  $("vista-configuracion").hidden = nombre !== "configuracion";
   $("vista-mensajes-ia").hidden = nombre !== "mensajes-ia";
   for (const [clave, idNav] of Object.entries(VISTAS)) {
     $(idNav).classList.toggle("activo", clave === nombre);
     $(idNav).setAttribute("aria-current", clave === nombre ? "page" : "false");
   }
+  if (nombre === "configuracion") cargarConfiguracion();
   if (nombre === "mensajes-ia") cargarMensajesIA();
 }
 
@@ -391,16 +380,182 @@ async function cargarMensajesIA() {
   }
 }
 
+function limpiarErroresConfiguracion() {
+  for (const campo of ["tiempoMaximoRespuesta", "tiempoInactividad", "horario"]) $(`error-${campo}`).textContent = "";
+  $("mensaje-configuracion").textContent = "";
+  $("mensaje-configuracion").classList.remove("error");
+}
+
+async function cargarConfiguracion() {
+  limpiarErroresConfiguracion();
+  try {
+    const cfg = await api.configuracionEnvio.obtener();
+    $("cfg-respuesta-valor").value = cfg.tiempoMaximoRespuesta.valor;
+    $("cfg-respuesta-unidad").value = cfg.tiempoMaximoRespuesta.unidad;
+    $("cfg-inactividad-valor").value = cfg.tiempoInactividad.valor;
+    $("cfg-inactividad-unidad").value = cfg.tiempoInactividad.unidad;
+    $("cfg-horario-inicio").value = cfg.horario.inicio;
+    $("cfg-horario-fin").value = cfg.horario.fin;
+  } catch (error) {
+    $("mensaje-configuracion").textContent = "No se pudo cargar la configuración actual.";
+    $("mensaje-configuracion").classList.add("error");
+  }
+}
+
+async function guardarConfiguracion(evento) {
+  evento.preventDefault();
+  limpiarErroresConfiguracion();
+  const payload = {
+    tiempoMaximoRespuesta: { valor: Number($("cfg-respuesta-valor").value), unidad: $("cfg-respuesta-unidad").value },
+    tiempoInactividad: { valor: Number($("cfg-inactividad-valor").value), unidad: $("cfg-inactividad-unidad").value },
+    horario: { inicio: $("cfg-horario-inicio").value, fin: $("cfg-horario-fin").value },
+  };
+  try {
+    await api.configuracionEnvio.guardar(payload);
+    $("mensaje-configuracion").textContent = "Configuración guardada.";
+  } catch (error) {
+    if (error.codigo === "CONFIGURACION_INVALIDA" && error.errores) {
+      for (const [campo, texto] of Object.entries(error.errores)) {
+        const base = campo.split(".")[0];
+        if ($(`error-${base}`)) $(`error-${base}`).textContent = texto;
+      }
+      $("mensaje-configuracion").textContent = "Revisa los campos marcados.";
+    } else {
+      $("mensaje-configuracion").textContent = error.codigo === "SIN_PERMISO"
+        ? "Solo un administrador puede guardar esta configuración."
+        : "No se pudo guardar. Inténtalo de nuevo.";
+    }
+    $("mensaje-configuracion").classList.add("error");
+  }
+}
+
+// ---------- HU 1 (EQ-86, EQ-88, EQ-89): disparo de mensajes automáticos ----------
+
+const estadoDisparo = { carreras: new Set(), inactividadUnidad: "DIAS" };
+
+function semaforosSeleccionados() {
+  return [...document.querySelectorAll(".disparo-semaforo:checked")].map((c) => c.value);
+}
+
+function filtrosDisparoActuales() {
+  return {
+    semaforos: semaforosSeleccionados(),
+    carreras: [...estadoDisparo.carreras],
+    inactividadValor: Number($("disparo-inactividad-valor").value) || 1,
+    inactividadUnidad: $("disparo-inactividad-unidad").value,
+  };
+}
+
+/** HU1-12: no permite dejar un grupo de filtros sin ninguna opción marcada. */
+function bloquearSiQuedaVacio(casilla, grupoSelectorMarcadas) {
+  if (!casilla.checked && document.querySelectorAll(grupoSelectorMarcadas).length === 0) {
+    casilla.checked = true;
+  }
+}
+
+function pintarCarrerasDisparo(carreras) {
+  const grupo = $("disparo-carreras-grupo");
+  grupo.replaceChildren(
+    elemento("legend", { text: "Carrera" }),
+    ...carreras.map((c) => {
+      const casilla = elemento("input", { type: "checkbox", class: "disparo-carrera", value: c, checked: "checked" });
+      const etiqueta = elemento("label", {}, [casilla, document.createTextNode(` ${c}`)]);
+      casilla.addEventListener("change", () => {
+        bloquearSiQuedaVacio(casilla, ".disparo-carrera:checked");
+        if (casilla.checked) estadoDisparo.carreras.add(c); else estadoDisparo.carreras.delete(c);
+        actualizarVistaPreviaDisparo();
+      });
+      return etiqueta;
+    }),
+  );
+  estadoDisparo.carreras = new Set(carreras);
+}
+
+async function actualizarVistaPreviaDisparo() {
+  const filtros = filtrosDisparoActuales();
+  try {
+    const r = await api.disparoMensajes.vistaPrevia(filtros);
+    // Primera carga: no había carreras todavía, así que esta respuesta no es la real.
+    // Se llenan las opciones y se vuelve a pedir, ya con "carreras" lleno.
+    if (estadoDisparo.carreras.size === 0 && r.carrerasDisponibles?.length) {
+      pintarCarrerasDisparo(r.carrerasDisponibles);
+      return actualizarVistaPreviaDisparo();
+    }
+
+    $("disparo-fuera-horario").hidden = r.dentroDeHorario;
+    $("disparo-fuera-horario").textContent = "Fuera del horario matutino permitido. Podrás enviar dentro del horario configurado en HU 9.";
+
+    $("disparo-conteo").textContent = r.total === 0
+      ? "No hay aspirantes que cumplan las condiciones de ese lote."
+      : `${r.total} alumnos serán notificados`;
+
+    $("disparo-mensajes-ejemplo").replaceChildren(...(r.mensajesEjemplo || []).map((m) =>
+      elemento("div", { class: "burbuja-ejemplo", text: m })));
+
+    $("disparo-enviar").disabled = r.total === 0 || !r.dentroDeHorario;
+  } catch {
+    $("disparo-conteo").textContent = "No se pudo calcular el lote. Inténtalo de nuevo.";
+    $("disparo-enviar").disabled = true;
+  }
+}
+
+function abrirDisparo() {
+  $("disparo-overlay").hidden = false;
+  $("disparo-resultado").hidden = true;
+  $("disparo-cuerpo").hidden = false;
+  estadoDisparo.carreras = new Set(); // fuerza recargar las carreras del colaborador
+  actualizarVistaPreviaDisparo();
+}
+
+function cerrarDisparo() { $("disparo-overlay").hidden = true; }
+
+async function enviarDisparo() {
+  const filtros = { ...filtrosDisparoActuales(), enviarPorCorreo: $("disparo-enviar-correo").checked };
+  if (!window.confirm(`¿Confirmas enviar el mensaje automático a ${$("disparo-conteo").textContent}?`)) return;
+
+  $("disparo-enviar").disabled = true;
+  try {
+    const r = await api.disparoMensajes.enviar(filtros);
+    $("disparo-cuerpo").hidden = true;
+    const resumen = $("disparo-resultado");
+    resumen.hidden = false;
+    resumen.classList.toggle("con-errores", r.correo.fallidos > 0);
+    let texto = `Se notificó a ${r.totalEnviados} aspirante(s).`;
+    if (filtros.enviarPorCorreo) {
+      texto += ` Correo: ${r.correo.exitosos} enviados, ${r.correo.fallidos} fallidos.`;
+      if (r.correo.detalles.length) texto += " " + r.correo.detalles.map((d) => `${d.nombre} (${d.motivo})`).join("; ") + ".";
+    }
+    resumen.textContent = texto;
+    $("nav-aspirantes").click(); // refresca la tabla con las fechas/actividad actualizadas
+  } catch (error) {
+    alert(error.mensaje || "No se pudo completar el envío.");
+    $("disparo-enviar").disabled = false;
+  }
+}
+
 // ---------- Eventos ----------
 
 function configurarEventos() {
   $("nav-aspirantes").addEventListener("click", (e) => { e.preventDefault(); mostrarVista("monitoreo"); });
+  $("nav-configuracion").addEventListener("click", (e) => { e.preventDefault(); mostrarVista("configuracion"); });
+  $("form-configuracion").addEventListener("submit", guardarConfiguracion);
+
   $("nav-mensajes").addEventListener("click", (e) => { e.preventDefault(); mostrarVista("mensajes-ia"); });
   $("mia-cat-envio").addEventListener("click", () => { estadoMensajesIA.categoria = "ENVIO"; estadoMensajesIA.pagina = 1; cargarMensajesIA(); });
   $("mia-cat-respuesta").addEventListener("click", () => { estadoMensajesIA.categoria = "RESPUESTA"; estadoMensajesIA.pagina = 1; cargarMensajesIA(); });
   $("mia-filtro-semaforo").addEventListener("change", (e) => { estadoMensajesIA.semaforo = e.target.value; estadoMensajesIA.pagina = 1; cargarMensajesIA(); });
   $("mia-anterior").addEventListener("click", () => { estadoMensajesIA.pagina -= 1; cargarMensajesIA(); });
   $("mia-siguiente").addEventListener("click", () => { estadoMensajesIA.pagina += 1; cargarMensajesIA(); });
+
+  $("btn-abrir-disparo").addEventListener("click", abrirDisparo);
+  $("disparo-cerrar").addEventListener("click", cerrarDisparo);
+  $("disparo-cancelar").addEventListener("click", cerrarDisparo);
+  $("disparo-enviar").addEventListener("click", enviarDisparo);
+  for (const casilla of document.querySelectorAll(".disparo-semaforo")) {
+    casilla.addEventListener("change", () => { bloquearSiQuedaVacio(casilla, ".disparo-semaforo:checked"); actualizarVistaPreviaDisparo(); });
+  }
+  $("disparo-inactividad-valor").addEventListener("input", actualizarVistaPreviaDisparo);
+  $("disparo-inactividad-unidad").addEventListener("change", actualizarVistaPreviaDisparo);
 
   for (const boton of document.querySelectorAll(".orden")) {
     boton.addEventListener("click", () => {
@@ -457,18 +612,7 @@ async function iniciar() {
   try {
     const sesion = await api.sesion();
     $("nombre-usuario").textContent = sesion.nombre;
-    $("avatar-usuario").textContent = inicialesUsuario(sesion.nombre);
-    inicializarConfiguracionMensajes({
-      api,
-      esAdministrador: sesion.usuario?.rol === "administrador",
-    });
-    // EQ-71: los dos roles ven el listado de colaboradores; el administrador entra a la vista
-    // con registro e inactivación, el colaborador a la de solo consulta (Figma).
-    const enlace = $("nav-colaboradores");
-    const esAdministrador = sesion.usuario?.rol === "administrador";
-    enlace.href = esAdministrador ? "/app/colaboradores/registro.html" : "/app/colaboradores/listado.html";
-    enlace.removeAttribute("aria-disabled");
-    enlace.title = esAdministrador ? "Listado y registro de colaboradores" : "Listado de colaboradores";
+    if (sesion.usuario?.rol === "administrador") $("nav-configuracion").hidden = false;
   } catch (error) {
     if (error.estado === 401) window.location.replace('/?expired=1');
     else $("nombre-usuario").textContent = "Sin conexión al servicio de sesión";
@@ -486,11 +630,6 @@ async function iniciar() {
     }
   });
   cargarTabla();
-  // Desde la pantalla de Colaboradores, «Mensajes» llega como /app?vista=mensajes.
-  if (new URLSearchParams(window.location.search).get("vista") === "mensajes") mostrarVista("mensajes-ia");
-  // EQ-36: si la URL trae ?aspirante=ID se abre su expediente (403/404 se informan en el panel).
-  const aspiranteInicial = aspiranteDesdeUrl(window.location.href);
-  if (aspiranteInicial) abrirPanel(aspiranteInicial);
   window.setInterval(revisarSesion, 5000);
 }
 

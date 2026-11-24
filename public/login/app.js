@@ -73,10 +73,7 @@ form.addEventListener('submit', async (event) => {
       return;
     }
 
-    const destino = result.usuario?.rol === 'administrador'
-      ? '/app/colaboradores/registro.html'
-      : '/app';
-    window.location.assign(destino);
+    window.location.assign('/app');
   } catch {
     mostrarMensaje('No se pudo conectar con SIRA. Revisa tu conexión e inténtalo nuevamente.');
   } finally {

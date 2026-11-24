@@ -90,10 +90,17 @@ export const api = {
   mensajesIA: {
     listar: (params) => pedir("/api/v1/mensajes-ia", params),
   },
+  // HU 1 (EQ-86, EQ-88, EQ-89): disparo de mensajes automáticos.
+  disparoMensajes: {
+    vistaPrevia: (filtros) => pedir("/api/v1/disparo-mensajes/vista-previa", {
+      semaforos: filtros.semaforos.join(","), carreras: filtros.carreras.join(","),
+      inactividadValor: filtros.inactividadValor, inactividadUnidad: filtros.inactividadUnidad,
+    }),
+    enviar: (filtros) => pedir("/api/v1/disparo-mensajes/enviar", {}, { method: "POST", body: filtros }),
+  },
   configuracionEnvio: {
-    // HU9: el panel usa el módulo Mensajes y sus permisos administrativos.
-    obtener: () => pedir("/api/v1/mensajes/configuracion"),
-    guardar: (payload) => pedir("/api/v1/mensajes/configuracion", {}, { method: "PUT", body: payload }),
+    obtener: () => pedir("/api/v1/configuracion/envio"),
+    guardar: (payload) => pedir("/api/v1/configuracion/envio", {}, { method: "PUT", body: payload }),
   },
   async listarAspirantes({ pagina = 1, tamano = 13, ordenarPor = "semaforo", direccion = "desc", incluirAceptados = false, busqueda = "" } = {}) {
     const limite = tamano;

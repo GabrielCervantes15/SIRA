@@ -1,17 +1,13 @@
 /**
- * Módulo de Negocio: Monitoreo
- * Punto de entrada público e inyección de dependencias.
+ * M├│dulo de Negocio: Monitoreo
+ * Punto de entrada p├║blico e inyecci├│n de dependencias.
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { RepositorioMonitoreoMemoria } from "./infraestructura/repositorio-monitoreo-memoria.js";
-import { RepositorioMonitoreoPostgres } from "./infraestructura/repositorio-monitoreo-postgres.js";
 import { ObtenerFiltrosCasoUso } from "./aplicacion/obtener-filtros.caso-uso.js";
 import { ListarAspirantesCasoUso } from "./aplicacion/listar-aspirantes.caso-uso.js";
-import { ObtenerDetalleAspiranteCasoUso } from "./aplicacion/obtener-detalle-aspirante.caso-uso.js";
-import { ObtenerConversacionCasoUso } from "./aplicacion/obtener-conversacion.caso-uso.js";
-import { ObtenerHistorialAspiranteCasoUso } from "./aplicacion/obtener-historial-aspirante.caso-uso.js";
 import { MonitoreoControlador } from "./infraestructura/controlador-monitoreo.js";
 import { crearEnrutadorMonitoreo } from "./rutas.js";
 
@@ -23,7 +19,7 @@ function cargarDatosSemilla() {
     const ruta = path.join(ROOT, "datos-semilla/aspirantes.json");
     return JSON.parse(readFileSync(ruta, "utf8"));
   } catch {
-    return { aspirantes: [], historial: [], conversaciones: [] };
+    return { aspirantes: [], conversaciones: [] };
   }
 }
 
@@ -35,7 +31,6 @@ export function crearModuloMonitoreo(opciones = {}) {
     new RepositorioMonitoreoMemoria({
       aspirantes: semilla.aspirantes,
       conversaciones: semilla.conversaciones,
-      historial: semilla.historial,
       asignacionesCarreras: opciones.asignacionesCarreras,
     });
 
@@ -47,45 +42,17 @@ export function crearModuloMonitoreo(opciones = {}) {
     repositorioMonitoreo: repositorio,
   });
 
-  const obtenerDetalleAspiranteCasoUso = new ObtenerDetalleAspiranteCasoUso({
-    repositorioMonitoreo: repositorio,
-  });
-
-  const obtenerConversacionCasoUso = new ObtenerConversacionCasoUso({
-    repositorioMonitoreo: repositorio,
-  });
-
-  const obtenerHistorialAspiranteCasoUso = new ObtenerHistorialAspiranteCasoUso({
-    repositorioMonitoreo: repositorio,
-  });
-
   const controlador = new MonitoreoControlador({
     obtenerFiltrosCasoUso,
     listarAspirantesCasoUso,
-    obtenerDetalleAspiranteCasoUso,
-    obtenerConversacionCasoUso,
-    obtenerHistorialAspiranteCasoUso,
   });
 
   const enrutador = crearEnrutadorMonitoreo({ controlador });
 
-  // Interfaz pública de la cartera para otros módulos (HU 6). El módulo Colaboradores
-  // no toca el esquema aspirantes: pide los cambios por aquí.
-  const cartera = Object.freeze({
-    idInstitucionalDe: (colaboradorId) => repositorio.idInstitucionalDe(colaboradorId),
-    contarPorColaborador: () => repositorio.contarAspirantesPorColaborador(),
-    previsualizarAsignacion: (params) => repositorio.previsualizarAsignacion(params),
-    asignarCarreras: (params) => repositorio.reasignarAspirantes(params),
-  });
-
   return {
     repositorio,
-    cartera,
     obtenerFiltrosCasoUso,
     listarAspirantesCasoUso,
-    obtenerDetalleAspiranteCasoUso,
-    obtenerConversacionCasoUso,
-    obtenerHistorialAspiranteCasoUso,
     controlador,
     enrutador,
   };
@@ -94,12 +61,8 @@ export function crearModuloMonitoreo(opciones = {}) {
 export {
   ObtenerFiltrosCasoUso,
   ListarAspirantesCasoUso,
-  ObtenerDetalleAspiranteCasoUso,
-  ObtenerConversacionCasoUso,
-  ObtenerHistorialAspiranteCasoUso,
   MonitoreoControlador,
   RepositorioMonitoreoMemoria,
-  RepositorioMonitoreoPostgres,
   crearEnrutadorMonitoreo,
 };
 

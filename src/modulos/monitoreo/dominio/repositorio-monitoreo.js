@@ -42,48 +42,12 @@
  */
 
 /**
- * Evento del historial del aspirante (tabla aspirantes.historial_eventos) (HU3-6 / EQ-43).
- * @typedef {Object} EventoHistorial
- * @property {string} id
- * @property {string} aspiranteId
- * @property {"MENSAJE_ENVIADO"|"CONSTANCIA_ENTREGADA"|"CAMBIO_ESTADO"|"RECHAZO_SOLICITUD"|"NOTA_SEGUIMIENTO"} tipoEvento
- * @property {string} titulo
- * @property {string|null} [detalle]
- * @property {string|null} [motivoRechazo]
- * @property {"SISTEMA"|"IA"|"COLABORADOR"|"REGISTRO_ESCOLAR"} [autorTipo]
- * @property {string|null} [autorId]
- * @property {string} fechaEvento
- */
-
-/**
- * Rango opcional e inclusivo para consultar el historial.
- * @typedef {Object} RangoHistorial
- * @property {string|null} [desde] - ISO 8601
- * @property {string|null} [hasta] - ISO 8601
- */
-
-/**
  * Interfaz esperada para cualquier implementación del repositorio de Monitoreo.
- *
- * - obtenerHistorialAspirante(aspiranteId, rango?) → Promise<EventoHistorial[]>
- * - registrarActividad(evento) → Promise<EventoHistorial>
- *
- * Cartera (la usa el módulo Colaboradores por medio de `moduloMonitoreo.cartera`, HU 6):
- * - idInstitucionalDe(colaboradorId) → string|null
- * - contarAspirantesPorColaborador() → Promise<Record<string, number>>
- * - previsualizarAsignacion({ campus, carreras }) → Promise<Array<{ aspiranteId, carrera, colaboradorActual }>>
- * - reasignarAspirantes({ colaboradorId, campus, carreras }) → Promise<{ aspirantesIds, transferencias, deshacer() }>
  */
 export const METODOS_REPOSITORIO_MONITOREO = Object.freeze([
   "obtenerFiltrosColaborador",
   "listarAspirantes",
   "obtenerAspirantePorId",
   "obtenerConversacionAspirante",
-  "obtenerHistorialAspirante",
-  "registrarActividad",
-  "idInstitucionalDe",
-  "contarAspirantesPorColaborador",
-  "previsualizarAsignacion",
-  "reasignarAspirantes",
 ]);
 

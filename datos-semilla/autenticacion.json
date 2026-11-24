@@ -54,16 +54,6 @@
       "telefono": "+526449998877",
       "fotoUrl": "https://ad.itson.mx/fotos/00000100001.jpg",
       "activo": true
-    },
-    {
-      "_nota": "EQ-55/EQ-59: existe en el directorio pero NO está registrada en SIRA (datos-semilla/colaboradores.json). Sirve para demostrar el registro completo.",
-      "idInstitucional": "00000260001",
-      "password": "Password123!",
-      "nombreCompleto": "Valeria Ochoa Ruiz",
-      "correoInstitucional": "valeria.ochoa260001@potros.itson.edu.mx",
-      "telefono": "+526449990011",
-      "fotoUrl": "https://ad.itson.mx/fotos/00000260001.jpg",
-      "activo": true
     }
   ]
 }
