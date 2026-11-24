@@ -1,9 +1,14 @@
 /**
- * EQ-62 / EQ-63 · UI siguiendo el prototipo de Figma.
- * El tablero de fondo es SOLO una muestra visual local. No representa colaboradores reales.
- * El modal usa endpoints administrativos existentes y guarda un borrador (no confirma alta).
+ * HU 6 · Administrador de colaboradores.
+ *   EQ-62 / EQ-63 · pasos 1 y 2 del registro (perfil, campus, carreras, borrador)
+ *   EQ-71 · HU6-12 · listado (módulo compartido listado-colaboradores.js)
+ *   EQ-64 · HU6-17 · paso 3: revisión de la distribución y confirmación (EQ-59)
  */
-import { idValido, puedeContinuar, puedeGuardarCarreras } from './validaciones.js';
+import {
+  idValido, puedeContinuar, puedeGuardarCarreras, puedeIrARevision, puedeConfirmar, describirCambioCarga,
+} from './validaciones.js';
+import { inicialesUsuario } from '../js/usuario.js';
+import { iniciarListadoColaboradores, recargarListado } from './listado-colaboradores.js';
 
 const $ = (id) => document.getElementById(id);
 const estado = {
@@ -15,39 +20,9 @@ const estado = {
   consulta: 0,
   paso: 1,
   ultimoFoco: null,
+  vistaPrevia: null,
+  confirmado: false,
 };
-
-// Registros FICTICIOS destinados únicamente a imitar la retícula del Figma.
-// No se envían al servidor, ni se confunden con usuarios registrados.
-const muestras = [
-  ['Edgar Salazar Vega', 'Obregón', 567],
-  ['Cristiana Torres Rivera', 'Guaymas', 821],
-  ['Jesús Hernández Duarte', 'Obregón', 564],
-  ['Marcos Esquer Rojas', 'Obregón', 603],
-  ['Christian Gil Soto', 'Obregón', 592],
-  ['Ariel Osorio Luna', 'Navojoa', 744],
-  ['Alma Chávez Quintero', 'Empalme', 207],
-  ['Juan Gabriel Valdés', 'Empalme', 198],
-  ['Andrés Martínez López', 'Guaymas', 801],
-  ['Marco Solís Ojeda', 'Empalme', 532],
-  ['José Morales Ponce', 'Navojoa', 358],
-  ['Manuel Domínguez Núñez', 'Obregón', 244],
-  ['Natalia Ortega Gil', 'Guaymas', 222],
-  ['Isabel Estrada Peña', 'Navojoa', 453],
-  ['Emilia Ramírez García', 'Obregón', 352],
-  ['Paola Cruz Sánchez', 'Empalme', 127],
-  ['Carlos León Ruiz', 'Guaymas', 319],
-  ['Marta Díaz Salinas', 'Navojoa', 196],
-  ['Mariana Pérez Soto', 'Obregón', 412],
-  ['Alejandro Valdez Ríos', 'Guaymas', 255],
-  ['Lucía Montaño Castro', 'Obregón', 285],
-  ['Héctor Silva Ochoa', 'Empalme', 187],
-  ['Daniela Robles Pineda', 'Obregón', 361],
-].map(([nombre, campus, aspirantes], index) => ({
-  nombre, campus, aspirantes, activo: index < 21, id: index + 1,
-}));
-const muestraUi = { campus: '', pagina: 0, tamano: 9 };
-const tonos = ['#345f81','#64859c','#5a6590','#7d648a','#8a9c71','#a36a70','#6c8298','#86745c','#41788b'];
 
 async function solicitar(ruta, opciones = {}) {
   const respuesta = await fetch(ruta, {
@@ -83,67 +58,9 @@ function crearElemento(tag, clase, texto) {
   return el;
 }
 
-function pintarFiltrosMuestra() {
-  const filtros = $('filtros-campus');
-  filtros.replaceChildren();
-  for (const campus of ['Obregón', 'Navojoa', 'Guaymas', 'Empalme']) {
-    const boton = crearElemento('button', 'filtro-campus', `${campus}${muestraUi.campus === campus ? ' ×' : ''}`);
-    boton.type = 'button';
-    boton.classList.toggle('activo', muestraUi.campus === campus);
-    boton.setAttribute('aria-pressed', String(muestraUi.campus === campus));
-    boton.addEventListener('click', () => {
-      muestraUi.campus = muestraUi.campus === campus ? '' : campus;
-      muestraUi.pagina = 0;
-      pintarFiltrosMuestra();
-      pintarMuestra();
-    });
-    filtros.append(boton);
-  }
-}
+// El listado (EQ-71) vive en listado-colaboradores.js; lo comparte la vista de colaborador.
 
-function pintarMuestra() {
-  const termino = $('buscar-muestra').value.trim().toLocaleLowerCase('es');
-  const incluirInactivos = $('mostrar-inactivos').checked;
-  const orden = $('ordenar-muestra').value;
-  const registros = muestras.filter((m) =>
-    (incluirInactivos || m.activo) && (!muestraUi.campus || m.campus === muestraUi.campus) &&
-    m.nombre.toLocaleLowerCase('es').includes(termino)
-  ).sort((a,b) => String(a[orden]).localeCompare(String(b[orden]), 'es'));
-  const paginas = Math.max(1, Math.ceil(registros.length / muestraUi.tamano));
-  muestraUi.pagina = Math.min(muestraUi.pagina, paginas - 1);
-  const inicio = muestraUi.pagina * muestraUi.tamano;
-  const visibles = registros.slice(inicio, inicio + muestraUi.tamano);
-  $('conteo-colaboradores').textContent = String(muestras.filter((m) => m.activo).length);
-  $('conteo-pagina').textContent = registros.length ? `${inicio+1}–${inicio+visibles.length} de ${registros.length}` : '0 de 0';
-  $('pagina-anterior').disabled = muestraUi.pagina === 0;
-  $('pagina-siguiente').disabled = muestraUi.pagina >= paginas - 1;
-  const contenedor = $('cuadricula-colaboradores');
-  contenedor.replaceChildren();
-  if (!visibles.length) {
-    contenedor.append(crearElemento('p','cuadricula-vacia','No hay colaboradores de ejemplo con esos filtros.'));
-    return;
-  }
-  for (const m of visibles) {
-    const tarjeta = crearElemento('article',`tarjeta-colaborador${m.activo ? '' : ' inactivo'}`);
-    const superior = crearElemento('div','superior-tarjeta');
-    const avatar = crearElemento('div','avatar-muestra',iniciales(m.nombre));
-    avatar.style.setProperty('--tono', tonos[m.id % tonos.length]);
-    avatar.setAttribute('aria-hidden','true');
-    const datos = crearElemento('div','detalles-muestra');
-    datos.append(crearElemento('h3','',m.nombre));
-    const campus = crearElemento('p','');
-    campus.append(crearElemento('span','', 'Campus: '),crearElemento('strong','',m.campus));
-    const carga = crearElemento('p','');
-    carga.append(crearElemento('span','', 'Núm. aspirantes (ejemplo): '),crearElemento('strong','',String(m.aspirantes)));
-    datos.append(campus,carga);
-    superior.append(avatar, datos);
-    const contacto = crearElemento('div','contacto-muestra');
-    contacto.append(crearElemento('span','',`☎ 644 000 ${String(m.id).padStart(4,'0')} (ficticio)`));
-    contacto.append(crearElemento('span','correo-ficticio',`✉ colaborador${m.id}@ejemplo.test`));
-    tarjeta.append(superior, contacto);
-    contenedor.append(tarjeta);
-  }
-}
+// ---------- Paso 1 (EQ-62) ----------
 
 function bloquearBusqueda(bloqueada) {
   $('buscar-colaborador').disabled = bloqueada;
@@ -159,11 +76,15 @@ function actualizarPaso1() {
   $('error-campus').hidden = !estado.perfil || Boolean(estado.campus);
 }
 
+// ---------- Paso 2 (EQ-63) ----------
+
 function actualizarPaso2() {
   const disponibles = estado.catalogo[estado.campus] || [];
   const manual = $('distribucion-manual').checked;
-  const valido = manual && puedeGuardarCarreras({ carreras: [...estado.carreras], disponibles });
+  const carreras = [...estado.carreras];
+  const valido = manual && puedeGuardarCarreras({ carreras, disponibles });
   $('guardar-borrador').disabled = !valido;
+  $('ir-revision').disabled = !puedeIrARevision({ carreras, disponibles, manual });
   $('error-carreras').hidden = !manual || valido;
   $('mensaje-manual').hidden = manual;
   $('lista-carreras').querySelectorAll('input').forEach((input) => { input.disabled = !manual; });
@@ -174,6 +95,7 @@ function limpiarPerfil() {
   estado.perfil = null;
   estado.campus = '';
   estado.carreras.clear();
+  estado.vistaPrevia = null;
   $('resultado-id').textContent = '';
   $('foto-perfil').hidden = true;
   $('foto-perfil').removeAttribute('src');
@@ -209,15 +131,18 @@ function mostrarPerfil(perfil) {
   $('resultado-id').textContent = '✓ ¡Encontrado!';
 }
 
+const FOCO_POR_PASO = { 1: 'id-colaborador', 2: 'distribucion-manual', 3: 'confirmar-registro' };
+
 function cambiarPaso(paso) {
   estado.paso = paso;
-  $('paso-1').hidden = paso !== 1;
-  $('paso-2').hidden = paso !== 2;
-  $('indicador-1').removeAttribute('aria-current');
-  $('indicador-2').removeAttribute('aria-current');
-  $(`indicador-${paso}`).setAttribute('aria-current','step');
-  if (paso === 1) $('id-colaborador').focus();
-  else $('distribucion-manual').focus();
+  for (const n of [1, 2, 3]) {
+    $(`paso-${n}`).hidden = paso !== n;
+    $(`indicador-${n}`).removeAttribute('aria-current');
+  }
+  $(`indicador-${paso}`).setAttribute('aria-current', 'step');
+  const foco = $(FOCO_POR_PASO[paso]);
+  if (foco && !foco.disabled) foco.focus();
+  else $(`paso-${paso}`).querySelector('button:not([disabled])')?.focus();
 }
 
 function abrirModal() {
@@ -226,6 +151,7 @@ function abrirModal() {
   document.body.style.overflow = 'hidden';
   cambiarPaso(estado.paso);
 }
+
 function cerrarModal() {
   // Cancelar cierra el formulario y limpia el estado LOCAL de esta vista.
   // No elimina borradores que ya se hayan guardado en el servidor (EQ-56).
@@ -236,12 +162,17 @@ function cerrarModal() {
   limpiarPerfil();
   mostrarMensaje($('mensaje-busqueda'));
   mostrarMensaje($('mensaje-guardado'));
+  mostrarMensaje($('mensaje-confirmacion'));
   bloquearBusqueda(false);
   $('distribucion-manual').checked = true;
+  estado.confirmado = false;
+  $('confirmar-registro').textContent = 'Confirmar registro';
+  $('anterior-3').disabled = false;
+  for (const n of [1, 2, 3]) {
+    $(`paso-${n}`).hidden = n !== 1;
+    $(`indicador-${n}`).removeAttribute('aria-current');
+  }
   estado.paso = 1;
-  $('paso-1').hidden = false;
-  $('paso-2').hidden = true;
-  $('indicador-2').removeAttribute('aria-current');
   $('indicador-1').setAttribute('aria-current', 'step');
   estado.ultimoFoco?.focus?.();
 }
@@ -285,7 +216,7 @@ function dibujarCampus() {
     radio.checked = estado.campus === nombre;
     radio.addEventListener('change', () => {
       if (!radio.checked) return;
-      if (estado.campus !== nombre) estado.carreras.clear();
+      if (estado.campus !== nombre) { estado.carreras.clear(); estado.vistaPrevia = null; }
       estado.campus = nombre;
       selector.value = nombre;
       actualizarPaso1();
@@ -308,6 +239,7 @@ function dibujarCarreras() {
     checkbox.addEventListener('change', () => {
       if (checkbox.checked) estado.carreras.add(carrera);
       else estado.carreras.delete(carrera);
+      estado.vistaPrevia = null;
       mostrarMensaje($('mensaje-guardado'));
       actualizarPaso2();
     });
@@ -348,12 +280,109 @@ async function guardar() {
       method: 'POST', body: JSON.stringify({ idInstitucional: estado.perfil.idInstitucional, campus: estado.campus, carreras }),
     });
     if (resultado.borrador?.estado === 'BORRADOR') {
-      mostrarMensaje($('mensaje-guardado'),`Borrador guardado con ${carreras.length} carrera(s). El colaborador NO está registrado; la confirmación corresponde a EQ-64.`,'exito');
+      mostrarMensaje($('mensaje-guardado'),`Borrador guardado con ${carreras.length} carrera(s). El colaborador todavía NO está registrado: revisa y confirma en el paso 3.`,'exito');
     }
   } catch (error) {
     mostrarMensaje($('mensaje-guardado'),error.message);
   } finally {
     actualizarPaso2();
+  }
+}
+
+// ---------- Paso 3 (EQ-64) ----------
+
+function celda(texto, clase) {
+  const td = crearElemento('td', clase, texto);
+  return td;
+}
+
+function pintarRevision(vista) {
+  $('revision-nombre').textContent = vista.colaborador.nombreCompleto;
+  $('revision-id').textContent = vista.colaborador.idInstitucional;
+  $('revision-campus').textContent = vista.campus;
+  $('revision-total').textContent = String(vista.totalAspirantes);
+
+  $('revision-carreras').replaceChildren(...vista.carreras.map((c) => {
+    const fila = document.createElement('tr');
+    const responsables = c.responsablesActuales.map((r) => `${r.nombreCompleto ?? `ID ${r.colaboradorId}`} (${r.aspirantes})`);
+    if (c.sinResponsable) responsables.push(`Sin asignar (${c.sinResponsable})`);
+    fila.append(celda(c.carrera), celda(String(c.totalAspirantes), 'num'), celda(responsables.join(', ') || '—'));
+    return fila;
+  }));
+
+  $('revision-cargas').replaceChildren(...vista.cargas.map((carga) => {
+    const fila = document.createElement('tr');
+    if (carga.esNuevo) fila.className = 'es-nuevo';
+    const nombre = `${carga.nombreCompleto ?? `ID ${carga.colaboradorId}`}${carga.esNuevo ? ' (nuevo registro)' : ''}`;
+    const despues = celda(`${carga.despues} `, 'num');
+    const cambio = describirCambioCarga(carga);
+    despues.append(crearElemento('small', carga.despues >= carga.antes ? 'cambio-sube' : 'cambio-baja', `(${cambio})`));
+    fila.append(celda(nombre), celda(String(carga.antes), 'num'), despues);
+    return fila;
+  }));
+
+  $('aviso-sin-aspirantes').hidden = vista.totalAspirantes > 0;
+}
+
+function actualizarPaso3() {
+  $('confirmar-registro').disabled = estado.confirmado || !puedeConfirmar({
+    vistaPrevia: estado.vistaPrevia,
+    idInstitucional: estado.perfil?.idInstitucional,
+    campus: estado.campus,
+    carreras: [...estado.carreras],
+  });
+}
+
+async function irARevision() {
+  const disponibles = estado.catalogo[estado.campus] || [];
+  const carreras = [...estado.carreras];
+  if (!puedeIrARevision({ carreras, disponibles, manual: $('distribucion-manual').checked })) {
+    actualizarPaso2();
+    return;
+  }
+  $('ir-revision').disabled = true;
+  mostrarMensaje($('mensaje-guardado'));
+  try {
+    estado.vistaPrevia = await solicitar('/api/v1/colaboradores/registro/vista-previa', {
+      method: 'POST',
+      body: JSON.stringify({ idInstitucional: estado.perfil.idInstitucional, campus: estado.campus, carreras }),
+    });
+    pintarRevision(estado.vistaPrevia);
+    mostrarMensaje($('mensaje-confirmacion'));
+    actualizarPaso3();
+    cambiarPaso(3);
+  } catch (error) {
+    mostrarMensaje($('mensaje-guardado'), error.message);
+  } finally {
+    actualizarPaso2();
+  }
+}
+
+async function confirmarRegistro() {
+  actualizarPaso3();
+  if ($('confirmar-registro').disabled) return;
+  $('confirmar-registro').disabled = true;
+  $('anterior-3').disabled = true;
+  mostrarMensaje($('mensaje-confirmacion'));
+  try {
+    const resultado = await solicitar('/api/v1/colaboradores/registro', {
+      method: 'POST',
+      body: JSON.stringify({
+        idInstitucional: estado.perfil.idInstitucional,
+        campus: estado.campus,
+        carreras: [...estado.carreras],
+      }),
+    });
+    estado.confirmado = true;
+    mostrarMensaje($('mensaje-confirmacion'),
+      `Registro confirmado: ${resultado.colaborador.nombreCompleto} ahora atiende ${resultado.asignacion.totalAspirantesAsignados} aspirante(s). Se le enviará un correo de bienvenida.`,
+      'exito');
+    $('confirmar-registro').textContent = 'Registrado ✓';
+    recargarListado();
+  } catch (error) {
+    $('anterior-3').disabled = false;
+    mostrarMensaje($('mensaje-confirmacion'), error.message);
+    actualizarPaso3();
   }
 }
 
@@ -381,6 +410,7 @@ async function iniciar() {
     const { usuario } = await solicitar('/api/v1/auth/session');
     if (usuario.rol !== 'administrador') { window.location.replace('/app'); return; }
     $('nombre-usuario').textContent = usuario.nombreCompleto;
+    $('avatar-usuario').textContent = inicialesUsuario(usuario.nombreCompleto);
     await cargarCatalogo();
   } catch (error) {
     // Se informa del problema sin inventar un catálogo o habilitar el registro.
@@ -388,13 +418,7 @@ async function iniciar() {
     mostrarMensaje($('mensaje-busqueda'),error.message);
     return;
   }
-  pintarFiltrosMuestra();
-  pintarMuestra();
-  $('buscar-muestra').addEventListener('input', () => { muestraUi.pagina=0; pintarMuestra(); });
-  $('ordenar-muestra').addEventListener('change', () => { muestraUi.pagina=0; pintarMuestra(); });
-  $('mostrar-inactivos').addEventListener('change', () => { muestraUi.pagina=0; pintarMuestra(); });
-  $('pagina-anterior').addEventListener('click', () => { if (muestraUi.pagina > 0) { muestraUi.pagina--; pintarMuestra(); } });
-  $('pagina-siguiente').addEventListener('click', () => { muestraUi.pagina++; pintarMuestra(); });
+  iniciarListadoColaboradores({ esAdministrador: true });
   $('abrir-registro').addEventListener('click', abrirModal);
   $('cerrar-registro').addEventListener('click', cerrarModal);
   document.querySelectorAll('[data-cancelar]').forEach((b) => b.addEventListener('click', cerrarModal));
@@ -411,6 +435,9 @@ async function iniciar() {
   $('anterior').addEventListener('click',() => { mostrarMensaje($('mensaje-guardado')); cambiarPaso(1); });
   $('distribucion-manual').addEventListener('change',actualizarPaso2);
   $('guardar-borrador').addEventListener('click',guardar);
+  $('ir-revision').addEventListener('click', irARevision);
+  $('anterior-3').addEventListener('click', () => { mostrarMensaje($('mensaje-confirmacion')); cambiarPaso(2); });
+  $('confirmar-registro').addEventListener('click', confirmarRegistro);
   $('cerrar-sesion').addEventListener('click',async () => {
     await solicitar('/api/v1/auth/logout',{method:'POST'});
     window.location.replace('/');

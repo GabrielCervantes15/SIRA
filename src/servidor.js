@@ -9,6 +9,8 @@ import { crearModuloMonitoreo } from './modulos/monitoreo/index.js';
 import { crearModuloMensajes } from './modulos/mensajes/index.js';
 import { crearServicioBorradores } from './modulos/colaboradores/borradores.js';
 import { crearCatalogoRegistroDemo } from './modulos/colaboradores/catalogo-registro-demo.js';
+import { crearModuloColaboradores } from './modulos/colaboradores/index.js';
+import { crearModuloNotificaciones } from './modulos/notificaciones/index.js';
 import { crearBusEnMemoria } from './compartido/eventos/bus-en-memoria.js';
 import { crearRepositorioConfiguracionEnvio, validarConfiguracion } from './modulos/configuracion-envio/configuracion-envio.js';
 import { listarMensajesIA } from './modulos/mensajes-ia/mensajes-ia.js';
@@ -137,8 +139,30 @@ export function crearServidor(opciones = {}) {
   const aspirantesDemo = leerJson(path.join(ROOT, 'datos-semilla/aspirantes.json'), { aspirantes: [] }).aspirantes;
   const catalogoRegistro = opciones.catalogoRegistro || crearCatalogoRegistroDemo(aspirantesDemo);
   const borradoresRegistro = opciones.borradoresRegistro || crearServicioBorradores();
-  const idsRegistrados = new Set(opciones.idsColaboradoresYaRegistrados || []);
   const busEventos = opciones.busEventos || opciones.bus || crearBusEnMemoria();
+  // HU 6: módulo Colaboradores (EQ-55, EQ-59, EQ-64, EQ-71). La semilla de colaboradores
+  // registrados solo acompaña a los usuarios semilla; si una prueba inyecta sus propios
+  // usuarios, arranca sin colaboradores salvo los de idsColaboradoresYaRegistrados.
+  const colaboradoresSemilla = opciones.colaboradores
+    ?? (opciones.usuarios ? [] : leerJson(path.join(ROOT, 'datos-semilla/colaboradores.json'), { colaboradores: [] }).colaboradores);
+  const moduloColaboradores = opciones.moduloColaboradores || crearModuloColaboradores({
+    proveedorAutenticacion: proveedor,
+    cartera: moduloMonitoreo.cartera,
+    catalogo: catalogoRegistro,
+    bus: busEventos,
+    borradores: borradoresRegistro,
+    repositorio: opciones.repositorioColaboradores,
+    colaboradores: [
+      ...colaboradoresSemilla,
+      ...(opciones.idsColaboradoresYaRegistrados || []).map((idInstitucional) => ({ idInstitucional })),
+    ],
+  });
+  // HU6-14 (EQ-61): correo de bienvenida al confirmar el registro (correo simulado).
+  const moduloNotificaciones = opciones.moduloNotificaciones || crearModuloNotificaciones({
+    bus: busEventos,
+    servicioCorreo: opciones.servicioCorreo,
+    opcionesConsumidor: opciones.opcionesNotificaciones,
+  });
   // HU9: una sola instancia del módulo Mensajes para administrar y consultar
   // la configuración; en pruebas puede inyectarse mediante opciones.moduloMensajes.
   const moduloMensajes = opciones.moduloMensajes || crearModuloMensajes({
@@ -146,8 +170,6 @@ export function crearServidor(opciones = {}) {
     busEventos,
   });
   const repositorioConfiguracionEnvio = opciones.repositorioConfiguracionEnvio || crearRepositorioConfiguracionEnvio();
-  // Historial común del proyecto para el panel de actividades del frontend de Gabriel.
-  const historialMonitoreo = opciones.historialMonitoreo || leerJson(path.join(ROOT, 'datos-semilla/aspirantes.json'), { historial: [] }).historial || [];
 
   function obtenerSesion(req) {
     const token = cookiesDe(req)[COOKIE_NAME];
@@ -158,7 +180,7 @@ export function crearServidor(opciones = {}) {
     return { token, ...sesion };
   }
 
-  return http.createServer(async (req, res) => {
+  const servidor = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     try {
       if ((url.pathname === '/health' || url.pathname === '/api/v1/health') && req.method === 'GET') {
@@ -226,6 +248,19 @@ export function crearServidor(opciones = {}) {
         return responderJson(res, 200, { cerrado: true }, { 'Set-Cookie': `${COOKIE_NAME}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${NODE_ENV === 'production' ? '; Secure' : ''}` });
       }
 
+      // EQ-71 (Figma «Vista de colaborador»): cualquier usuario con sesión consulta el listado de
+      // colaboradores. Registrar, inactivar y ver inactivos sigue siendo solo del administrador.
+      const recursosListado = new Set(['listado.html', 'listado.js', 'listado-colaboradores.js', 'registro.css', 'validaciones.js']);
+      const recursoColaboradores = url.pathname.replace(/^\/app\/colaboradores\//, '');
+      const esListadoApi = /^\/api\/(?:v1\/)?colaboradores\/?$/.test(url.pathname) && req.method === 'GET';
+      const esListadoFrontend = url.pathname.startsWith('/app/colaboradores/') && req.method === 'GET' && recursosListado.has(recursoColaboradores);
+      if (esListadoApi || esListadoFrontend) {
+        const sesion = obtenerSesion(req);
+        if (!sesion) return responderJson(res, 401, { codigo: 'SESION_NO_VALIDA', mensaje: 'Debes iniciar sesión para acceder a esta funcionalidad.' });
+        if (esListadoFrontend) return servirArchivo(res, path.join(FRONTEND_GABRIEL, 'colaboradores', recursoColaboradores));
+        if (await moduloColaboradores.enrutador(req, res, { usuario: sesion.usuario })) return;
+      }
+
       // EQ-17: Rutas exclusivas del administrador.
       const rutaAdminApi =
         /^\/api\/(?:v1\/)?colaboradores(?:\/|$)/.test(url.pathname);
@@ -256,6 +291,9 @@ export function crearServidor(opciones = {}) {
           return servirArchivo(res, path.join(FRONTEND_GABRIEL, 'colaboradores', recursoRegistro));
         }
 
+        // HU 6: listado (EQ-71), perfil (EQ-55), vista previa (EQ-64) y confirmación (EQ-59).
+        if (rutaAdminApi && await moduloColaboradores.enrutador(req, res, { usuario: sesion.usuario })) return;
+
         const raizRegistro = '/api/v1/colaboradores/registro';
         if (url.pathname === `${raizRegistro}/catalogo` && req.method === 'GET') {
           const campus = catalogoRegistro.listarCampus();
@@ -265,35 +303,12 @@ export function crearServidor(opciones = {}) {
           });
         }
 
-        const rutaPerfil = url.pathname.match(/^\/api\/v1\/colaboradores\/registro\/perfil\/([^/]+)$/);
-        if (rutaPerfil && req.method === 'GET') {
-          let id;
-          try { id = decodeURIComponent(rutaPerfil[1]); }
-          catch { return responderJson(res, 400, { codigo: 'ID_INVALIDO', mensaje: 'El ID no es válido.' }); }
-          if (!/^\d{5,20}$/.test(id)) {
-            return responderJson(res, 400, { codigo: 'ID_INVALIDO', mensaje: 'Ingresa un ID institucional numérico válido.' });
-          }
-          if (idsRegistrados.has(id)) {
-            return responderJson(res, 409, { codigo: 'YA_REGISTRADO', mensaje: 'Este colaborador ya está registrado.' });
-          }
-          let perfil;
-          try { perfil = await proveedor.obtenerPorIdInstitucional(id); }
-          catch (error) {
-            if (error instanceof ErrorAutenticacion && error.codigo === 'SERVICIO_NO_DISPONIBLE') {
-              return responderJson(res, 503, { codigo: 'SERVICIO_NO_DISPONIBLE', mensaje: 'El directorio institucional no está disponible.' });
-            }
-            throw error;
-          }
-          if (!perfil) return responderJson(res, 404, { codigo: 'ID_NO_ENCONTRADO', mensaje: 'No se encontró un colaborador con ese ID.' });
-          return responderJson(res, 200, { perfil });
-        }
-
         if (url.pathname === `${raizRegistro}/borrador` && req.method === 'POST') {
           const body = await leerCuerpo(req);
           const id = String(body.idInstitucional ?? '').trim();
           const campus = typeof body.campus === 'string' ? body.campus.trim() : '';
           if (!/^\d{5,20}$/.test(id)) return responderJson(res, 400, { codigo: 'ID_INVALIDO', mensaje: 'El ID institucional es obligatorio y debe ser numérico.' });
-          if (idsRegistrados.has(id)) return responderJson(res, 409, { codigo: 'YA_REGISTRADO', mensaje: 'Este colaborador ya está registrado.' });
+          if (await moduloColaboradores.repositorio.existe(id)) return responderJson(res, 409, { codigo: 'YA_REGISTRADO', mensaje: 'Este colaborador ya está registrado.' });
           let perfil;
           try { perfil = await proveedor.obtenerPorIdInstitucional(id); }
           catch (error) {
@@ -325,108 +340,6 @@ export function crearServidor(opciones = {}) {
           const borrador = borradoresRegistro.obtenerBorrador(decodeURIComponent(rutaBorrador[1]));
           if (!borrador) return responderJson(res, 404, { codigo: 'NO_ENCONTRADO', mensaje: 'Borrador no encontrado.' });
           return responderJson(res, 200, { borrador });
-        }
-
-        const esRutaConfirmarRegistro =
-          url.pathname === raizRegistro ||
-          url.pathname === `${raizRegistro}/` ||
-          url.pathname === `${raizRegistro}/confirmar` ||
-          url.pathname === '/api/colaboradores/registro';
-
-        if (esRutaConfirmarRegistro && req.method === 'POST') {
-          const body = await leerCuerpo(req);
-          const id = String(body.idInstitucional ?? '').trim();
-          const campus = typeof body.campus === 'string' ? body.campus.trim() : '';
-
-          if (!/^\d{5,20}$/.test(id)) {
-            return responderJson(res, 400, { codigo: 'ID_INVALIDO', mensaje: 'El ID institucional es obligatorio y debe ser numérico.' });
-          }
-          if (idsRegistrados.has(id)) {
-            return responderJson(res, 409, { codigo: 'YA_REGISTRADO', mensaje: 'Este colaborador ya está registrado.' });
-          }
-          if (!campus) {
-            return responderJson(res, 400, { codigo: 'CAMPUS_OBLIGATORIO', mensaje: 'Selecciona un campus para registrar al colaborador.' });
-          }
-          if (!catalogoRegistro.contieneCampus(campus)) {
-            return responderJson(res, 400, { codigo: 'CAMPUS_INVALIDO', mensaje: 'El campus seleccionado no está disponible.' });
-          }
-          if (!Array.isArray(body.carreras) || body.carreras.length === 0) {
-            return responderJson(res, 400, { codigo: 'CARRERAS_OBLIGATORIAS', mensaje: 'Selecciona al menos una carrera para completar el registro.' });
-          }
-          const carreras = [...new Set(body.carreras.map((c) => String(c || '').trim()).filter(Boolean))];
-          if (carreras.length === 0) {
-            return responderJson(res, 400, { codigo: 'CARRERAS_OBLIGATORIAS', mensaje: 'Selecciona al menos una carrera para completar el registro.' });
-          }
-          if (!carreras.every((c) => catalogoRegistro.contieneCarrera(campus, c))) {
-            return responderJson(res, 400, { codigo: 'CARRERA_INVALIDA', mensaje: 'Una o más carreras no corresponden al campus seleccionado.' });
-          }
-
-          let perfil;
-          try { perfil = await proveedor.obtenerPorIdInstitucional(id); }
-          catch (error) {
-            if (error instanceof ErrorAutenticacion && error.codigo === 'SERVICIO_NO_DISPONIBLE') {
-              return responderJson(res, 503, { codigo: 'SERVICIO_NO_DISPONIBLE', mensaje: 'El directorio institucional no está disponible.' });
-            }
-            throw error;
-          }
-          if (!perfil) {
-            return responderJson(res, 404, { codigo: 'ID_NO_ENCONTRADO', mensaje: 'No se encontró un colaborador con ese ID.' });
-          }
-
-          idsRegistrados.add(id);
-          const repositorio = moduloMonitoreo.repositorio;
-          if (repositorio?.carrerasPorColaborador) {
-            repositorio.carrerasPorColaborador[id] = [...carreras];
-          }
-          if (repositorio?.aliasColaborador && !repositorio.aliasColaborador[id]) {
-            repositorio.aliasColaborador[id] = [id];
-          }
-
-          const setCarreras = new Set(carreras);
-          const aspirantesAsignados = [];
-          if (Array.isArray(repositorio?.aspirantes)) {
-            for (const asp of repositorio.aspirantes) {
-              if (asp.campus === campus && setCarreras.has(asp.carreraSolicitada)) {
-                asp.colaboradorId = id;
-                aspirantesAsignados.push(asp.id);
-              }
-            }
-          }
-
-          const ahoraIso = new Date().toISOString();
-          const evento = {
-            eventId: `evt-reg-${randomBytes(6).toString('hex')}`,
-            tipo: 'colaboradores.registro.confirmado',
-            colaboradorId: id,
-            nombreCompleto: perfil.nombreCompleto,
-            correoInstitucional: perfil.correoInstitucional,
-            campus,
-            carrerasAsignadas: carreras,
-            aspirantesAsignados,
-            fechaConfirmacion: ahoraIso,
-          };
-          await busEventos.publicar('colaboradores.registro.confirmado', evento);
-
-          return responderJson(res, 201, {
-            confirmado: true,
-            colaborador: {
-              idInstitucional: id,
-              nombreCompleto: perfil.nombreCompleto,
-              correoInstitucional: perfil.correoInstitucional,
-              telefono: perfil.telefono,
-              campus,
-              rol: 'colaborador',
-              activo: true,
-              carrerasAsignadas: carreras,
-            },
-            asignacion: {
-              campus,
-              carreras,
-              totalAspirantesAsignados: aspirantesAsignados.length,
-              aspirantesIds: aspirantesAsignados,
-            },
-            evento,
-          });
         }
 
         return responderJson(res, 404, {
@@ -511,7 +424,8 @@ export function crearServidor(opciones = {}) {
       }
 
       // Adaptador de lectura y envío de mensajes para el expediente de Gabriel (EQ-40 / EQ-46).
-      const rutaExpediente = url.pathname.match(/^\/api\/(?:v1\/)?monitoreo\/aspirantes\/([^/]+)\/(actividades|conversacion)\/?$/);
+      // El detalle (EQ-42) y las actividades (EQ-43) ya los atiende el módulo Monitoreo.
+      const rutaExpediente = url.pathname.match(/^\/api\/(?:v1\/)?monitoreo\/aspirantes\/([^/]+)\/(conversacion)\/?$/);
       if (rutaExpediente && (req.method === 'GET' || (req.method === 'POST' && rutaExpediente[2] === 'conversacion'))) {
         const sesion = obtenerSesion(req);
         if (!sesion) return responderJson(res, 401, { codigo: 'NO_AUTORIZADO', mensaje: 'Inicia sesión para consultar el expediente.' });
@@ -556,7 +470,8 @@ export function crearServidor(opciones = {}) {
             repositorio.conversaciones.push(nuevoMensaje);
           }
           aspirante.fechaUltimaActividad = ahoraIso;
-          historialMonitoreo.push({
+          // EQ-43: el envío queda en el historial del módulo Monitoreo.
+          await repositorio.registrarActividad?.({
             id: `ev-${randomBytes(8).toString('hex')}`,
             aspiranteId: aspirante.id,
             tipoEvento: 'MENSAJE_ENVIADO',
@@ -601,29 +516,6 @@ export function crearServidor(opciones = {}) {
             })),
           });
         }
-
-        const desde = url.searchParams.get('desde');
-        const hasta = url.searchParams.get('hasta');
-        const desdeMs = desde ? Date.parse(desde) : null;
-        const hastaMs = hasta ? Date.parse(hasta) : null;
-        if ((desde && Number.isNaN(desdeMs)) || (hasta && Number.isNaN(hastaMs)) ||
-          (desdeMs !== null && hastaMs !== null && desdeMs > hastaMs)) {
-          return responderJson(res, 400, { codigo: 'PARAMETRO_INVALIDO', mensaje: 'Rango de fechas inválido.' });
-        }
-        const actividades = historialMonitoreo
-          .filter((h) => h.aspiranteId === aspirante.id)
-          .filter((h) => {
-            const fechaMs = Date.parse(h.fechaEvento ?? h.fecha);
-            return Number.isFinite(fechaMs) && (desdeMs === null || fechaMs >= desdeMs) && (hastaMs === null || fechaMs <= hastaMs);
-          })
-          .sort((a, b) => Date.parse(b.fechaEvento ?? b.fecha) - Date.parse(a.fechaEvento ?? a.fecha) || String(b.id).localeCompare(String(a.id)))
-          .map((h) => ({
-            id: h.id,
-            tipo: h.tipoEvento ?? h.tipo ?? 'ACTIVIDAD',
-            fecha: h.fechaEvento ?? h.fecha,
-            texto: [h.titulo, h.detalle].filter(Boolean).join(' — ') || 'Actividad registrada',
-          }));
-        return responderJson(res, 200, { actividades });
       }
 
       // Módulo Mensajes: /api/mensajes/... y /api/v1/mensajes/... (HU 9: EQ-106, EQ-107, EQ-108)
@@ -703,4 +595,9 @@ export function crearServidor(opciones = {}) {
       return responderJson(res, error.status || 500, { codigo: 'ERROR_INTERNO', mensaje: error.status ? error.message : 'Ocurrió un error interno.' });
     }
   });
+
+  // Acceso a los módulos para pruebas y demos (p. ej. revisar la bandeja de correo simulada).
+  servidor.modulos = { monitoreo: moduloMonitoreo, colaboradores: moduloColaboradores, notificaciones: moduloNotificaciones, bus: busEventos };
+  servidor.on('close', () => moduloNotificaciones.detener?.());
+  return servidor;
 }

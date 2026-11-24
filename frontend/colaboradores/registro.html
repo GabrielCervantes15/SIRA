@@ -8,17 +8,17 @@
   <link rel="stylesheet" href="/app/colaboradores/registro.css">
 </head>
 <body class="pagina-colaboradores">
-  <header class="barra-superior barra-figma">
+  <!-- Mismo encabezado que /app (Aspirantes y Mensajes). -->
+  <header class="barra-superior">
     <nav class="menu-principal" aria-label="Principal">
-      <a href="/app/colaboradores/registro.html" class="activo" aria-current="page">Colaboradores</a>
-      <a href="#" aria-disabled="true" title="Fuera del alcance de EQ-62 y EQ-63">Mensajes</a>
-      <a href="#" aria-disabled="true" title="Fuera del alcance de EQ-62 y EQ-63">Conocimiento</a>
-      <a href="/app" class="enlace-monitoreo">Monitoreo</a>
+      <a href="/app" id="nav-aspirantes">Aspirantes</a>
+      <a href="/app/colaboradores/registro.html" id="nav-colaboradores" class="activo" aria-current="page">Colaboradores</a>
+      <a href="/app?vista=mensajes" id="nav-mensajes">Mensajes</a>
     </nav>
-    <div class="usuario">
-      <span class="usuario-icono" aria-hidden="true">♙</span>
-      <span id="nombre-usuario">Validando sesión…</span>
-      <button class="salir" id="cerrar-sesion" type="button">Salir</button>
+    <div class="usuario" id="usuario">
+      <span class="avatar" id="avatar-usuario" aria-hidden="true"></span>
+      <span id="nombre-usuario">Cargando…</span>
+      <button type="button" class="boton" id="cerrar-sesion">Cerrar sesión</button>
     </div>
   </header>
 
@@ -27,13 +27,12 @@
       <div class="tablero-titulo">
         <div>
           <h1 id="titulo-colaboradores">Colaboradores</h1>
-          <p>Vista de muestra para presentar el diseño de Figma · los registros de esta cuadrícula son ficticios.</p>
+          <p>Colaboradores registrados en SIRA por campus, con su carga de aspirantes.</p>
         </div>
-        <span class="sello-demo">Vista de demostración</span>
       </div>
       <div class="tablero-indicadores">
-        <span>Miembros de ejemplo: <strong id="conteo-colaboradores">0</strong></span>
-        <span>Los aspirantes y sus cargas reales se integrarán después.</span>
+        <span>Cantidad de miembros: <strong id="conteo-colaboradores">0</strong></span>
+        <span>Número total de aspirantes: <strong id="conteo-aspirantes">0</strong></span>
       </div>
       <div class="herramientas-colaboradores" role="toolbar" aria-label="Herramientas de colaboradores">
         <label class="ordenar-colaboradores">
@@ -41,32 +40,33 @@
           <select id="ordenar-muestra"><option value="nombre">Nombre</option><option value="campus">Campus</option></select>
         </label>
         <label class="buscar-muestra">
-          <span class="sr-only">Buscar colaborador de ejemplo</span>
+          <span class="sr-only">Buscar colaborador</span>
           <input id="buscar-muestra" type="search" autocomplete="off" placeholder="Buscar por nombre de colaborador">
           <span aria-hidden="true">⌕</span>
         </label>
-        <div class="filtros-campus" id="filtros-campus" aria-label="Filtros de campus de muestra"></div>
+        <div class="filtros-campus" id="filtros-campus" aria-label="Filtrar por campus"></div>
         <span class="herramientas-espaciador"></span>
         <label class="interruptor-muestra"><span>Mostrar inactivos</span><input id="mostrar-inactivos" type="checkbox" role="switch"><span class="pista-muestra" aria-hidden="true"></span></label>
         <button type="button" class="boton-registrar" id="abrir-registro"><span aria-hidden="true">＋</span> Registrar colaborador</button>
-        <div class="paginar-muestra" aria-label="Paginación de la muestra">
+        <div class="paginar-muestra" aria-label="Paginación del listado">
           <button id="pagina-anterior" type="button" aria-label="Página anterior">‹</button>
-          <span id="conteo-pagina">1–9 de 9</span>
+          <span id="conteo-pagina">0 de 0</span>
           <button id="pagina-siguiente" type="button" aria-label="Página siguiente">›</button>
         </div>
       </div>
       <div class="cuadricula-colaboradores" id="cuadricula-colaboradores" aria-live="polite"></div>
-      <p class="pie-tablero">Este listado es únicamente una maqueta visual. No consulta ni crea colaboradores reales; la implementación del listado corresponde a otros tickets.</p>
+      <p class="pie-tablero" id="pie-tablero">Nombre, correo y teléfono provienen del directorio institucional (simulado en este sprint).</p>
     </section>
   </main>
 
   <div class="capa-modal" id="capa-registro" hidden>
     <section class="modal-registro" role="dialog" aria-modal="true" aria-labelledby="modal-titulo" aria-describedby="modal-descripcion">
       <div class="modal-cabecera"><h2 id="modal-titulo">Registro de colaborador</h2><button type="button" id="cerrar-registro" aria-label="Cerrar registro">×</button></div>
-      <p class="sr-only" id="modal-descripcion">Formulario en dos pasos para consultar un colaborador y seleccionar las carreras de su campus. Los cambios se guardan en borrador, no se confirma el alta.</p>
+      <p class="sr-only" id="modal-descripcion">Formulario en tres pasos: consultar al colaborador, seleccionar las carreras de su campus y revisar la distribución antes de confirmar el registro.</p>
       <ol class="modal-pasos" aria-label="Pasos de registro">
         <li id="indicador-1" aria-current="step"><span>1</span> Datos del colaborador</li>
         <li id="indicador-2"><span>2</span> Distribución de carreras</li>
+        <li id="indicador-3"><span>3</span> Revisión y confirmación</li>
       </ol>
 
       <section class="panel-paso" id="paso-1" aria-label="Paso 1: datos del colaborador">
@@ -105,11 +105,7 @@
 
         <div class="clave-pendiente">
           <strong>Contraseña de acceso</strong>
-          <p>La contraseña temporal se configurará al integrar el registro definitivo (EQ-64).</p>
-          <div class="fila-claves">
-            <label>Contraseña: <input type="password" disabled placeholder="Pendiente de integración" autocomplete="new-password"></label>
-            <label>Confirmar contraseña: <input type="password" disabled placeholder="Pendiente de integración" autocomplete="new-password"></label>
-          </div>
+          <p>El colaborador entrará con su ID y la contraseña de su cuenta institucional (directorio). SIRA no crea ni guarda contraseñas.</p>
         </div>
         <div class="acciones-modal">
           <button class="btn-volver" type="button" disabled>Atrás</button>
@@ -120,7 +116,7 @@
 
       <section class="panel-paso" id="paso-2" aria-label="Paso 2: distribución de carreras" hidden>
         <p class="campo-titulo">Carreras asignadas:</p>
-        <p class="texto-instruccion aviso-asignacion">Selecciona las carreras que atenderá este colaborador. El reparto automático de aspirantes y sus cantidades reales todavía no está integrado.</p>
+        <p class="texto-instruccion aviso-asignacion">Selecciona las carreras que atenderá este colaborador. En el siguiente paso verás cuántos aspirantes recibe y de quién.</p>
         <label class="interruptor-manual"><span>Distribución manual</span><input id="distribucion-manual" type="checkbox" role="switch" checked><span class="pista-muestra" aria-hidden="true"></span></label>
         <p class="mensaje-manual" id="mensaje-manual" hidden>La distribución automática depende del módulo del equipo. Activa la distribución manual para seleccionar carreras.</p>
         <div id="lista-carreras" class="lista-carreras" role="group" aria-label="Carreras disponibles"></div>
@@ -128,12 +124,41 @@
         <div class="resumen-carreras">
           <span>Campus: <strong id="resumen-campus">—</strong></span>
           <span>Carreras seleccionadas: <strong id="total-carreras">0</strong></span>
-          <span>Asignación de aspirantes: <strong>Pendiente</strong></span>
+          <span>Asignación de aspirantes: <strong>Se revisa en el paso 3</strong></span>
         </div>
         <p id="mensaje-guardado" class="registro-mensaje" role="status" hidden></p>
         <div class="acciones-modal">
           <button id="anterior" class="btn-volver" type="button">Atrás</button>
-          <button id="guardar-borrador" class="btn-principal" type="button" disabled>Guardar borrador</button>
+          <button id="guardar-borrador" class="btn-secundario" type="button" disabled>Guardar borrador</button>
+          <button id="ir-revision" class="btn-principal" type="button" disabled>Siguiente</button>
+          <button class="btn-cancelar" data-cancelar type="button">Cancelar</button>
+        </div>
+      </section>
+
+      <section class="panel-paso" id="paso-3" aria-label="Paso 3: revisión de la distribución" hidden>
+        <p class="campo-titulo">Revisión de la distribución</p>
+        <p class="texto-instruccion">Revisa a quién se le quitan aspirantes y cómo queda la carga antes de confirmar. Nada cambia hasta que presiones «Confirmar registro».</p>
+        <dl class="resumen-revision">
+          <div><dt>Colaborador</dt><dd id="revision-nombre">—</dd></div>
+          <div><dt>ID</dt><dd id="revision-id">—</dd></div>
+          <div><dt>Campus</dt><dd id="revision-campus">—</dd></div>
+          <div><dt>Aspirantes que recibe</dt><dd id="revision-total">0</dd></div>
+        </dl>
+        <table class="tabla-revision">
+          <caption>Aspirantes por carrera</caption>
+          <thead><tr><th scope="col">Carrera</th><th scope="col">Aspirantes</th><th scope="col">Hoy los atiende</th></tr></thead>
+          <tbody id="revision-carreras"></tbody>
+        </table>
+        <table class="tabla-revision">
+          <caption>Carga por colaborador</caption>
+          <thead><tr><th scope="col">Colaborador</th><th scope="col">Antes</th><th scope="col">Después</th></tr></thead>
+          <tbody id="revision-cargas"></tbody>
+        </table>
+        <p id="aviso-sin-aspirantes" class="texto-instruccion" hidden>Estas carreras no tienen aspirantes en este momento; el colaborador las atenderá cuando lleguen.</p>
+        <p id="mensaje-confirmacion" class="registro-mensaje" role="status" hidden></p>
+        <div class="acciones-modal">
+          <button id="anterior-3" class="btn-volver" type="button">Atrás</button>
+          <button id="confirmar-registro" class="btn-principal" type="button" disabled>Confirmar registro</button>
           <button class="btn-cancelar" data-cancelar type="button">Cancelar</button>
         </div>
       </section>

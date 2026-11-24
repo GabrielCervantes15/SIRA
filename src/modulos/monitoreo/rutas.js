@@ -32,6 +32,13 @@ export function crearEnrutadorMonitoreo({ controlador }) {
       return true;
     }
 
+    // GET /api/monitoreo/aspirantes/:id/actividades?desde=&hasta= (HU3-6 / EQ-43)
+    const rutaActividades = rutaRelativa.match(/^\/aspirantes\/([^/]+)\/actividades\/?$/);
+    if (rutaActividades && req.method === "GET") {
+      await controlador.obtenerHistorial(req, res, contexto, rutaActividades[1]);
+      return true;
+    }
+
     // GET /api/monitoreo/aspirantes/:id/conversacion (HU3-5)
     const matchConversacion = rutaRelativa.match(/^\/aspirantes\/([^/]+)\/conversacion\/?$/);
     if (matchConversacion && req.method === "GET") {

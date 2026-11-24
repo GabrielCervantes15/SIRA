@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Colaboradores · SIRA</title>
+  <link rel="stylesheet" href="/app/css/estilos.css">
+  <link rel="stylesheet" href="/app/colaboradores/registro.css">
+</head>
+<body class="pagina-colaboradores">
+  <!-- EQ-71 · Figma «Colaboradores - Vista de colaborador»: solo consulta. -->
+  <!-- Mismo encabezado que /app (Aspirantes y Mensajes). -->
+  <header class="barra-superior">
+    <nav class="menu-principal" aria-label="Principal">
+      <a href="/app" id="nav-aspirantes">Aspirantes</a>
+      <a href="/app/colaboradores/listado.html" id="nav-colaboradores" class="activo" aria-current="page">Colaboradores</a>
+      <a href="/app?vista=mensajes" id="nav-mensajes">Mensajes</a>
+    </nav>
+    <div class="usuario" id="usuario">
+      <span class="avatar" id="avatar-usuario" aria-hidden="true"></span>
+      <span id="nombre-usuario">Cargando…</span>
+      <button type="button" class="boton" id="cerrar-sesion">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main class="contenedor tablero-colaboradores">
+    <section class="tablero-tarjeta" aria-labelledby="titulo-colaboradores">
+      <div class="tablero-titulo">
+        <div>
+          <h1 id="titulo-colaboradores">Colaboradores</h1>
+          <p>Colaboradores registrados en SIRA por campus, con su carga de aspirantes.</p>
+        </div>
+      </div>
+      <div class="tablero-indicadores">
+        <span>Cantidad de miembros: <strong id="conteo-colaboradores">0</strong></span>
+        <span>Número total de aspirantes: <strong id="conteo-aspirantes">0</strong></span>
+      </div>
+      <div class="herramientas-colaboradores" role="toolbar" aria-label="Herramientas de colaboradores">
+        <label class="ordenar-colaboradores">
+          <span class="sr-only">Ordenar colaboradores</span>
+          <select id="ordenar-muestra"><option value="nombre">Nombre</option><option value="campus">Campus</option></select>
+        </label>
+        <label class="buscar-muestra">
+          <span class="sr-only">Buscar colaborador</span>
+          <input id="buscar-muestra" type="search" autocomplete="off" placeholder="Buscar por nombre de colaborador">
+          <span aria-hidden="true">⌕</span>
+        </label>
+        <div class="filtros-campus" id="filtros-campus" aria-label="Filtrar por campus"></div>
+        <span class="herramientas-espaciador"></span>
+        <div class="paginar-muestra" aria-label="Paginación del listado">
+          <button id="pagina-anterior" type="button" aria-label="Página anterior">‹</button>
+          <span id="conteo-pagina">0 de 0</span>
+          <button id="pagina-siguiente" type="button" aria-label="Página siguiente">›</button>
+        </div>
+      </div>
+      <div class="cuadricula-colaboradores" id="cuadricula-colaboradores" aria-live="polite"></div>
+      <p class="pie-tablero" id="pie-tablero">Nombre, correo y teléfono provienen del directorio institucional (simulado en este sprint).</p>
+    </section>
+  </main>
+
+  <script type="module" src="/app/colaboradores/listado.js"></script>
+</body>
+</html>

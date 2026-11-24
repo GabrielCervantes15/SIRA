@@ -49,8 +49,14 @@ export function crearServicioBorradores() {
     return borrador ? { ...borrador, ...(borrador.carreras ? { carreras: [...borrador.carreras] } : {}) } : null;
   }
 
+  // EQ-59: al confirmar el registro el borrador deja de tener sentido.
+  function eliminarBorrador(idInstitucional) {
+    return borradores.delete(String(idInstitucional ?? '').trim());
+  }
+
   return {
     guardarBorrador,
-    obtenerBorrador
+    obtenerBorrador,
+    eliminarBorrador
   };
 }

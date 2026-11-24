@@ -10,17 +10,20 @@ export class MonitoreoControlador {
    * @param {import('../aplicacion/listar-aspirantes.caso-uso.js').ListarAspirantesCasoUso} [dependencias.listarAspirantesCasoUso]
    * @param {import('../aplicacion/obtener-detalle-aspirante.caso-uso.js').ObtenerDetalleAspiranteCasoUso} [dependencias.obtenerDetalleAspiranteCasoUso]
    * @param {import('../aplicacion/obtener-conversacion.caso-uso.js').ObtenerConversacionCasoUso} [dependencias.obtenerConversacionCasoUso]
+   * @param {import('../aplicacion/obtener-historial-aspirante.caso-uso.js').ObtenerHistorialAspiranteCasoUso} [dependencias.obtenerHistorialAspiranteCasoUso]
    */
   constructor({
     obtenerFiltrosCasoUso,
     listarAspirantesCasoUso,
     obtenerDetalleAspiranteCasoUso,
     obtenerConversacionCasoUso,
+    obtenerHistorialAspiranteCasoUso,
   }) {
     this.obtenerFiltrosCasoUso = obtenerFiltrosCasoUso;
     this.listarAspirantesCasoUso = listarAspirantesCasoUso;
     this.obtenerDetalleAspiranteCasoUso = obtenerDetalleAspiranteCasoUso;
     this.obtenerConversacionCasoUso = obtenerConversacionCasoUso;
+    this.obtenerHistorialAspiranteCasoUso = obtenerHistorialAspiranteCasoUso;
   }
 
   /**
@@ -230,6 +233,59 @@ export class MonitoreoControlador {
         JSON.stringify({
           codigo: error.codigo || "ERROR_INTERNO",
           mensaje: error.message || "Error al consultar la conversación del aspirante.",
+        })
+      );
+    }
+  }
+
+  /**
+   * GET /api/monitoreo/aspirantes/:id/actividades?desde=&hasta= (HU3-6 / EQ-43)
+   * Historial del aspirante del más reciente al más antiguo: 200, 400, 401, 403 o 404.
+   *
+   * @param {import('node:http').IncomingMessage} req
+   * @param {import('node:http').ServerResponse} res
+   * @param {Object} [contexto]
+   * @param {string} [aspiranteIdCrudo]
+   */
+  async obtenerHistorial(req, res, contexto = {}, aspiranteIdCrudo = "") {
+    try {
+      let aspiranteId;
+      try {
+        aspiranteId = decodeURIComponent(aspiranteIdCrudo);
+      } catch {
+        res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+        res.end(JSON.stringify({ codigo: "PARAMETRO_INVALIDO", mensaje: "Identificador inválido." }));
+        return;
+      }
+
+      if (!this.obtenerHistorialAspiranteCasoUso) {
+        res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
+        res.end(
+          JSON.stringify({
+            codigo: "CASO_USO_NO_CONFIGURADO",
+            mensaje: "ObtenerHistorialAspiranteCasoUso no está inicializado en el controlador.",
+          })
+        );
+        return;
+      }
+
+      const q = new URL(req.url, "http://localhost").searchParams;
+      const resultado = await this.obtenerHistorialAspiranteCasoUso.ejecutar({
+        colaboradorId: contexto.usuario?.idInstitucional,
+        aspiranteId,
+        desde: q.get("desde"),
+        hasta: q.get("hasta"),
+      });
+
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify(resultado));
+    } catch (error) {
+      const status = error.status || 500;
+      res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(
+        JSON.stringify({
+          codigo: error.codigo || "ERROR_INTERNO",
+          mensaje: error.status ? error.message : "Error al consultar el historial del aspirante.",
         })
       );
     }

@@ -2,8 +2,11 @@
  * Monitoreo de aspirantes (HU 2 y HU 3).
  *   EQ-26 · HU2-1 / HU2-8 / HU2-10 → tabla con semáforo, orden, paginación y estados
  *   EQ-40 · HU3-1 / HU3-6 / HU3-8  → panel de contacto y de actividades (historial)
+ *   EQ-36 · HU2-11                 → abrir el expediente al seleccionar (y desde la URL)
  */
 import { api } from "./api.js";
+import { aspiranteDesdeUrl, urlConAspirante } from "./expediente-url.js";
+import { inicialesUsuario } from "./usuario.js";
 import { inicializarConfiguracionMensajes } from "./configuracion-mensajes.js";
 
 const TAMANO = 13;
@@ -288,8 +291,17 @@ function seleccionarPestana(nombre) {
   if (nombre === "chat") cargarChat();
 }
 
+function recordarEnUrl(id) {
+  try {
+    window.history.replaceState(null, "", urlConAspirante(window.location.href, id));
+  } catch {
+    // Sin History API (p. ej. vista incrustada): el panel funciona igual.
+  }
+}
+
 async function abrirPanel(id) {
   estado.aspiranteId = id;
+  recordarEnUrl(id);
   for (const fila of cuerpo.querySelectorAll("tr")) {
     fila.setAttribute("aria-selected", String(fila.dataset.id === id));
   }
@@ -313,6 +325,7 @@ async function abrirPanel(id) {
 
 function cerrarPanel() {
   estado.aspiranteId = null;
+  recordarEnUrl(null);
   $("panel").hidden = true;
   for (const fila of cuerpo.querySelectorAll("tr")) fila.setAttribute("aria-selected", "false");
 }
@@ -444,10 +457,18 @@ async function iniciar() {
   try {
     const sesion = await api.sesion();
     $("nombre-usuario").textContent = sesion.nombre;
+    $("avatar-usuario").textContent = inicialesUsuario(sesion.nombre);
     inicializarConfiguracionMensajes({
       api,
       esAdministrador: sesion.usuario?.rol === "administrador",
     });
+    // EQ-71: los dos roles ven el listado de colaboradores; el administrador entra a la vista
+    // con registro e inactivación, el colaborador a la de solo consulta (Figma).
+    const enlace = $("nav-colaboradores");
+    const esAdministrador = sesion.usuario?.rol === "administrador";
+    enlace.href = esAdministrador ? "/app/colaboradores/registro.html" : "/app/colaboradores/listado.html";
+    enlace.removeAttribute("aria-disabled");
+    enlace.title = esAdministrador ? "Listado y registro de colaboradores" : "Listado de colaboradores";
   } catch (error) {
     if (error.estado === 401) window.location.replace('/?expired=1');
     else $("nombre-usuario").textContent = "Sin conexión al servicio de sesión";
@@ -465,6 +486,11 @@ async function iniciar() {
     }
   });
   cargarTabla();
+  // Desde la pantalla de Colaboradores, «Mensajes» llega como /app?vista=mensajes.
+  if (new URLSearchParams(window.location.search).get("vista") === "mensajes") mostrarVista("mensajes-ia");
+  // EQ-36: si la URL trae ?aspirante=ID se abre su expediente (403/404 se informan en el panel).
+  const aspiranteInicial = aspiranteDesdeUrl(window.location.href);
+  if (aspiranteInicial) abrirPanel(aspiranteInicial);
   window.setInterval(revisarSesion, 5000);
 }
 
