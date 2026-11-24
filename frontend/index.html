@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CRM Admisiones · Monitoreo de aspirantes</title>
   <link rel="stylesheet" href="/app/css/estilos.css">
+  <link rel="stylesheet" href="/app/css/envio-mensajes.css">
 </head>
 <body>
   <header class="barra-superior">
@@ -21,7 +22,25 @@
   </header>
 
   <main class="contenedor">
-    <section class="tarjeta monitoreo" aria-labelledby="titulo-monitoreo">
+    <div class="layout-aspirantes">
+      <aside class="columna-acciones" id="acciones-aspirantes">
+        <section class="tarjeta tarjeta-envio-automatico" id="tarjeta-envio-automatico" aria-labelledby="titulo-envio-automatico">
+          <p class="envio-horario" id="envio-horario">Horario de demostración: 08:00 a 18:00</p>
+          <h2 id="titulo-envio-automatico">➤ Mensajes automáticos</h2>
+          <p>Prepara un lote de mensajes para aspirantes que necesitan continuar su proceso de admisión.</p>
+          <button type="button" class="boton-envio-iniciar" id="abrir-envio-automatico">Iniciar</button>
+          <label class="envio-escenario">
+            Escenario de demostración
+            <select id="envio-escenario">
+              <option value="normal">Horario permitido</option>
+              <option value="fuera">Fuera de horario</option>
+              <option value="cero">Cero aspirantes</option>
+            </select>
+          </label>
+          <p class="envio-nota-demo">Prototipo EQ-78: datos ficticios, sin envío real.</p>
+        </section>
+      </aside>
+      <section class="tarjeta monitoreo" aria-labelledby="titulo-monitoreo">
       <div class="monitoreo-encabezado">
         <h1 id="titulo-monitoreo">Monitoreo</h1>
         <p class="ayuda">Seleccione un aspirante para ver su información de contacto y su historial de actividades.</p>
@@ -107,7 +126,8 @@
           </section>
         </aside>
       </div>
-    </section>
+      </section>
+    </div>
 
     <!-- HU 8 (EQ-98, EQ-99): mensajes predefinidos de la IA, solo lectura. -->
     <section class="tarjeta" id="vista-mensajes-ia" hidden aria-labelledby="titulo-mensajes-ia">
@@ -201,6 +221,56 @@
             </footer>
           </form>
         </aside>
+      </div>
+    </section>
+
+    <!-- EQ-78 · Modal de preparación y simulación de lote de mensajes. -->
+    <section id="envio-modal" class="envio-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="titulo-modal-envio" hidden>
+      <div class="envio-modal">
+        <header class="envio-modal-header">
+          <div><p>Preparación de lote</p><h2 id="titulo-modal-envio">Envío de mensajes automáticos</h2></div>
+          <button type="button" id="cerrar-envio" class="envio-cerrar" aria-label="Cerrar ventana">×</button>
+        </header>
+        <div class="envio-modal-body">
+          <div class="envio-filtros">
+            <div class="envio-campo"><label>Semáforos</label><div class="envio-dropdown" data-dropdown="semaforos">
+              <button type="button" class="envio-dropdown-trigger" aria-expanded="false">Todos <span>▾</span></button>
+              <div class="envio-dropdown-menu" hidden>
+                <label><input type="checkbox" value="AMARILLO" checked> Amarillo</label>
+                <label><input type="checkbox" value="NARANJA" checked> Naranja</label>
+                <label><input type="checkbox" value="ROJO" checked> Rojo</label>
+              </div></div></div>
+            <div class="envio-campo"><label>Carreras</label><div class="envio-dropdown" data-dropdown="carreras">
+              <button type="button" class="envio-dropdown-trigger" aria-expanded="false">Todas <span>▾</span></button>
+              <div class="envio-dropdown-menu" hidden>
+                <label><input type="checkbox" value="Ingeniería en Software" checked> Ingeniería en Software</label>
+                <label><input type="checkbox" value="Ingeniería Industrial" checked> Ingeniería Industrial</label>
+                <label><input type="checkbox" value="Ingeniería en Mecatrónica" checked> Ingeniería en Mecatrónica</label>
+                <label><input type="checkbox" value="Ingeniería en Electrónica" checked> Ingeniería en Electrónica</label>
+              </div></div></div>
+            <div class="envio-campo"><label for="envio-numero">Tiempo mínimo de inactividad</label><div class="envio-stepper">
+              <button type="button" id="envio-menos" aria-label="Disminuir tiempo">−</button>
+              <input id="envio-numero" type="number" min="1" max="365" value="7">
+              <button type="button" id="envio-mas" aria-label="Aumentar tiempo">+</button>
+              <select id="envio-unidad" aria-label="Unidad de inactividad"><option value="dias">Días</option><option value="semanas">Semanas</option><option value="meses">Meses</option></select>
+            </div></div>
+          </div>
+          <label class="envio-correo"><input type="checkbox" id="envio-correo"> Enviar por correo</label>
+          <p id="envio-conteo" class="envio-conteo" aria-live="polite">Calculando aspirantes…</p>
+          <p id="envio-alerta" class="envio-alerta" role="status" hidden></p>
+          <section id="envio-plantillas" class="envio-plantillas">
+            <h3>Mensajes que serán enviados</h3>
+            <article>Hola, queremos informarte que puedes continuar con tu proceso de admisión en ITSON. Consulta los pasos pendientes para completar tu registro.</article>
+            <article>Te recordamos que puedes retomar tu proceso de admisión. Estamos disponibles para orientarte.</article>
+            <article>Si tienes documentación pendiente, revisa los requisitos para concluir tu proceso de admisión.</article>
+          </section>
+          <div id="envio-progreso" class="envio-progreso" hidden>Procesando simulación…<span></span></div>
+          <div id="envio-resultado" class="envio-resultado" role="status" hidden></div>
+        </div>
+        <footer class="envio-modal-footer">
+          <button type="button" id="cancelar-envio" class="envio-cancelar">Cancelar</button>
+          <button type="button" id="confirmar-envio" class="envio-confirmar">Enviar</button>
+        </footer>
       </div>
     </section>
   </main>

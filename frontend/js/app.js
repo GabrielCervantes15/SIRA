@@ -8,6 +8,7 @@ import { api } from "./api.js";
 import { aspiranteDesdeUrl, urlConAspirante } from "./expediente-url.js";
 import { inicialesUsuario } from "./usuario.js";
 import { inicializarConfiguracionMensajes } from "./configuracion-mensajes.js";
+import { inicializarEnvioMensajes } from "./envio-mensajes.js";
 
 const TAMANO = 13;
 const ETIQUETA_SEMAFORO = { ROJO: "Rojo", NARANJA: "Naranja", VERDE: "Verde" };
@@ -460,6 +461,9 @@ async function iniciar() {
     $("avatar-usuario").textContent = inicialesUsuario(sesion.nombre);
     inicializarConfiguracionMensajes({
       api,
+      esAdministrador: sesion.usuario?.rol === "administrador",
+    });
+    inicializarEnvioMensajes({
       esAdministrador: sesion.usuario?.rol === "administrador",
     });
     // EQ-71: los dos roles ven el listado de colaboradores; el administrador entra a la vista
