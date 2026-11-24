@@ -6,9 +6,11 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { RepositorioMonitoreoMemoria } from "./infraestructura/repositorio-monitoreo-memoria.js";
+import { RepositorioMonitoreoPostgres } from "./infraestructura/repositorio-monitoreo-postgres.js";
 import { ObtenerFiltrosCasoUso } from "./aplicacion/obtener-filtros.caso-uso.js";
 import { ListarAspirantesCasoUso } from "./aplicacion/listar-aspirantes.caso-uso.js";
 import { ObtenerDetalleAspiranteCasoUso } from "./aplicacion/obtener-detalle-aspirante.caso-uso.js";
+import { ObtenerConversacionCasoUso } from "./aplicacion/obtener-conversacion.caso-uso.js";
 import { MonitoreoControlador } from "./infraestructura/controlador-monitoreo.js";
 import { crearEnrutadorMonitoreo } from "./rutas.js";
 
@@ -47,10 +49,15 @@ export function crearModuloMonitoreo(opciones = {}) {
     repositorioMonitoreo: repositorio,
   });
 
+  const obtenerConversacionCasoUso = new ObtenerConversacionCasoUso({
+    repositorioMonitoreo: repositorio,
+  });
+
   const controlador = new MonitoreoControlador({
     obtenerFiltrosCasoUso,
     listarAspirantesCasoUso,
     obtenerDetalleAspiranteCasoUso,
+    obtenerConversacionCasoUso,
   });
 
   const enrutador = crearEnrutadorMonitoreo({ controlador });
@@ -60,6 +67,7 @@ export function crearModuloMonitoreo(opciones = {}) {
     obtenerFiltrosCasoUso,
     listarAspirantesCasoUso,
     obtenerDetalleAspiranteCasoUso,
+    obtenerConversacionCasoUso,
     controlador,
     enrutador,
   };
@@ -69,8 +77,10 @@ export {
   ObtenerFiltrosCasoUso,
   ListarAspirantesCasoUso,
   ObtenerDetalleAspiranteCasoUso,
+  ObtenerConversacionCasoUso,
   MonitoreoControlador,
   RepositorioMonitoreoMemoria,
+  RepositorioMonitoreoPostgres,
   crearEnrutadorMonitoreo,
 };
 

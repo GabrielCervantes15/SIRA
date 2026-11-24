@@ -1,10 +1,11 @@
 /**
  * Servicio de Interfaz Pública de Lectura de Configuración de Mensajes
- * Tarea: EQ-105 · HU9-4 (Sprint 2)
+ * Tareas: EQ-105 (HU9-4) y EQ-108 (HU9-7: Refresco reactivo mediante bus de eventos)
  *
  * Provee a los módulos consumidores (HU1, HU8, etc.) acceso desacoplado y de solo
  * lectura a los parámetros vigentes y evaluación de horarios en `America/Hermosillo`,
- * sin leer tablas internas ni depender del huso horario local del servidor.
+ * suscribiéndose opcionalmente a `mensajes.configuracion.actualizada` para refrescar
+ * su copia en memoria de manera reactiva.
  */
 import {
   ZONA_HORARIA_INSTITUCIONAL,
@@ -12,6 +13,10 @@ import {
   clonarConfiguracion,
 } from "../dominio/repositorio-configuracion.js";
 import { convertirHoraAMinutos } from "../dominio/validador-configuracion.js";
+import {
+  TIPO_CONFIGURACION_ACTUALIZADA,
+  validarEventoConfiguracionActualizada,
+} from "../eventos.js";
 
 const MAPA_DIA_INGLES_A_ESPANOL = Object.freeze({
   Mon: "lunes",
@@ -147,9 +152,6 @@ export function evaluarHorarioPermitido(fecha = new Date(), configuracion = crea
  * Calcula de forma pura el siguiente instante de apertura (`horaInicio`) de un día habilitado
  * en la zona horaria `America/Hermosillo` a partir de la fecha dada.
  *
- * Ejemplo aprobado por el PO: si un envío vence el viernes a las 19:00, retorna el lunes a las 08:00
- * en `America/Hermosillo`. Si es viernes a las 06:30 (antes de abrir), retorna ese mismo viernes a las 08:00.
- *
  * @param {Date|string|number} [fecha=new Date()]
  * @param {Object} [configuracion]
  * @returns {Date|null}
@@ -195,35 +197,73 @@ export function calcularSiguienteAperturaDesdeConfig(
 }
 
 /**
- * Crea la interfaz pública de lectura de configuración del módulo Mensajes (EQ-105 / HU9-4).
+ * Crea la interfaz pública de lectura de configuración del módulo Mensajes (EQ-105 / EQ-108).
+ * Si recibe `busEventos`, se suscribe automáticamente a `mensajes.configuracion.actualizada`
+ * y refresca su instantánea en memoria cuando recibe un evento válido.
  *
- * @param {Object} dependencias
- * @param {import('../dominio/repositorio-configuracion.js')} dependencias.repositorioConfiguracion
+ * @param {Object} [dependencias]
+ * @param {import('../dominio/repositorio-configuracion.js')} [dependencias.repositorioConfiguracion]
+ * @param {{ suscribir?: Function }|null} [dependencias.busEventos]
  * @returns {{
  *   obtenerConfiguracionVigente: () => Object,
  *   estaDentroDeHorarioPermitido: (fecha?: Date|string|number) => boolean,
  *   calcularSiguienteApertura: (fecha?: Date|string|number) => Date|null,
  *   actualizarInstantanea: (config: Object) => void,
- *   sincronizarDesdeRepositorio: () => Promise<Object>
+ *   sincronizarDesdeRepositorio: () => Promise<Object>,
+ *   detenerSuscripcion: () => void
  * }}
  */
-export function crearInterfazLecturaConfiguracion({ repositorioConfiguracion }) {
-  if (!repositorioConfiguracion) {
+export function crearInterfazLecturaConfiguracion({
+  repositorioConfiguracion = null,
+  busEventos = null,
+} = {}) {
+  if (!repositorioConfiguracion && !busEventos) {
     throw new Error(
-      "Se requiere repositorioConfiguracion para crear la interfaz pública de lectura."
+      "Se requiere repositorioConfiguracion o busEventos para crear la interfaz pública de lectura."
     );
   }
 
+  let versionRepositorioSincronizada =
+    typeof repositorioConfiguracion?.versionEstado === "number"
+      ? repositorioConfiguracion.versionEstado
+      : -1;
+
   let instantaneaVigente =
-    typeof repositorioConfiguracion.obtenerInstantanea === "function"
+    typeof repositorioConfiguracion?.obtenerInstantanea === "function"
       ? repositorioConfiguracion.obtenerInstantanea()
       : clonarConfiguracion(crearConfiguracionInicial(), { congelar: true });
 
   function obtenerInstantaneaActual() {
-    if (typeof repositorioConfiguracion.obtenerInstantanea === "function") {
+    if (
+      repositorioConfiguracion &&
+      typeof repositorioConfiguracion.obtenerInstantanea === "function" &&
+      typeof repositorioConfiguracion.versionEstado === "number" &&
+      repositorioConfiguracion.versionEstado !== versionRepositorioSincronizada
+    ) {
       instantaneaVigente = repositorioConfiguracion.obtenerInstantanea();
+      versionRepositorioSincronizada = repositorioConfiguracion.versionEstado;
     }
     return instantaneaVigente;
+  }
+
+  function actualizarInstantanea(nuevaConfiguracion) {
+    instantaneaVigente = clonarConfiguracion(nuevaConfiguracion, { congelar: true });
+    if (typeof repositorioConfiguracion?.versionEstado === "number") {
+      versionRepositorioSincronizada = repositorioConfiguracion.versionEstado;
+    }
+  }
+
+  let cancelarSuscripcion = null;
+  if (busEventos && typeof busEventos.suscribir === "function") {
+    cancelarSuscripcion = busEventos.suscribir(
+      TIPO_CONFIGURACION_ACTUALIZADA,
+      (evento) => {
+        const validacion = validarEventoConfiguracionActualizada(evento);
+        if (validacion.valido) {
+          actualizarInstantanea(evento.datos.valorNuevo);
+        }
+      }
+    );
   }
 
   return Object.freeze({
@@ -254,21 +294,30 @@ export function crearInterfazLecturaConfiguracion({ repositorioConfiguracion }) 
     },
 
     /**
-     * Actualiza la instantánea en memoria tras un guardado exitoso.
+     * Actualiza la instantánea en memoria tras un guardado exitoso o evento recibido.
      * @param {Object} nuevaConfiguracion
      */
-    actualizarInstantanea(nuevaConfiguracion) {
-      instantaneaVigente = clonarConfiguracion(nuevaConfiguracion, { congelar: true });
-    },
+    actualizarInstantanea,
 
     /**
      * Sincroniza la instantánea desde el repositorio (útil para adaptadores asíncronos como PostgreSQL).
      * @returns {Promise<Object>}
      */
     async sincronizarDesdeRepositorio() {
+      if (!repositorioConfiguracion) return instantaneaVigente;
       const desdeRepo = await repositorioConfiguracion.obtenerConfiguracion();
-      instantaneaVigente = clonarConfiguracion(desdeRepo, { congelar: true });
+      actualizarInstantanea(desdeRepo);
       return instantaneaVigente;
+    },
+
+    /**
+     * Cancela la suscripción al bus de eventos (útil para limpieza en pruebas).
+     */
+    detenerSuscripcion() {
+      if (typeof cancelarSuscripcion === "function") {
+        cancelarSuscripcion();
+        cancelarSuscripcion = null;
+      }
     },
   });
 }

@@ -6,6 +6,14 @@ import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
 import { crearProveedorAutenticacionSimulado, ErrorAutenticacion } from './modulos/autenticacion/index.js';
 import { crearModuloMonitoreo } from './modulos/monitoreo/index.js';
+<<<<<<< Updated upstream
+=======
+import { crearModuloMensajes } from './modulos/mensajes/index.js';
+import { crearServicioBorradores } from './modulos/colaboradores/borradores.js';
+import { crearCatalogoRegistroDemo } from './modulos/colaboradores/catalogo-registro-demo.js';
+import { crearBusEnMemoria } from './compartido/eventos/bus-en-memoria.js';
+import { crearRepositorioConfiguracionEnvio, validarConfiguracion } from './modulos/configuracion-envio/configuracion-envio.js';
+>>>>>>> Stashed changes
 import { listarMensajesIA } from './modulos/mensajes-ia/mensajes-ia.js';
 import { crearModuloMensajes } from './modulos/mensajes/index.js';
 
@@ -58,9 +66,55 @@ function normalizarIdentificador(identificador, usuarios) {
   return usuario?.idInstitucional || valor;
 }
 
-function resolverRol(id, permisos) {
-  const administradores = new Set([...(permisos.administradores || []), ...(process.env.SIRA_ADMIN_IDS || '').split(',').map((v) => v.trim()).filter(Boolean)]);
-  return administradores.has(id) ? 'administrador' : 'colaborador';
+function resolverRol(id, permisos, usuariosCrm) {
+  if (Array.isArray(usuariosCrm)) {
+    const usuario = usuariosCrm.find(
+      (item) => String(item.idInstitucional) === String(id)
+    );
+
+    if (usuario) {
+      if (usuario.activo === false) {
+        return 'sin_acceso';
+      }
+
+      return usuario.rol === 'administrador'
+        ? 'administrador'
+        : 'colaborador';
+    }
+  }
+
+  const administradores = new Set([
+    ...(permisos.administradores || []),
+    ...(process.env.SIRA_ADMIN_IDS || '')
+      .split(',')
+      .map((v) => v.trim())
+      .filter(Boolean)
+  ]);
+
+  return administradores.has(id)
+    ? 'administrador'
+    : 'colaborador';
+}
+
+// EQ-17: Validación de acceso según el rol del usuario.
+function verificarAccesoRol(sesion, rolesPermitidos = []) {
+  if (!sesion) {
+    return {
+      status: 401,
+      codigo: 'SESION_NO_VALIDA',
+      mensaje: 'Debes iniciar sesión para acceder a esta funcionalidad.'
+    };
+  }
+
+  if (!rolesPermitidos.includes(sesion.usuario?.rol)) {
+    return {
+      status: 403,
+      codigo: 'SIN_PERMISO',
+      mensaje: 'No tienes permisos para acceder a esta funcionalidad.'
+    };
+  }
+
+  return null;
 }
 
 function servirArchivo(res, ruta) {
@@ -83,11 +137,22 @@ export function crearServidor(opciones = {}) {
   const reloj = opciones.reloj || Date.now;
   const sinAcceso = new Set([...(permisos.usuariosSinAcceso || []), ...(process.env.SIRA_DENIED_IDS || '').split(',').map((v) => v.trim()).filter(Boolean)]);
   const moduloMonitoreo = opciones.moduloMonitoreo || crearModuloMonitoreo();
+<<<<<<< Updated upstream
   // HU9: una sola instancia del módulo Mensajes para administrar y consultar
   // la configuración; en pruebas puede inyectarse mediante opciones.moduloMensajes.
   const moduloMensajes = opciones.moduloMensajes || crearModuloMensajes({
     repositorio: opciones.repositorioConfiguracionMensajes,
   });
+=======
+  // EQ-62/EQ-63: adaptadores TEMPORALES hasta integrar EQ-55 y EQ-57.
+  const aspirantesDemo = leerJson(path.join(ROOT, 'datos-semilla/aspirantes.json'), { aspirantes: [] }).aspirantes;
+  const catalogoRegistro = opciones.catalogoRegistro || crearCatalogoRegistroDemo(aspirantesDemo);
+  const borradoresRegistro = opciones.borradoresRegistro || crearServicioBorradores();
+  const idsRegistrados = new Set(opciones.idsColaboradoresYaRegistrados || []);
+  const busEventos = opciones.busEventos || opciones.bus || crearBusEnMemoria();
+  const moduloMensajes = opciones.moduloMensajes || crearModuloMensajes({ busEventos });
+  const repositorioConfiguracionEnvio = opciones.repositorioConfiguracionEnvio || crearRepositorioConfiguracionEnvio();
+>>>>>>> Stashed changes
   // Historial común del proyecto para el panel de actividades del frontend de Gabriel.
   const historialMonitoreo = opciones.historialMonitoreo || leerJson(path.join(ROOT, 'datos-semilla/aspirantes.json'), { historial: [] }).historial || [];
 
@@ -128,11 +193,26 @@ export function crearServidor(opciones = {}) {
         }
 
         const id = resultado.colaborador.idInstitucional;
+        const usuarioCrm = Array.isArray(opciones.usuariosCrm)
+          ? opciones.usuariosCrm.find(
+            (usuario) => String(usuario.idInstitucional) === String(id)
+          )
+          : null;
+
+        if (usuarioCrm?.activo === false) {
+          return responderJson(res, 403, {
+            codigo: 'USUARIO_SIN_ACCESO',
+            mensaje: 'La cuenta está inactiva.'
+          });
+        }
         if (sinAcceso.has(id)) return responderJson(res, 403, { codigo: 'USUARIO_SIN_ACCESO', mensaje: 'La cuenta no tiene autorización para acceder a SIRA.' });
 
         const token = randomBytes(32).toString('base64url');
         const ahora = reloj();
-        const usuario = { ...resultado.colaborador, rol: resolverRol(id, permisos) };
+        const usuario = {
+          ...resultado.colaborador,
+          rol: resolverRol(id, permisos, opciones.usuariosCrm)
+        };
         sesiones.set(token, { usuario, creadoEn: ahora, expiraEn: ahora + duracionSesionMs });
         const maxAge = Math.max(1, Math.floor(duracionSesionMs / 1000));
         const secure = NODE_ENV === 'production' ? '; Secure' : '';
@@ -153,10 +233,293 @@ export function crearServidor(opciones = {}) {
         return responderJson(res, 200, { cerrado: true }, { 'Set-Cookie': `${COOKIE_NAME}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${NODE_ENV === 'production' ? '; Secure' : ''}` });
       }
 
-      // Adaptador de lectura para el expediente de Gabriel (EQ-40).
-      // Utiliza el MISMO repositorio de la lista, no la semilla provisional de Gabriel.
+      // EQ-17: Rutas exclusivas del administrador.
+      const rutaAdminApi =
+        /^\/api\/(?:v1\/)?colaboradores(?:\/|$)/.test(url.pathname);
+
+      const rutaAdminFrontend =
+        /^\/app\/colaboradores(?:\/|$)/.test(url.pathname);
+
+      if (rutaAdminApi || rutaAdminFrontend) {
+        const sesion = obtenerSesion(req);
+
+        const acceso = verificarAccesoRol(
+          sesion,
+          ['administrador']
+        );
+
+        if (acceso) {
+          return responderJson(res, acceso.status, {
+            codigo: acceso.codigo,
+            mensaje: acceso.mensaje
+          });
+        }
+
+        const recursosRegistro = new Set([
+          'registro.html', 'registro.js', 'registro.css', 'validaciones.js'
+        ]);
+        const recursoRegistro = url.pathname.replace(/^\/app\/colaboradores\//, '');
+        if (rutaAdminFrontend && req.method === 'GET' && recursosRegistro.has(recursoRegistro)) {
+          return servirArchivo(res, path.join(FRONTEND_GABRIEL, 'colaboradores', recursoRegistro));
+        }
+
+        const raizRegistro = '/api/v1/colaboradores/registro';
+        if (url.pathname === `${raizRegistro}/catalogo` && req.method === 'GET') {
+          const campus = catalogoRegistro.listarCampus();
+          return responderJson(res, 200, {
+            campus, carrerasPorCampus: Object.fromEntries(campus.map((c) => [c, catalogoRegistro.listarCarreras(c)])),
+            origen: catalogoRegistro.origen || 'ADAPTADOR_TEMPORAL'
+          });
+        }
+
+        const rutaPerfil = url.pathname.match(/^\/api\/v1\/colaboradores\/registro\/perfil\/([^/]+)$/);
+        if (rutaPerfil && req.method === 'GET') {
+          let id;
+          try { id = decodeURIComponent(rutaPerfil[1]); }
+          catch { return responderJson(res, 400, { codigo: 'ID_INVALIDO', mensaje: 'El ID no es válido.' }); }
+          if (!/^\d{5,20}$/.test(id)) {
+            return responderJson(res, 400, { codigo: 'ID_INVALIDO', mensaje: 'Ingresa un ID institucional numérico válido.' });
+          }
+          if (idsRegistrados.has(id)) {
+            return responderJson(res, 409, { codigo: 'YA_REGISTRADO', mensaje: 'Este colaborador ya está registrado.' });
+          }
+          let perfil;
+          try { perfil = await proveedor.obtenerPorIdInstitucional(id); }
+          catch (error) {
+            if (error instanceof ErrorAutenticacion && error.codigo === 'SERVICIO_NO_DISPONIBLE') {
+              return responderJson(res, 503, { codigo: 'SERVICIO_NO_DISPONIBLE', mensaje: 'El directorio institucional no está disponible.' });
+            }
+            throw error;
+          }
+          if (!perfil) return responderJson(res, 404, { codigo: 'ID_NO_ENCONTRADO', mensaje: 'No se encontró un colaborador con ese ID.' });
+          return responderJson(res, 200, { perfil });
+        }
+
+        if (url.pathname === `${raizRegistro}/borrador` && req.method === 'POST') {
+          const body = await leerCuerpo(req);
+          const id = String(body.idInstitucional ?? '').trim();
+          const campus = typeof body.campus === 'string' ? body.campus.trim() : '';
+          if (!/^\d{5,20}$/.test(id)) return responderJson(res, 400, { codigo: 'ID_INVALIDO', mensaje: 'El ID institucional es obligatorio y debe ser numérico.' });
+          if (idsRegistrados.has(id)) return responderJson(res, 409, { codigo: 'YA_REGISTRADO', mensaje: 'Este colaborador ya está registrado.' });
+          let perfil;
+          try { perfil = await proveedor.obtenerPorIdInstitucional(id); }
+          catch (error) {
+            if (error instanceof ErrorAutenticacion && error.codigo === 'SERVICIO_NO_DISPONIBLE') {
+              return responderJson(res, 503, { codigo: 'SERVICIO_NO_DISPONIBLE', mensaje: 'El directorio institucional no está disponible.' });
+            }
+            throw error;
+          }
+          if (!perfil) return responderJson(res, 404, { codigo: 'ID_NO_ENCONTRADO', mensaje: 'No se encontró un colaborador con ese ID.' });
+          if (!campus) return responderJson(res, 422, { codigo: 'CAMPUS_OBLIGATORIO', mensaje: 'Selecciona un campus para continuar.' });
+          if (!catalogoRegistro.contieneCampus(campus)) return responderJson(res, 422, { codigo: 'CAMPUS_INVALIDO', mensaje: 'El campus seleccionado no está disponible.' });
+
+          let carreras;
+          if (body.carreras !== undefined) {
+            if (!Array.isArray(body.carreras) || body.carreras.length === 0) {
+              return responderJson(res, 422, { codigo: 'CARRERAS_OBLIGATORIAS', mensaje: 'Selecciona al menos una carrera para guardar el borrador.' });
+            }
+            carreras = [...new Set(body.carreras)];
+            if (carreras.length > 100 || !carreras.every((c) => typeof c === 'string' && catalogoRegistro.contieneCarrera(campus, c))) {
+              return responderJson(res, 422, { codigo: 'CARRERA_INVALIDA', mensaje: 'Una o más carreras no corresponden al campus seleccionado.' });
+            }
+          }
+          const borrador = borradoresRegistro.guardarBorrador({ idInstitucional: id, campus, ...(carreras ? { carreras } : {}) });
+          return responderJson(res, 200, { borrador, confirmado: false });
+        }
+
+        const rutaBorrador = url.pathname.match(/^\/api\/v1\/colaboradores\/registro\/borrador\/([^/]+)$/);
+        if (rutaBorrador && req.method === 'GET') {
+          const borrador = borradoresRegistro.obtenerBorrador(decodeURIComponent(rutaBorrador[1]));
+          if (!borrador) return responderJson(res, 404, { codigo: 'NO_ENCONTRADO', mensaje: 'Borrador no encontrado.' });
+          return responderJson(res, 200, { borrador });
+        }
+
+        const esRutaConfirmarRegistro =
+          url.pathname === raizRegistro ||
+          url.pathname === `${raizRegistro}/` ||
+          url.pathname === `${raizRegistro}/confirmar` ||
+          url.pathname === '/api/colaboradores/registro';
+
+        if (esRutaConfirmarRegistro && req.method === 'POST') {
+          const body = await leerCuerpo(req);
+          const id = String(body.idInstitucional ?? '').trim();
+          const campus = typeof body.campus === 'string' ? body.campus.trim() : '';
+
+          if (!/^\d{5,20}$/.test(id)) {
+            return responderJson(res, 400, { codigo: 'ID_INVALIDO', mensaje: 'El ID institucional es obligatorio y debe ser numérico.' });
+          }
+          if (idsRegistrados.has(id)) {
+            return responderJson(res, 409, { codigo: 'YA_REGISTRADO', mensaje: 'Este colaborador ya está registrado.' });
+          }
+          if (!campus) {
+            return responderJson(res, 400, { codigo: 'CAMPUS_OBLIGATORIO', mensaje: 'Selecciona un campus para registrar al colaborador.' });
+          }
+          if (!catalogoRegistro.contieneCampus(campus)) {
+            return responderJson(res, 400, { codigo: 'CAMPUS_INVALIDO', mensaje: 'El campus seleccionado no está disponible.' });
+          }
+          if (!Array.isArray(body.carreras) || body.carreras.length === 0) {
+            return responderJson(res, 400, { codigo: 'CARRERAS_OBLIGATORIAS', mensaje: 'Selecciona al menos una carrera para completar el registro.' });
+          }
+          const carreras = [...new Set(body.carreras.map((c) => String(c || '').trim()).filter(Boolean))];
+          if (carreras.length === 0) {
+            return responderJson(res, 400, { codigo: 'CARRERAS_OBLIGATORIAS', mensaje: 'Selecciona al menos una carrera para completar el registro.' });
+          }
+          if (!carreras.every((c) => catalogoRegistro.contieneCarrera(campus, c))) {
+            return responderJson(res, 400, { codigo: 'CARRERA_INVALIDA', mensaje: 'Una o más carreras no corresponden al campus seleccionado.' });
+          }
+
+          let perfil;
+          try { perfil = await proveedor.obtenerPorIdInstitucional(id); }
+          catch (error) {
+            if (error instanceof ErrorAutenticacion && error.codigo === 'SERVICIO_NO_DISPONIBLE') {
+              return responderJson(res, 503, { codigo: 'SERVICIO_NO_DISPONIBLE', mensaje: 'El directorio institucional no está disponible.' });
+            }
+            throw error;
+          }
+          if (!perfil) {
+            return responderJson(res, 404, { codigo: 'ID_NO_ENCONTRADO', mensaje: 'No se encontró un colaborador con ese ID.' });
+          }
+
+          idsRegistrados.add(id);
+          const repositorio = moduloMonitoreo.repositorio;
+          if (repositorio?.carrerasPorColaborador) {
+            repositorio.carrerasPorColaborador[id] = [...carreras];
+          }
+          if (repositorio?.aliasColaborador && !repositorio.aliasColaborador[id]) {
+            repositorio.aliasColaborador[id] = [id];
+          }
+
+          const setCarreras = new Set(carreras);
+          const aspirantesAsignados = [];
+          if (Array.isArray(repositorio?.aspirantes)) {
+            for (const asp of repositorio.aspirantes) {
+              if (asp.campus === campus && setCarreras.has(asp.carreraSolicitada)) {
+                asp.colaboradorId = id;
+                aspirantesAsignados.push(asp.id);
+              }
+            }
+          }
+
+          const ahoraIso = new Date().toISOString();
+          const evento = {
+            eventId: `evt-reg-${randomBytes(6).toString('hex')}`,
+            tipo: 'colaboradores.registro.confirmado',
+            colaboradorId: id,
+            nombreCompleto: perfil.nombreCompleto,
+            correoInstitucional: perfil.correoInstitucional,
+            campus,
+            carrerasAsignadas: carreras,
+            aspirantesAsignados,
+            fechaConfirmacion: ahoraIso,
+          };
+          await busEventos.publicar('colaboradores.registro.confirmado', evento);
+
+          return responderJson(res, 201, {
+            confirmado: true,
+            colaborador: {
+              idInstitucional: id,
+              nombreCompleto: perfil.nombreCompleto,
+              correoInstitucional: perfil.correoInstitucional,
+              telefono: perfil.telefono,
+              campus,
+              rol: 'colaborador',
+              activo: true,
+              carrerasAsignadas: carreras,
+            },
+            asignacion: {
+              campus,
+              carreras,
+              totalAspirantesAsignados: aspirantesAsignados.length,
+              aspirantesIds: aspirantesAsignados,
+            },
+            evento,
+          });
+        }
+
+        return responderJson(res, 404, {
+          codigo: 'NO_ENCONTRADO',
+          mensaje: 'La funcionalidad administrativa aún no está disponible.'
+        });
+      }
+
+      // Listado general de conversaciones reales de la cartera del colaborador (HU 3 / HU 4).
+      const rutaColeccionChat = url.pathname.match(/^\/api\/(?:v1\/)?monitoreo\/conversaciones\/?$/);
+      if (rutaColeccionChat && req.method === 'GET') {
+        const sesion = obtenerSesion(req);
+        if (!sesion) return responderJson(res, 401, { codigo: 'NO_AUTORIZADO', mensaje: 'Inicia sesión para consultar monitoreo.' });
+
+        const repositorio = moduloMonitoreo.repositorio;
+        const idsCartera = typeof repositorio?._obtenerIdsColaborador === 'function'
+          ? repositorio._obtenerIdsColaborador(sesion.usuario.idInstitucional)
+          : new Set([sesion.usuario.idInstitucional]);
+
+        const aspirantesCartera = (repositorio?.aspirantes || []).filter((a) => idsCartera.has(a.colaboradorId));
+        const conversacionesCartera = [];
+
+        for (const asp of aspirantesCartera) {
+          const mensajes = typeof repositorio?.obtenerConversacionAspirante === 'function'
+            ? await repositorio.obtenerConversacionAspirante(asp.id)
+            : [];
+          if (mensajes.length === 0) continue;
+
+          const mensajesFormateados = mensajes.map((m) => ({
+            id: m.id,
+            aspiranteId: asp.id,
+            direccion: m.direccion,
+            remitenteTipo: m.remitenteTipo,
+            remitenteId: m.remitenteId,
+            contenido: m.contenido,
+            tipoContenido: m.tipoContenido || 'TEXTO',
+            estadoEntrega: m.estadoEntrega || 'ENTREGADO',
+            whatsappMessageId: m.whatsappMessageId || null,
+            fecha: m.fechaEnvio ?? m.fecha,
+          }));
+
+          const ultimo = mensajesFormateados[mensajesFormateados.length - 1];
+          const tieneEntrantes = mensajesFormateados.some((m) => m.direccion === 'ENTRANTE');
+          const tieneColaborador = mensajesFormateados.some((m) => m.remitenteTipo === 'COLABORADOR');
+
+          let noLeidos = 0;
+          for (let i = mensajesFormateados.length - 1; i >= 0; i--) {
+            if (mensajesFormateados[i].remitenteTipo === 'COLABORADOR') break;
+            if (mensajesFormateados[i].direccion === 'ENTRANTE') noLeidos++;
+          }
+
+          conversacionesCartera.push({
+            aspirante: {
+              id: asp.id,
+              folioSolicitud: asp.folioSolicitud,
+              nombre: asp.nombreCompleto ?? asp.nombre,
+              carrera: asp.carreraSolicitada ?? asp.carrera,
+              preparatoria: asp.preparatoriaProcedencia ?? asp.preparatoria,
+              periodo: asp.periodo,
+              telefono: asp.telefono,
+              correo: asp.correo,
+              estadoSolicitud: asp.estadoSolicitud,
+              semaforo: asp.semaforo,
+            },
+            mensajes: mensajesFormateados,
+            ultimoMensaje: ultimo,
+            fechaUltimoMensaje: ultimo?.fecha ?? asp.fechaUltimaActividad,
+            tieneRespuestaAspirante: tieneEntrantes,
+            tieneColaborador,
+            noLeidos,
+          });
+        }
+
+        conversacionesCartera.sort(
+          (a, b) => Date.parse(b.fechaUltimoMensaje || 0) - Date.parse(a.fechaUltimoMensaje || 0)
+        );
+
+        return responderJson(res, 200, {
+          conversaciones: conversacionesCartera,
+          total: conversacionesCartera.length,
+        });
+      }
+
+      // Adaptador de lectura y envío de mensajes para el expediente de Gabriel (EQ-40 / EQ-46).
       const rutaExpediente = url.pathname.match(/^\/api\/(?:v1\/)?monitoreo\/aspirantes\/([^/]+)\/(actividades|conversacion)\/?$/);
-      if (rutaExpediente && req.method === 'GET') {
+      if (rutaExpediente && (req.method === 'GET' || (req.method === 'POST' && rutaExpediente[2] === 'conversacion'))) {
         const sesion = obtenerSesion(req);
         if (!sesion) return responderJson(res, 401, { codigo: 'NO_AUTORIZADO', mensaje: 'Inicia sesión para consultar el expediente.' });
 
@@ -170,8 +533,6 @@ export function crearServidor(opciones = {}) {
         const aspirante = await repositorio.obtenerAspirantePorId(aspiranteId);
         if (!aspirante) return responderJson(res, 404, { codigo: 'NO_ENCONTRADO', mensaje: 'Aspirante no encontrado.' });
 
-        // Nunca confiar en un ID de colaborador enviado por el cliente.
-        // Aceptar el ID institucional y su alias en la semilla del repositorio en memoria.
         const idsCartera = typeof repositorio._obtenerIdsColaborador === 'function'
           ? repositorio._obtenerIdsColaborador(sesion.usuario.idInstitucional)
           : new Set([sesion.usuario.idInstitucional]);
@@ -179,11 +540,55 @@ export function crearServidor(opciones = {}) {
           return responderJson(res, 403, { codigo: 'SIN_PERMISO', mensaje: 'Este aspirante no pertenece a tu cartera.' });
         }
 
-        if (!rutaExpediente[2]) return responderJson(res, 200, { aspirante });
+        if (req.method === 'POST' && rutaExpediente[2] === 'conversacion') {
+          const body = await leerCuerpo(req);
+          const contenido = String(body.contenido ?? '').trim();
+          if (!contenido) {
+            return responderJson(res, 400, { codigo: 'MENSAJE_VACIO', mensaje: 'El contenido del mensaje es obligatorio.' });
+          }
+          const ahoraIso = new Date().toISOString();
+          const nuevoMensaje = {
+            id: `msg-${randomBytes(8).toString('hex')}`,
+            aspiranteId: aspirante.id,
+            direccion: 'SALIENTE',
+            remitenteTipo: 'COLABORADOR',
+            remitenteId: sesion.usuario.idInstitucional,
+            contenido,
+            tipoContenido: 'TEXTO',
+            estadoEntrega: 'ENVIADO',
+            whatsappMessageId: `wamid.HBgN${randomBytes(10).toString('hex').toUpperCase()}`,
+            fechaEnvio: ahoraIso,
+          };
+          if (Array.isArray(repositorio.conversaciones)) {
+            repositorio.conversaciones.push(nuevoMensaje);
+          }
+          aspirante.fechaUltimaActividad = ahoraIso;
+          historialMonitoreo.push({
+            id: `ev-${randomBytes(8).toString('hex')}`,
+            aspiranteId: aspirante.id,
+            tipoEvento: 'MENSAJE_ENVIADO',
+            titulo: 'Mensaje enviado por colaborador',
+            detalle: contenido,
+            autorTipo: 'COLABORADOR',
+            autorId: sesion.usuario.idInstitucional,
+            fechaEvento: ahoraIso,
+          });
+          return responderJson(res, 201, {
+            mensaje: {
+              id: nuevoMensaje.id,
+              aspiranteId: nuevoMensaje.aspiranteId,
+              direccion: nuevoMensaje.direccion,
+              remitenteTipo: nuevoMensaje.remitenteTipo,
+              remitenteId: nuevoMensaje.remitenteId,
+              contenido: nuevoMensaje.contenido,
+              tipoContenido: nuevoMensaje.tipoContenido,
+              estadoEntrega: nuevoMensaje.estadoEntrega,
+              whatsappMessageId: nuevoMensaje.whatsappMessageId,
+              fecha: nuevoMensaje.fechaEnvio,
+            },
+          });
+        }
 
-        // Vista de mensajería de solo lectura (EQ-46 · HU3-7).
-        // Reutiliza obtenerConversacionAspirante, ya implementado en el repositorio
-        // de Monitoreo (dominio/repositorio-monitoreo.js) pero sin ruta hasta ahora.
         if (rutaExpediente[2] === 'conversacion') {
           if (typeof repositorio?.obtenerConversacionAspirante !== 'function') {
             return responderJson(res, 501, { codigo: 'NO_IMPLEMENTADO', mensaje: 'El repositorio no ofrece la conversación del aspirante.' });
@@ -194,7 +599,11 @@ export function crearServidor(opciones = {}) {
               id: m.id,
               direccion: m.direccion,
               remitenteTipo: m.remitenteTipo,
+              remitenteId: m.remitenteId,
               contenido: m.contenido,
+              tipoContenido: m.tipoContenido || 'TEXTO',
+              estadoEntrega: m.estadoEntrega || 'ENTREGADO',
+              whatsappMessageId: m.whatsappMessageId || null,
               fecha: m.fechaEnvio,
             })),
           });
@@ -224,6 +633,21 @@ export function crearServidor(opciones = {}) {
         return responderJson(res, 200, { actividades });
       }
 
+      // Módulo Mensajes: /api/mensajes/... y /api/v1/mensajes/... (HU 9: EQ-106, EQ-107, EQ-108)
+      if (url.pathname.startsWith('/api/mensajes') || url.pathname.startsWith('/api/v1/mensajes')) {
+        const sesion = obtenerSesion(req);
+        const acceso = verificarAccesoRol(sesion, ['administrador']);
+        if (acceso) {
+          return responderJson(res, acceso.status, {
+            codigo: acceso.codigo,
+            mensaje: acceso.mensaje,
+          });
+        }
+        const contexto = { usuario: sesion.usuario };
+        const manejado = await moduloMensajes.enrutador(req, res, contexto);
+        if (manejado) return;
+      }
+
       // Módulo Monitoreo: /api/monitoreo/... y /api/v1/monitoreo/...
       if (url.pathname.startsWith('/api/monitoreo') || url.pathname.startsWith('/api/v1/monitoreo')) {
         const sesion = obtenerSesion(req);
@@ -234,10 +658,15 @@ export function crearServidor(opciones = {}) {
       }
 
       if (url.pathname === '/' && req.method === 'GET') return servirArchivo(res, path.join(PUBLIC, 'login/index.html'));
+<<<<<<< Updated upstream
       // HU9 (EQ-106 / EQ-107): configuración administrativa del módulo Mensajes.
       // La identidad y el rol provienen exclusivamente de la cookie de sesión
       // HttpOnly; nunca se aceptan desde el cuerpo ni desde parámetros del cliente.
       if (url.pathname.startsWith('/api/v1/mensajes/') || url.pathname.startsWith('/api/mensajes/')) {
+=======
+      // HU 9 (EQ-109, EQ-110): configuración de envío, solo para administradores.
+      if (url.pathname === '/api/v1/configuracion/envio' && (req.method === 'GET' || req.method === 'PUT')) {
+>>>>>>> Stashed changes
         const sesion = obtenerSesion(req);
         const manejado = await moduloMensajes.enrutador(req, res, {
           usuario: sesion?.usuario ?? null,
@@ -267,7 +696,6 @@ export function crearServidor(opciones = {}) {
         return servirArchivo(res, path.join(PUBLIC, 'login', relative));
       }
       if (url.pathname.startsWith('/app/') && req.method === 'GET') {
-        // Evitar servir CSS/JS o recursos de monitoreo sin sesión activa.
         if (!obtenerSesion(req)) return responderJson(res, 401, { codigo: 'SESION_NO_VALIDA', mensaje: 'Inicia sesión para acceder al monitoreo.' });
         const relative = url.pathname.replace(/^\/app\//, '');
         if (!relative || relative.includes('..') || relative.includes('\\')) return responderJson(res, 400, { codigo: 'RUTA_INVALIDA' });

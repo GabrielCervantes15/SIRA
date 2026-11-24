@@ -1,7 +1,8 @@
 /**
  * Módulo de Negocio: Mensajes
- * Punto de entrada público, inyección de dependencias e interfaz pública de lectura
- * de la configuración del envío de mensajes automáticos (HU 9: EQ-104, EQ-105, EQ-106, EQ-107).
+ * Punto de entrada público, inyección de dependencias, bitácora, eventos e interfaz pública
+ * de lectura de la configuración del envío de mensajes automáticos
+ * (HU 9: EQ-104, EQ-105, EQ-106, EQ-107, EQ-108).
  */
 import {
   ZONA_HORARIA_INSTITUCIONAL,
@@ -13,12 +14,20 @@ import {
   calcularEquivalenciaHoras,
   crearConfiguracionInicial,
   clonarConfiguracion,
+  clonarRegistroBitacora,
   implementaRepositorioConfiguracion,
 } from "./dominio/repositorio-configuracion.js";
 import {
   validarConfiguracionMensajes,
   convertirHoraAMinutos,
 } from "./dominio/validador-configuracion.js";
+import {
+  EXCHANGE_EVENTOS,
+  TIPO_CONFIGURACION_ACTUALIZADA,
+  VERSION_EVENTO,
+  crearEventoConfiguracionActualizada,
+  validarEventoConfiguracionActualizada,
+} from "./eventos.js";
 import { RepositorioConfiguracionMemoria } from "./infraestructura/repositorio-configuracion-memoria.js";
 import { RepositorioConfiguracionPostgres } from "./infraestructura/repositorio-configuracion-postgres.js";
 import {
@@ -30,29 +39,38 @@ import {
 } from "./aplicacion/servicio-lectura-configuracion.js";
 import { ObtenerConfiguracionCasoUso } from "./aplicacion/obtener-configuracion.caso-uso.js";
 import { GuardarConfiguracionCasoUso } from "./aplicacion/guardar-configuracion.caso-uso.js";
+import { ListarBitacoraConfiguracionCasoUso } from "./aplicacion/listar-bitacora-configuracion.caso-uso.js";
 import { MensajesConfiguracionControlador } from "./infraestructura/controlador-configuracion.js";
 import { crearEnrutadorMensajes } from "./rutas.js";
 
 /**
  * Crea una instancia completa del módulo de Mensajes con sus casos de uso,
- * controlador HTTP, enrutador e interfaz pública de lectura (EQ-105).
+ * controlador HTTP, enrutador, bitácora, publicación de eventos e interfaz
+ * pública de lectura (EQ-104 a EQ-108).
  *
  * @param {Object} [opciones]
  * @param {Object} [opciones.repositorio]
  * @param {Object} [opciones.configuracionInicial]
+ * @param {Array} [opciones.bitacoraInicial]
  * @param {() => Date} [opciones.reloj]
- * @param {Object} [opciones.servicioBitacora] - Reservado para EQ-108.
- * @param {Object} [opciones.busEventos] - Reservado para EQ-108.
+ * @param {() => string} [opciones.generarId]
+ * @param {Object} [opciones.servicioBitacora]
+ * @param {Object} [opciones.busEventos]
  */
 export function crearModuloMensajes(opciones = {}) {
   const repositorio =
     opciones.repositorio ||
     new RepositorioConfiguracionMemoria({
       configuracionInicial: opciones.configuracionInicial,
+      bitacoraInicial: opciones.bitacoraInicial,
+      generarId: opciones.generarId,
     });
+
+  const busEventos = opciones.busEventos || opciones.bus || null;
 
   const interfazLectura = crearInterfazLecturaConfiguracion({
     repositorioConfiguracion: repositorio,
+    busEventos,
   });
 
   const obtenerConfiguracionCasoUso = new ObtenerConfiguracionCasoUso({
@@ -63,25 +81,34 @@ export function crearModuloMensajes(opciones = {}) {
     repositorioConfiguracion: repositorio,
     interfazLectura,
     reloj: opciones.reloj,
+    generarId: opciones.generarId,
     servicioBitacora: opciones.servicioBitacora || null,
-    busEventos: opciones.busEventos || null,
+    busEventos,
+  });
+
+  const listarBitacoraConfiguracionCasoUso = new ListarBitacoraConfiguracionCasoUso({
+    repositorioConfiguracion: repositorio,
+    servicioBitacora: opciones.servicioBitacora || null,
   });
 
   const controlador = new MensajesConfiguracionControlador({
     obtenerConfiguracionCasoUso,
     guardarConfiguracionCasoUso,
+    listarBitacoraConfiguracionCasoUso,
   });
 
   const enrutador = crearEnrutadorMensajes({ controlador });
 
   return {
     repositorio,
+    busEventos,
     interfazLectura,
     obtenerConfiguracionVigente: interfazLectura.obtenerConfiguracionVigente,
     estaDentroDeHorarioPermitido: interfazLectura.estaDentroDeHorarioPermitido,
     calcularSiguienteApertura: interfazLectura.calcularSiguienteApertura,
     obtenerConfiguracionCasoUso,
     guardarConfiguracionCasoUso,
+    listarBitacoraConfiguracionCasoUso,
     controlador,
     enrutador,
   };
@@ -112,9 +139,15 @@ export {
   calcularEquivalenciaHoras,
   crearConfiguracionInicial,
   clonarConfiguracion,
+  clonarRegistroBitacora,
   implementaRepositorioConfiguracion,
   validarConfiguracionMensajes,
   convertirHoraAMinutos,
+  EXCHANGE_EVENTOS,
+  TIPO_CONFIGURACION_ACTUALIZADA,
+  VERSION_EVENTO,
+  crearEventoConfiguracionActualizada,
+  validarEventoConfiguracionActualizada,
   RepositorioConfiguracionMemoria,
   RepositorioConfiguracionPostgres,
   crearInterfazLecturaConfiguracion,
@@ -124,6 +157,7 @@ export {
   construirFechaEnZonaHoraria,
   ObtenerConfiguracionCasoUso,
   GuardarConfiguracionCasoUso,
+  ListarBitacoraConfiguracionCasoUso,
   MensajesConfiguracionControlador,
   crearEnrutadorMensajes,
 };
