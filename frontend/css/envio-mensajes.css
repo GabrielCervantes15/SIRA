@@ -1,0 +1,52 @@
+/* EQ-78: integración aditiva en Aspirantes. No reemplaza estilos existentes. */
+.layout-aspirantes{display:grid;grid-template-columns:minmax(230px,270px) minmax(0,1fr);gap:16px;align-items:start}
+.columna-acciones{min-width:0}
+.tarjeta-envio-automatico{padding:16px;margin-bottom:16px}
+.tarjeta-envio-automatico h2{font-size:17px;margin:8px 0}
+.tarjeta-envio-automatico p{line-height:1.45;margin:8px 0}
+.envio-horario{font-size:11px;color:var(--texto-suave)}
+.boton-envio-iniciar,.envio-confirmar{border:0;border-radius:6px;background:var(--azul-tabla);color:#fff;padding:9px 18px;font:inherit;font-weight:650;cursor:pointer}
+.boton-envio-iniciar:hover,.envio-confirmar:hover{background:var(--azul-oscuro)}
+.envio-escenario{display:grid;gap:5px;margin-top:14px;font-size:11px;color:var(--texto-suave)}
+.envio-escenario select{height:32px;border:1px solid var(--borde);border-radius:5px;padding:4px 7px;background:#fff;color:var(--texto);font:inherit}
+.envio-nota-demo{font-size:10px;color:var(--texto-suave)}
+.envio-modal-backdrop{position:fixed;inset:0;z-index:1000;background:rgba(20,28,38,.38);display:grid;place-items:center;padding:20px}
+.envio-modal-backdrop[hidden]{display:none}
+.envio-modal{width:min(720px,100%);max-height:min(88vh,850px);overflow:auto;background:#fff;border-radius:10px;box-shadow:0 18px 55px rgba(0,0,0,.25);color:var(--texto)}
+.envio-modal-header{display:flex;align-items:center;justify-content:space-between;padding:18px 22px 13px;border-bottom:1px solid var(--borde)}
+.envio-modal-header p{font-size:11px;margin:0 0 4px;color:var(--texto-suave)}
+.envio-modal-header h2{font-size:19px;margin:0}
+.envio-cerrar{border:0;background:#eef1f5;border-radius:5px;width:34px;height:34px;font-size:22px;cursor:pointer}
+.envio-modal-body{padding:16px 22px}
+.envio-filtros{display:grid;grid-template-columns:1fr 1fr 1.5fr;gap:12px;align-items:end}
+.envio-campo{display:grid;gap:7px;min-width:0}
+.envio-campo>label{font-size:11px;font-weight:600}
+.envio-dropdown{position:relative}
+.envio-dropdown-trigger{width:100%;height:36px;border:0;border-radius:5px;background:var(--azul-tabla);color:#fff;text-align:left;padding:0 12px;font:inherit;font-size:12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+.envio-dropdown-menu{position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:10;background:#fff;border:1px solid var(--borde);border-radius:6px;box-shadow:0 8px 20px rgba(0,0,0,.16);padding:7px;max-height:210px;overflow:auto}
+.envio-dropdown-menu[hidden]{display:none}
+.envio-dropdown-menu label{display:flex;align-items:center;gap:8px;padding:8px 5px;font-size:12px;cursor:pointer;border-radius:4px}
+.envio-dropdown-menu label:hover{background:#f1f5f9}
+.envio-dropdown-menu input{accent-color:var(--azul)}
+.envio-stepper{display:flex;align-items:center;gap:5px;min-width:0}
+.envio-stepper button{height:34px;width:30px;border:0;border-radius:5px;background:#edf0f4;font-size:18px;cursor:pointer}
+.envio-stepper input{width:48px;height:34px;text-align:center;border:1px solid var(--borde);border-radius:5px;font:inherit}
+.envio-stepper select{height:34px;min-width:82px;flex:1;border:0;border-radius:5px;background:var(--azul-tabla);color:#fff;padding:0 7px;font:inherit;font-size:12px}
+.envio-correo{display:flex;align-items:center;gap:8px;margin:14px 0 8px;font-size:12px}
+.envio-correo input{accent-color:var(--azul)}
+.envio-conteo{font-size:13px;font-weight:650;margin:10px 0}
+.envio-alerta{padding:9px 11px;margin:8px 0;border-radius:5px;background:#fff4dc;color:#805400;font-size:12px}
+.envio-alerta[hidden]{display:none}
+.envio-modal-body h3{font-size:13px;margin:13px 0 8px}
+.envio-plantillas{display:grid;gap:8px;max-height:210px;overflow:auto}
+.envio-plantillas article{border:1px solid var(--borde);border-radius:6px;padding:11px;font-size:12px;line-height:1.45}
+.envio-modal-footer{display:flex;justify-content:flex-end;gap:9px;padding:12px 22px 18px}
+.envio-cancelar{border:0;border-radius:6px;background:#dc1717;color:#fff;padding:9px 17px;font:inherit;cursor:pointer}
+.envio-confirmar:disabled{background:#aab4bf;cursor:not-allowed}
+.envio-progreso{padding:14px 0;text-align:center;font-size:12px}
+.envio-progreso span{display:block;height:6px;border-radius:10px;background:linear-gradient(90deg,var(--azul) 35%,#dce4ed 35%);animation:envio-pulse 1s infinite alternate}
+@keyframes envio-pulse{to{opacity:.45}}
+.envio-resultado{padding:12px;border-radius:6px;background:#edf8f0;color:#176b3a;font-size:12px;line-height:1.5}
+.envio-resultado[hidden],.envio-progreso[hidden]{display:none}
+@media(max-width:1050px){.layout-aspirantes{grid-template-columns:1fr}.columna-acciones{display:grid;grid-template-columns:minmax(0,1fr)}.tarjeta-envio-automatico{max-width:none}}
+@media(max-width:650px){.envio-filtros{grid-template-columns:1fr}.envio-modal-backdrop{padding:8px}.envio-modal-header,.envio-modal-body{padding-left:15px;padding-right:15px}.envio-modal-footer{padding-left:15px;padding-right:15px}}

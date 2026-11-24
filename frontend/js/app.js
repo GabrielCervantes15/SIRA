@@ -3,7 +3,11 @@
  *   EQ-26 · HU2-1 / HU2-8 / HU2-10 → tabla con semáforo, orden, paginación y estados
  *   EQ-40 · HU3-1 / HU3-6 / HU3-8  → panel de contacto y de actividades (historial)
  */
+
 import { api } from "./api.js";
+import { inicialesUsuario } from "./usuario.js";
+import { inicializarConfiguracionMensajes } from "./configuracion-mensajes.js";
+import { inicializarEnvioMensajes } from "./envio-mensajes.js";
 
 const TAMANO = 13;
 const ETIQUETA_SEMAFORO = { ROJO: "Rojo", NARANJA: "Naranja", VERDE: "Verde" };
@@ -612,7 +616,36 @@ async function iniciar() {
   try {
     const sesion = await api.sesion();
     $("nombre-usuario").textContent = sesion.nombre;
-    if (sesion.usuario?.rol === "administrador") $("nav-configuracion").hidden = false;
+
+    if (sesion.usuario?.rol === "administrador") {
+      $("nav-configuracion").hidden = false;
+    }
+
+    $("avatar-usuario").textContent = inicialesUsuario(sesion.nombre);
+
+    inicializarConfiguracionMensajes({
+      api,
+      esAdministrador: sesion.usuario?.rol === "administrador",
+    });
+
+    inicializarEnvioMensajes({
+      esAdministrador: sesion.usuario?.rol === "administrador",
+    });
+
+    // EQ-71: los dos roles ven el listado de colaboradores.
+    // El administrador entra a la vista con registro e inactivación;
+    // el colaborador a la de solo consulta.
+    const enlace = $("nav-colaboradores");
+    const esAdministrador = sesion.usuario?.rol === "administrador";
+
+    enlace.href = esAdministrador
+      ? "/app/colaboradores/registro.html"
+      : "/app/colaboradores/listado.html";
+
+    enlace.removeAttribute("aria-disabled");
+    enlace.title = esAdministrador
+      ? "Listado y registro de colaboradores"
+      : "Listado de colaboradores";
   } catch (error) {
     if (error.estado === 401) window.location.replace('/?expired=1');
     else $("nombre-usuario").textContent = "Sin conexión al servicio de sesión";
