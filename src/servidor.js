@@ -6,16 +6,12 @@ import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
 import { crearProveedorAutenticacionSimulado, ErrorAutenticacion } from './modulos/autenticacion/index.js';
 import { crearModuloMonitoreo } from './modulos/monitoreo/index.js';
-<<<<<<< Updated upstream
-=======
 import { crearModuloMensajes } from './modulos/mensajes/index.js';
 import { crearServicioBorradores } from './modulos/colaboradores/borradores.js';
 import { crearCatalogoRegistroDemo } from './modulos/colaboradores/catalogo-registro-demo.js';
 import { crearBusEnMemoria } from './compartido/eventos/bus-en-memoria.js';
 import { crearRepositorioConfiguracionEnvio, validarConfiguracion } from './modulos/configuracion-envio/configuracion-envio.js';
->>>>>>> Stashed changes
 import { listarMensajesIA } from './modulos/mensajes-ia/mensajes-ia.js';
-import { crearModuloMensajes } from './modulos/mensajes/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -137,22 +133,19 @@ export function crearServidor(opciones = {}) {
   const reloj = opciones.reloj || Date.now;
   const sinAcceso = new Set([...(permisos.usuariosSinAcceso || []), ...(process.env.SIRA_DENIED_IDS || '').split(',').map((v) => v.trim()).filter(Boolean)]);
   const moduloMonitoreo = opciones.moduloMonitoreo || crearModuloMonitoreo();
-<<<<<<< Updated upstream
-  // HU9: una sola instancia del módulo Mensajes para administrar y consultar
-  // la configuración; en pruebas puede inyectarse mediante opciones.moduloMensajes.
-  const moduloMensajes = opciones.moduloMensajes || crearModuloMensajes({
-    repositorio: opciones.repositorioConfiguracionMensajes,
-  });
-=======
   // EQ-62/EQ-63: adaptadores TEMPORALES hasta integrar EQ-55 y EQ-57.
   const aspirantesDemo = leerJson(path.join(ROOT, 'datos-semilla/aspirantes.json'), { aspirantes: [] }).aspirantes;
   const catalogoRegistro = opciones.catalogoRegistro || crearCatalogoRegistroDemo(aspirantesDemo);
   const borradoresRegistro = opciones.borradoresRegistro || crearServicioBorradores();
   const idsRegistrados = new Set(opciones.idsColaboradoresYaRegistrados || []);
   const busEventos = opciones.busEventos || opciones.bus || crearBusEnMemoria();
-  const moduloMensajes = opciones.moduloMensajes || crearModuloMensajes({ busEventos });
+  // HU9: una sola instancia del módulo Mensajes para administrar y consultar
+  // la configuración; en pruebas puede inyectarse mediante opciones.moduloMensajes.
+  const moduloMensajes = opciones.moduloMensajes || crearModuloMensajes({
+    repositorio: opciones.repositorioConfiguracionMensajes,
+    busEventos,
+  });
   const repositorioConfiguracionEnvio = opciones.repositorioConfiguracionEnvio || crearRepositorioConfiguracionEnvio();
->>>>>>> Stashed changes
   // Historial común del proyecto para el panel de actividades del frontend de Gabriel.
   const historialMonitoreo = opciones.historialMonitoreo || leerJson(path.join(ROOT, 'datos-semilla/aspirantes.json'), { historial: [] }).historial || [];
 
@@ -614,7 +607,7 @@ export function crearServidor(opciones = {}) {
         const desdeMs = desde ? Date.parse(desde) : null;
         const hastaMs = hasta ? Date.parse(hasta) : null;
         if ((desde && Number.isNaN(desdeMs)) || (hasta && Number.isNaN(hastaMs)) ||
-            (desdeMs !== null && hastaMs !== null && desdeMs > hastaMs)) {
+          (desdeMs !== null && hastaMs !== null && desdeMs > hastaMs)) {
           return responderJson(res, 400, { codigo: 'PARAMETRO_INVALIDO', mensaje: 'Rango de fechas inválido.' });
         }
         const actividades = historialMonitoreo
@@ -643,8 +636,9 @@ export function crearServidor(opciones = {}) {
             mensaje: acceso.mensaje,
           });
         }
-        const contexto = { usuario: sesion.usuario };
-        const manejado = await moduloMensajes.enrutador(req, res, contexto);
+        const manejado = await moduloMensajes.enrutador(req, res, {
+          usuario: sesion?.usuario ?? null,
+        });
         if (manejado) return;
       }
 
@@ -658,20 +652,19 @@ export function crearServidor(opciones = {}) {
       }
 
       if (url.pathname === '/' && req.method === 'GET') return servirArchivo(res, path.join(PUBLIC, 'login/index.html'));
-<<<<<<< Updated upstream
-      // HU9 (EQ-106 / EQ-107): configuración administrativa del módulo Mensajes.
-      // La identidad y el rol provienen exclusivamente de la cookie de sesión
-      // HttpOnly; nunca se aceptan desde el cuerpo ni desde parámetros del cliente.
-      if (url.pathname.startsWith('/api/v1/mensajes/') || url.pathname.startsWith('/api/mensajes/')) {
-=======
       // HU 9 (EQ-109, EQ-110): configuración de envío, solo para administradores.
       if (url.pathname === '/api/v1/configuracion/envio' && (req.method === 'GET' || req.method === 'PUT')) {
->>>>>>> Stashed changes
         const sesion = obtenerSesion(req);
-        const manejado = await moduloMensajes.enrutador(req, res, {
-          usuario: sesion?.usuario ?? null,
-        });
-        if (manejado) return;
+        if (!sesion) return responderJson(res, 401, { codigo: 'SESION_NO_VALIDA', mensaje: 'La sesión no existe o expiró.' });
+        if (sesion.usuario.rol !== 'administrador') {
+          return responderJson(res, 403, { codigo: 'SIN_PERMISO', mensaje: 'Solo un administrador puede ver o cambiar esta configuración.' });
+        }
+        if (req.method === 'GET') return responderJson(res, 200, repositorioConfiguracionEnvio.leer());
+
+        const cuerpo = await leerCuerpo(req);
+        const { valida, errores, datos } = validarConfiguracion(cuerpo);
+        if (!valida) return responderJson(res, 400, { codigo: 'CONFIGURACION_INVALIDA', mensaje: 'Revisa los campos marcados.', errores });
+        return responderJson(res, 200, repositorioConfiguracionEnvio.guardar(datos));
       }
 
       // HU 8 (EQ-98, EQ-99): catálogo de mensajes predefinidos de la IA, solo lectura.
