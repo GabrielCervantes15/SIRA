@@ -359,90 +359,71 @@ function mostrarVista(nombre) {
 
 // ---------- HU 8 (EQ-98, EQ-99): mensajes predefinidos de la IA ----------
 
-const estadoMensajesIA = { categoria: "ENVIO", pagina: 1, semaforo: "", busqueda: "", datos: [], seleccionado: null, solicitud: 0 };
+const estadoMensajesIA = { categoria: "ENVIO", pagina: 1, semaforo: "" };
 
+const PATRON_VARIABLE_MIA = /\{\{?\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}?/g;
+
+// Una llave es una pastilla: tipo en texto normal y valor en azul.
+// Si el valor son variables ({valor} {magnitud}), cada una va en su propia pastilla.
 function pintarLlave(llave) {
-  return elemento("span", { class: "mia-llave" }, [elemento("span", { class: "mia-llave-tipo", text: `${llave.tipo}:` }), elemento("span", { class: "mia-llave-valor", text: llave.valor })]);
+  const valor = String(llave.valor ?? "");
+  const variables = [...valor.matchAll(PATRON_VARIABLE_MIA)].map((v) => v[1]);
+  const valores = variables.length > 0 && valor.replace(PATRON_VARIABLE_MIA, "").trim() === ""
+    ? variables
+    : [valor];
+  return elemento("span", { class: "mia-llave" }, [
+    elemento("span", { class: "mia-llave-tipo", text: llave.tipo }),
+    ...valores.map((texto) => elemento("span", { class: "mia-llave-valor", text: texto })),
+  ]);
+}
+
+// El texto del mensaje con las variables ({aspirante}, {valor}…) en negritas.
+function pintarTextoMensaje(texto) {
+  const partes = [];
+  let ultimo = 0;
+  for (const coincidencia of String(texto ?? "").matchAll(PATRON_VARIABLE_MIA)) {
+    if (coincidencia.index > ultimo) partes.push(document.createTextNode(texto.slice(ultimo, coincidencia.index)));
+    partes.push(elemento("strong", { text: `{${coincidencia[1]}}` }));
+    ultimo = coincidencia.index + coincidencia[0].length;
+  }
+  if (ultimo < String(texto ?? "").length) partes.push(document.createTextNode(texto.slice(ultimo)));
+  return elemento("p", { class: "mia-mensaje" }, partes);
 }
 
 function pintarTarjetaMensaje(m) {
-  const llaves = elemento("div", { class: "mia-llaves" }, [
-    elemento("span", { class: "mia-tarjeta-seccion", text: "Llaves:" }),
-    ...(m.llaves ?? []).map(pintarLlave),
+  return elemento("article", { class: "mia-tarjeta" }, [
+    elemento("div", { class: "mia-fila-llaves" }, [
+      elemento("p", { class: "mia-etiqueta", text: "Llaves:" }),
+      elemento("div", { class: "mia-llaves" }, m.llaves.map(pintarLlave)),
+    ]),
+    elemento("p", { class: "mia-etiqueta", text: "Mensaje:" }),
+    pintarTextoMensaje(m.mensaje),
   ]);
-
-  return elemento("button", {
-    type: "button",
-    class: `mia-tarjeta${estadoMensajesIA.seleccionado === m.id ? " seleccionada" : ""}`,
-    "aria-pressed": String(estadoMensajesIA.seleccionado === m.id),
-    onclick: () => seleccionarMensajeIA(m.id),
-  }, [
-    llaves,
-    elemento("span", { class: "mia-tarjeta-seccion", text: "Mensaje:" }),
-    elemento("span", { class: "mia-tarjeta-texto", text: m.mensaje }),
-    elemento("span", { class: "mia-tarjeta-pista", text: "Ver contenido y reglas →" }),
-  ]);
-}
-
-function mostrarEstadoMensajesIA(tipo, texto, reintentar = false) {
-  const estado = $("mia-estado"); estado.hidden = false; estado.className = `mia-estado ${tipo}`;
-  estado.replaceChildren(elemento("p", { text: texto }));
-  if (reintentar) estado.append(elemento("button", { type: "button", class: "mia-reintentar", text: "Reintentar", onclick: cargarMensajesIA }));
-}
-function limpiarEstadoMensajesIA() { $("mia-estado").hidden = true; $("mia-estado").replaceChildren(); $("mia-estado").className = "mia-estado"; }
-
-function pintarDetalleMensajeIA(mensaje) {
-  const contenedor = $("mia-detalle");
-  if (!mensaje) {
-    contenedor.replaceChildren(elemento("div", { class: "mia-detalle-vacio" }, [elemento("span", { text: "✉", "aria-hidden": "true" }), elemento("h3", { text: "Selecciona un mensaje" }), elemento("p", { text: "Elige una tarjeta del catálogo para consultar su contenido y sus reglas." })]));
-    return;
-  }
-  const reglas = elemento("div", { class: "mia-reglas" }, (mensaje.llaves ?? []).map((llave) => elemento("div", { class: "mia-regla" }, [elemento("span", { class: "mia-regla-tipo", text: llave.tipo }), elemento("strong", { class: "mia-regla-valor", text: llave.valor })])));
-  contenedor.replaceChildren(elemento("div", { class: "mia-detalle-contenido" }, [
-    elemento("span", { class: "mia-detalle-etiqueta", text: estadoMensajesIA.categoria === "ENVIO" ? "MENSAJE DE ENVÍO" : "MENSAJE DE RESPUESTA" }),
-    elemento("h3", { text: "Contenido del mensaje" }), elemento("div", { class: "mia-mensaje-preview", text: mensaje.mensaje }),
-    elemento("h3", { class: "mia-subtitulo-reglas", text: "Reglas asociadas" }), reglas,
-  ]));
-}
-
-function seleccionarMensajeIA(id) {
-  const mensaje = estadoMensajesIA.datos.find((m) => String(m.id) === String(id));
-  if (!mensaje) return;
-  estadoMensajesIA.seleccionado = mensaje.id; pintarDetalleMensajeIA(mensaje); pintarTarjetasMensajesIA();
-}
-
-function pintarTarjetasMensajesIA() {
-  const consulta = normalizar(estadoMensajesIA.busqueda);
-  const datos = estadoMensajesIA.datos.filter((m) => normalizar([m.mensaje, ...(m.llaves ?? []).flatMap((l) => [l.tipo, l.valor])].join(" ")).includes(consulta));
-  $("mia-tarjetas").replaceChildren(...datos.map(pintarTarjetaMensaje));
-  $("mia-total").textContent = `${datos.length} ${datos.length === 1 ? "mensaje" : "mensajes"}`;
-  if (datos.length === 0) { mostrarEstadoMensajesIA("vacio", "No hay mensajes que coincidan con la búsqueda o los filtros."); }
-  else limpiarEstadoMensajesIA();
-  if (estadoMensajesIA.seleccionado && !datos.some((m) => m.id === estadoMensajesIA.seleccionado)) { estadoMensajesIA.seleccionado = null; pintarDetalleMensajeIA(null); }
 }
 
 async function cargarMensajesIA() {
-  const solicitud = ++estadoMensajesIA.solicitud;
   $("mia-cat-envio").classList.toggle("activo", estadoMensajesIA.categoria === "ENVIO");
   $("mia-cat-respuesta").classList.toggle("activo", estadoMensajesIA.categoria === "RESPUESTA");
-  $("mia-cat-envio").setAttribute("aria-pressed", String(estadoMensajesIA.categoria === "ENVIO"));
-  $("mia-cat-respuesta").setAttribute("aria-pressed", String(estadoMensajesIA.categoria === "RESPUESTA"));
-  $("mia-descripcion-categoria").textContent = estadoMensajesIA.categoria === "ENVIO" ? "Mensajes para iniciar o dar seguimiento al contacto." : "Respuestas predefinidas para consultas de los aspirantes.";
-  $("mia-tarjetas").replaceChildren(); mostrarEstadoMensajesIA("cargando", "Cargando mensajes del catálogo...");
   try {
-    const r = await api.mensajesIA.listar({ categoria: estadoMensajesIA.categoria, semaforo: estadoMensajesIA.semaforo || undefined, pagina: estadoMensajesIA.pagina, tamano: 50 });
-    if (solicitud !== estadoMensajesIA.solicitud) return;
-    estadoMensajesIA.datos = Array.isArray(r.datos) ? r.datos : [];
+    const r = await api.mensajesIA.listar({
+      categoria: estadoMensajesIA.categoria,
+      semaforo: estadoMensajesIA.semaforo || undefined,
+      pagina: estadoMensajesIA.pagina,
+      tamano: 9,
+    });
+    $("mia-total").textContent = r.totalGeneral;
     const totalPaginas = Math.max(1, Math.ceil(r.totalCategoria / r.tamano));
-    $("mia-indicador").textContent = r.totalCategoria === 0 ? "" : `${r.pagina} de ${totalPaginas}`;
-    $("mia-anterior").disabled = r.pagina <= 1; $("mia-siguiente").disabled = r.pagina >= totalPaginas;
-    if (!estadoMensajesIA.datos.some((m) => m.id === estadoMensajesIA.seleccionado)) { estadoMensajesIA.seleccionado = null; pintarDetalleMensajeIA(null); }
-    pintarTarjetasMensajesIA();
+    const desde = (r.pagina - 1) * r.tamano + 1;
+    const hasta = desde + r.datos.length - 1;
+    $("mia-indicador").textContent = r.totalCategoria === 0 ? "0 de 0" : `${desde} - ${hasta} de ${r.totalCategoria}`;
+    $("mia-anterior").disabled = r.pagina <= 1;
+    $("mia-siguiente").disabled = r.pagina >= totalPaginas;
+    $("mia-tarjetas").replaceChildren(...r.datos.map(pintarTarjetaMensaje));
+    $("mia-sin-resultados").hidden = r.datos.length > 0;
   } catch (error) {
-    if (solicitud !== estadoMensajesIA.solicitud) return;
-    estadoMensajesIA.datos = []; estadoMensajesIA.seleccionado = null; pintarDetalleMensajeIA(null);
-    $("mia-tarjetas").replaceChildren(); mostrarEstadoMensajesIA("error", error.mensaje || "No se pudo cargar el catálogo. Revisa tu conexión e inténtalo nuevamente.", true);
-    console.error("Error al cargar mensajes predefinidos:", error);
+    $("mia-tarjetas").replaceChildren();
+    $("mia-sin-resultados").hidden = false;
+    $("mia-sin-resultados").textContent = "No se pudo cargar el catálogo de mensajes.";
   }
 }
 
@@ -555,36 +536,9 @@ async function enviarDisparo() {
 function configurarEventos() {
   $("nav-aspirantes").addEventListener("click", (e) => { e.preventDefault(); mostrarVista("monitoreo"); });
   $("nav-mensajes").addEventListener("click", (e) => { e.preventDefault(); mostrarVista("mensajes-ia"); });
-  $("mia-cat-envio").addEventListener("click", () => {
-  estadoMensajesIA.categoria = "ENVIO";
-  estadoMensajesIA.pagina = 1;
-  estadoMensajesIA.semaforo = "";
-  estadoMensajesIA.seleccionado = null;
-  estadoMensajesIA.busqueda = "";
-
-  $("mia-filtro-semaforo").value = "";
-  $("mia-buscar").value = "";
-
-  pintarDetalleMensajeIA(null);
-  cargarMensajesIA();
-});
-
-$("mia-cat-respuesta").addEventListener("click", () => {
-  estadoMensajesIA.categoria = "RESPUESTA";
-  estadoMensajesIA.pagina = 1;
-  estadoMensajesIA.semaforo = "";
-  estadoMensajesIA.seleccionado = null;
-  estadoMensajesIA.busqueda = "";
-
-  $("mia-filtro-semaforo").value = "";
-  $("mia-buscar").value = "";
-
-  pintarDetalleMensajeIA(null);
-  cargarMensajesIA();
-});
-
-  $("mia-filtro-semaforo").addEventListener("change", (e) => { estadoMensajesIA.semaforo = e.target.value; estadoMensajesIA.pagina = 1; estadoMensajesIA.seleccionado = null; pintarDetalleMensajeIA(null); cargarMensajesIA(); });
-  $("mia-buscar").addEventListener("input", (e) => { estadoMensajesIA.busqueda = e.target.value; pintarTarjetasMensajesIA(); });
+  $("mia-cat-envio").addEventListener("click", () => { estadoMensajesIA.categoria = "ENVIO"; estadoMensajesIA.pagina = 1; cargarMensajesIA(); });
+  $("mia-cat-respuesta").addEventListener("click", () => { estadoMensajesIA.categoria = "RESPUESTA"; estadoMensajesIA.pagina = 1; cargarMensajesIA(); });
+  $("mia-filtro-semaforo").addEventListener("change", (e) => { estadoMensajesIA.semaforo = e.target.value; estadoMensajesIA.pagina = 1; cargarMensajesIA(); });
   $("mia-anterior").addEventListener("click", () => { estadoMensajesIA.pagina -= 1; cargarMensajesIA(); });
   $("mia-siguiente").addEventListener("click", () => { estadoMensajesIA.pagina += 1; cargarMensajesIA(); });
 

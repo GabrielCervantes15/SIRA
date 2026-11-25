@@ -1,12 +1,13 @@
 /**
- * Repositorio del catálogo en memoria, cargado de datos-semilla/catalogo-mensajes.json (EQ-95).
+ * Repositorio del catálogo en memoria, cargado de datos-semilla/mensajes-ia.json (EQ-95):
+ * el mismo catálogo que muestra la pantalla de Mensajes y que usa el envío de HU 1.
  * Valida el catálogo al arrancar: si la semilla está mal formada, el servidor no inicia
  * con mensajes rotos (por ejemplo, una variable usada que no se declaró).
  */
 import { readFileSync } from "node:fs";
-import { validarCatalogo } from "../dominio/catalogo.js";
+import { catalogoDesdeSemilla, validarCatalogo } from "../dominio/catalogo.js";
 
-const RUTA_SEMILLA = new URL("../../../../datos-semilla/catalogo-mensajes.json", import.meta.url);
+const RUTA_SEMILLA = new URL("../../../../datos-semilla/mensajes-ia.json", import.meta.url);
 
 function copiar(m) {
   return structuredClone(m);
@@ -15,10 +16,10 @@ function copiar(m) {
 export class RepositorioCatalogoMemoria {
   /**
    * @param {Object} [opciones]
-   * @param {Array} [opciones.mensajes] - Si no se indica, se lee la semilla.
+   * @param {Array} [opciones.mensajes] - En el formato de la semilla; si no se indica, se lee el archivo.
    */
   constructor({ mensajes } = {}) {
-    const datos = mensajes ?? JSON.parse(readFileSync(RUTA_SEMILLA, "utf8")).mensajes;
+    const datos = catalogoDesdeSemilla(mensajes ?? JSON.parse(readFileSync(RUTA_SEMILLA, "utf8")).mensajes);
     const errores = validarCatalogo(datos);
     if (errores.length) {
       throw new Error(`Catálogo de mensajes inválido:\n- ${errores.join("\n- ")}`);

@@ -1,6 +1,6 @@
 -- =========================================================================
 -- HU 8 · EQ-95: catálogo de mensajes predefinidos (esquema mensajes).
--- Contenido aprobado por el PO en EQ-93 (docs/decisiones/HU8-catalogo-mensajes.md).
+-- Contenido: datos-semilla/mensajes-ia.json (catálogo de EQ-98/99, el que muestra la pantalla).
 -- Solo lectura para Administrador y Colaborador: la aplicación no escribe aquí.
 -- Idempotente: se puede correr más de una vez.
 -- Semilla: datos-semilla/05_catalogo_mensajes_semilla.sql
@@ -9,7 +9,7 @@
 CREATE SCHEMA IF NOT EXISTS mensajes;
 
 CREATE TABLE IF NOT EXISTS mensajes.catalogo_mensaje (
-  id                         VARCHAR(60)  PRIMARY KEY,
+  id                         VARCHAR(60)  PRIMARY KEY CHECK (id ~ '^[a-z][a-z0-9_-]{2,59}$'),
   categoria                  VARCHAR(10)  NOT NULL CHECK (categoria IN ('ENVIO', 'RESPUESTA')),
   nombre                     VARCHAR(120) NOT NULL,
   orden                      SMALLINT     NOT NULL CHECK (orden > 0),
@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS mensajes.catalogo_mensaje (
 
 CREATE TABLE IF NOT EXISTS mensajes.catalogo_variable (
   mensaje_id  VARCHAR(60) NOT NULL REFERENCES mensajes.catalogo_mensaje(id) ON DELETE CASCADE,
-  nombre      VARCHAR(30) NOT NULL CHECK (nombre IN ('nombre', 'carrera')),
+  nombre      VARCHAR(30) NOT NULL CHECK (nombre IN ('aspirante', 'valor', 'magnitud')),
   orden       SMALLINT    NOT NULL,
   PRIMARY KEY (mensaje_id, nombre)
 );

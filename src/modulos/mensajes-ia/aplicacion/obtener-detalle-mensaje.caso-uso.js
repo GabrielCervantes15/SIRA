@@ -3,12 +3,12 @@
  *
  * Devuelve el mensaje con sus reglas de negocio, variables (con descripción), estado
  * de la plantilla de Meta y la vista previa con las variables ya sustituidas.
- * La vista previa usa valores de ejemplo; `nombre` y `carrera` se pueden cambiar
+ * La vista previa usa valores de ejemplo; `aspirante`, `valor` y `magnitud` se pueden cambiar
  * (máximo 80 caracteres). Nunca modifica el catálogo.
  *
  * 400 ID_INVALIDO · 404 NO_ENCONTRADO · 400 VALOR_DEMASIADO_LARGO
  */
-import { ErrorCatalogo, aDetalle, valoresVistaPrevia } from "../dominio/catalogo.js";
+import { ErrorCatalogo, PATRON_ID, aDetalle, valoresVistaPrevia } from "../dominio/catalogo.js";
 
 export class ObtenerDetalleMensajeCasoUso {
   constructor({ repositorioCatalogo }) {
@@ -21,7 +21,7 @@ export class ObtenerDetalleMensajeCasoUso {
    */
   async ejecutar({ id, valores = {} } = {}) {
     const limpio = String(id ?? "").trim();
-    if (!/^[a-z][a-z0-9_]{2,59}$/.test(limpio)) {
+    if (!PATRON_ID.test(limpio)) {
       throw new ErrorCatalogo(400, "ID_INVALIDO", "El identificador del mensaje no es válido.");
     }
     const mensaje = await this.repositorio.obtenerPorId(limpio);

@@ -1,6 +1,9 @@
 
 /**
  * HU9 (EQ-109 / EQ-110): interacción del panel lateral de configuración.
+ * Diseño del prototipo: un solo horario (Inicio / Fin) para el envío. El
+ * backend guarda la jornada por día, así que ese horario se aplica a los
+ * días que ya están habilitados (por omisión, de lunes a viernes).
  * El acceso visual se habilita únicamente para Administrador; la API vuelve
  * a validar el rol en el servidor antes de consultar o guardar.
  */
@@ -17,11 +20,12 @@ export function inicializarConfiguracionMensajes({ api, esAdministrador }) {
   const botonCerrar = $("cerrar-configuracion");
   const formulario = $("form-configuracion");
   const botonGuardar = $("guardar-configuracion");
-  const listaJornada = $("lista-jornada");
+  const horaInicio = $("cfg-horario-inicio");
+  const horaFin = $("cfg-horario-fin");
   const mensaje = $("mensaje-configuracion");
 
   if (!panel || !botonAbrir || !botonCerrar || !formulario ||
-      !botonGuardar || !listaJornada || !mensaje) {
+      !botonGuardar || !horaInicio || !horaFin || !mensaje) {
     return;
   }
 
@@ -32,13 +36,6 @@ export function inicializarConfiguracionMensajes({ api, esAdministrador }) {
   if (!esAdministrador) return;
 
   let guardando = false;
-
-  function crearElemento(etiqueta, clase, texto) {
-    const elemento = document.createElement(etiqueta);
-    if (clase) elemento.className = clase;
-    if (texto !== undefined) elemento.textContent = texto;
-    return elemento;
-  }
 
   function limpiarMensaje() {
     mensaje.textContent = "";
@@ -53,96 +50,22 @@ export function inicializarConfiguracionMensajes({ api, esAdministrador }) {
     });
   }
 
-  function crearFilaDia(dia, horario) {
-    const grupo = crearElemento("div", "grupo-dia");
-    const fila = crearElemento("div", "fila-dia");
-    fila.dataset.dia = dia.clave;
+  const DIAS_LABORALES = ["lunes", "martes", "miercoles", "jueves", "viernes"];
+  let jornadaCargada = {};
 
-    const nombre = crearElemento("label", "nombre-dia", dia.nombre);
-    nombre.htmlFor = `jornada-${dia.clave}-habilitado`;
-
-    const etiquetaSwitch = crearElemento("label", "switch-dia");
-    etiquetaSwitch.htmlFor = `jornada-${dia.clave}-habilitado`;
-
-    const interruptor = document.createElement("input");
-    interruptor.type = "checkbox";
-    interruptor.id = `jornada-${dia.clave}-habilitado`;
-    interruptor.checked = Boolean(horario.habilitado);
-    interruptor.setAttribute(
-      "aria-label",
-      `Habilitar jornada del ${dia.nombre.toLowerCase()}`
-    );
-
-    const pista = crearElemento("span", "switch-pista");
-    pista.setAttribute("aria-hidden", "true");
-    etiquetaSwitch.append(interruptor, pista);
-
-    const inicio = document.createElement("input");
-    inicio.type = "time";
-    inicio.className = "hora-dia";
-    inicio.id = `jornada-${dia.clave}-inicio`;
-    inicio.value = horario.horaInicio ?? "";
-    inicio.disabled = !horario.habilitado;
-    inicio.setAttribute(
-      "aria-label",
-      `Hora de inicio del ${dia.nombre.toLowerCase()}`
-    );
-
-    const separador = crearElemento("span", "separador-hora", "a");
-    separador.setAttribute("aria-hidden", "true");
-
-    const fin = document.createElement("input");
-    fin.type = "time";
-    fin.className = "hora-dia";
-    fin.id = `jornada-${dia.clave}-fin`;
-    fin.value = horario.horaFin ?? "";
-    fin.disabled = !horario.habilitado;
-    fin.setAttribute(
-      "aria-label",
-      `Hora de fin del ${dia.nombre.toLowerCase()}`
-    );
-
-    const error = crearElemento("p", "error-campo");
-    error.id = `error-jornada-${dia.clave}`;
-    error.setAttribute("role", "alert");
-
-    interruptor.addEventListener("change", () => {
-      const habilitado = interruptor.checked;
-      inicio.disabled = !habilitado;
-      fin.disabled = !habilitado;
-      fila.classList.toggle("dia-deshabilitado", !habilitado);
-      error.textContent = "";
-      inicio.removeAttribute("aria-invalid");
-      fin.removeAttribute("aria-invalid");
-      limpiarMensaje();
-    });
-
-    for (const control of [inicio, fin]) {
-      control.addEventListener("input", () => {
-        error.textContent = "";
-        control.removeAttribute("aria-invalid");
-        limpiarMensaje();
-      });
-    }
-
-    fila.classList.toggle("dia-deshabilitado", !horario.habilitado);
-    fila.append(nombre, etiquetaSwitch, inicio, separador, fin);
-    grupo.append(fila, error);
-
-    return grupo;
+  function diasHabilitados(jornada) {
+    const dias = DIAS_SEMANA
+      .map((dia) => dia.clave)
+      .filter((clave) => jornada?.[clave]?.habilitado);
+    return dias.length > 0 ? dias : DIAS_LABORALES;
   }
 
-  function pintarJornada(jornada) {
-    listaJornada.replaceChildren(
-      ...DIAS_SEMANA.map((dia) => crearFilaDia(
-        dia,
-        jornada[dia.clave] ?? {
-          habilitado: false,
-          horaInicio: null,
-          horaFin: null
-        }
-      ))
-    );
+  // Muestra el horario del primer día habilitado.
+  function pintarHorario(jornada) {
+    jornadaCargada = jornada ?? {};
+    const primero = jornadaCargada[diasHabilitados(jornadaCargada)[0]] ?? {};
+    horaInicio.value = primero.horaInicio ?? "08:00";
+    horaFin.value = primero.horaFin ?? "18:00";
   }
 
   function cargarValores(configuracion) {
@@ -158,7 +81,7 @@ export function inicializarConfiguracionMensajes({ api, esAdministrador }) {
     $("cfg-contacto-unidad").value =
       configuracion.tiempoEsperaContactoPrevio.unidad;
 
-    pintarJornada(configuracion.jornada);
+    pintarHorario(configuracion.jornada);
 
     actualizarLimitesTiempo(
       "cfg-respuesta-valor",
@@ -173,20 +96,15 @@ export function inicializarConfiguracionMensajes({ api, esAdministrador }) {
 
   function leerConfiguracionFormulario() {
     const jornada = {};
+    const habilitados = diasHabilitados(jornadaCargada);
 
     for (const dia of DIAS_SEMANA) {
-      const habilitado = $(
-        `jornada-${dia.clave}-habilitado`
-      ).checked;
+      const habilitado = habilitados.includes(dia.clave);
 
       jornada[dia.clave] = {
         habilitado,
-        horaInicio: habilitado
-          ? $(`jornada-${dia.clave}-inicio`).value
-          : null,
-        horaFin: habilitado
-          ? $(`jornada-${dia.clave}-fin`).value
-          : null,
+        horaInicio: habilitado ? horaInicio.value : null,
+        horaFin: habilitado ? horaFin.value : null,
       };
     }
 
@@ -209,18 +127,9 @@ export function inicializarConfiguracionMensajes({ api, esAdministrador }) {
     $("error-contacto").textContent = "";
     $("error-jornada").textContent = "";
 
-    for (const dia of DIAS_SEMANA) {
-      const error = $(`error-jornada-${dia.clave}`);
-      if (error) error.textContent = "";
-
-      $(`jornada-${dia.clave}-inicio`)
-        ?.removeAttribute("aria-invalid");
-
-      $(`jornada-${dia.clave}-fin`)
-        ?.removeAttribute("aria-invalid");
-    }
-
     for (const id of [
+      "cfg-horario-inicio",
+      "cfg-horario-fin",
       "cfg-respuesta-valor",
       "cfg-respuesta-unidad",
       "cfg-contacto-valor",
@@ -244,18 +153,12 @@ export function inicializarConfiguracionMensajes({ api, esAdministrador }) {
         $("cfg-contacto-valor").setAttribute("aria-invalid", "true");
         $("cfg-contacto-unidad").setAttribute("aria-invalid", "true");
 
-      } else if (campo.startsWith("jornada.")) {
-        const dia = campo.split(".")[1];
-        const errorDia = $(`error-jornada-${dia}`);
-
-        if (errorDia) {
-          errorDia.textContent = texto;
-          $(`jornada-${dia}-inicio`).setAttribute("aria-invalid", "true");
-          $(`jornada-${dia}-fin`).setAttribute("aria-invalid", "true");
-        }
-
-      } else if (campo === "jornada") {
-        $("error-jornada").textContent = texto;
+      } else if (campo === "jornada" || campo.startsWith("jornada.")) {
+        // Todos los días comparten el horario: basta un mensaje, sin nombrar el día.
+        const sinDia = String(texto).replace(/^En [^,]+,\s*/, "");
+        $("error-jornada").textContent = sinDia.charAt(0).toUpperCase() + sinDia.slice(1);
+        horaInicio.setAttribute("aria-invalid", "true");
+        horaFin.setAttribute("aria-invalid", "true");
       }
     }
 
@@ -429,6 +332,12 @@ export function inicializarConfiguracionMensajes({ api, esAdministrador }) {
 
     limpiarErrorTiempo("error-contacto", controlesContacto);
   });
+
+  for (const control of [horaInicio, horaFin]) {
+    control.addEventListener("input", () => {
+      limpiarErrorTiempo("error-jornada", ["cfg-horario-inicio", "cfg-horario-fin"]);
+    });
+  }
 
   $("cfg-respuesta-valor").addEventListener("input", () => {
     limpiarErrorTiempo("error-respuesta", controlesRespuesta);
