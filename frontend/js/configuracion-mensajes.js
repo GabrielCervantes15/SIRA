@@ -1,3 +1,4 @@
+
 /**
  * HU9 (EQ-109 / EQ-110): interacción del panel lateral de configuración.
  * El acceso visual se habilita únicamente para Administrador; la API vuelve
@@ -19,14 +20,15 @@ export function inicializarConfiguracionMensajes({ api, esAdministrador }) {
   const listaJornada = $("lista-jornada");
   const mensaje = $("mensaje-configuracion");
 
-  if (!panel || !botonAbrir || !botonCerrar || !formulario || !botonGuardar || !listaJornada || !mensaje) {
+  if (!panel || !botonAbrir || !botonCerrar || !formulario ||
+      !botonGuardar || !listaJornada || !mensaje) {
     return;
   }
 
-  // La entrada no existe visualmente para Colaborador. La autorización real
-  // permanece en los casos de uso del backend (401/403).
   botonAbrir.hidden = !esAdministrador;
   panel.hidden = true;
+
+  // El colaborador no necesita inicializar el panel administrativo.
   if (!esAdministrador) return;
 
   let guardando = false;
@@ -44,7 +46,9 @@ export function inicializarConfiguracionMensajes({ api, esAdministrador }) {
   }
 
   function habilitarFormulario(habilitado) {
-    formulario.querySelectorAll("input, select, button[type='submit'], .boton-stepper").forEach((control) => {
+    formulario.querySelectorAll(
+      "input, select, button[type='submit'], .boton-stepper"
+    ).forEach((control) => {
       control.disabled = !habilitado;
     });
   }
@@ -64,7 +68,10 @@ export function inicializarConfiguracionMensajes({ api, esAdministrador }) {
     interruptor.type = "checkbox";
     interruptor.id = `jornada-${dia.clave}-habilitado`;
     interruptor.checked = Boolean(horario.habilitado);
-    interruptor.setAttribute("aria-label", `Habilitar jornada del ${dia.nombre.toLowerCase()}`);
+    interruptor.setAttribute(
+      "aria-label",
+      `Habilitar jornada del ${dia.nombre.toLowerCase()}`
+    );
 
     const pista = crearElemento("span", "switch-pista");
     pista.setAttribute("aria-hidden", "true");
@@ -76,7 +83,10 @@ export function inicializarConfiguracionMensajes({ api, esAdministrador }) {
     inicio.id = `jornada-${dia.clave}-inicio`;
     inicio.value = horario.horaInicio ?? "";
     inicio.disabled = !horario.habilitado;
-    inicio.setAttribute("aria-label", `Hora de inicio del ${dia.nombre.toLowerCase()}`);
+    inicio.setAttribute(
+      "aria-label",
+      `Hora de inicio del ${dia.nombre.toLowerCase()}`
+    );
 
     const separador = crearElemento("span", "separador-hora", "a");
     separador.setAttribute("aria-hidden", "true");
@@ -87,7 +97,10 @@ export function inicializarConfiguracionMensajes({ api, esAdministrador }) {
     fin.id = `jornada-${dia.clave}-fin`;
     fin.value = horario.horaFin ?? "";
     fin.disabled = !horario.habilitado;
-    fin.setAttribute("aria-label", `Hora de fin del ${dia.nombre.toLowerCase()}`);
+    fin.setAttribute(
+      "aria-label",
+      `Hora de fin del ${dia.nombre.toLowerCase()}`
+    );
 
     const error = crearElemento("p", "error-campo");
     error.id = `error-jornada-${dia.clave}`;
@@ -115,6 +128,7 @@ export function inicializarConfiguracionMensajes({ api, esAdministrador }) {
     fila.classList.toggle("dia-deshabilitado", !horario.habilitado);
     fila.append(nombre, etiquetaSwitch, inicio, separador, fin);
     grupo.append(fila, error);
+
     return grupo;
   }
 
@@ -122,29 +136,57 @@ export function inicializarConfiguracionMensajes({ api, esAdministrador }) {
     listaJornada.replaceChildren(
       ...DIAS_SEMANA.map((dia) => crearFilaDia(
         dia,
-        jornada[dia.clave] ?? { habilitado: false, horaInicio: null, horaFin: null }
+        jornada[dia.clave] ?? {
+          habilitado: false,
+          horaInicio: null,
+          horaFin: null
+        }
       ))
     );
   }
 
   function cargarValores(configuracion) {
-    $("cfg-respuesta-valor").value = configuracion.tiempoMaximoEsperaRespuesta.valor;
-    $("cfg-respuesta-unidad").value = configuracion.tiempoMaximoEsperaRespuesta.unidad;
-    $("cfg-contacto-valor").value = configuracion.tiempoEsperaContactoPrevio.valor;
-    $("cfg-contacto-unidad").value = configuracion.tiempoEsperaContactoPrevio.unidad;
+    $("cfg-respuesta-valor").value =
+      configuracion.tiempoMaximoEsperaRespuesta.valor;
+
+    $("cfg-respuesta-unidad").value =
+      configuracion.tiempoMaximoEsperaRespuesta.unidad;
+
+    $("cfg-contacto-valor").value =
+      configuracion.tiempoEsperaContactoPrevio.valor;
+
+    $("cfg-contacto-unidad").value =
+      configuracion.tiempoEsperaContactoPrevio.unidad;
+
     pintarJornada(configuracion.jornada);
-    actualizarLimitesTiempo("cfg-respuesta-valor", "cfg-respuesta-unidad");
-    actualizarLimitesTiempo("cfg-contacto-valor", "cfg-contacto-unidad");
+
+    actualizarLimitesTiempo(
+      "cfg-respuesta-valor",
+      "cfg-respuesta-unidad"
+    );
+
+    actualizarLimitesTiempo(
+      "cfg-contacto-valor",
+      "cfg-contacto-unidad"
+    );
   }
 
   function leerConfiguracionFormulario() {
     const jornada = {};
+
     for (const dia of DIAS_SEMANA) {
-      const habilitado = $(`jornada-${dia.clave}-habilitado`).checked;
+      const habilitado = $(
+        `jornada-${dia.clave}-habilitado`
+      ).checked;
+
       jornada[dia.clave] = {
         habilitado,
-        horaInicio: habilitado ? $(`jornada-${dia.clave}-inicio`).value : null,
-        horaFin: habilitado ? $(`jornada-${dia.clave}-fin`).value : null,
+        horaInicio: habilitado
+          ? $(`jornada-${dia.clave}-inicio`).value
+          : null,
+        horaFin: habilitado
+          ? $(`jornada-${dia.clave}-fin`).value
+          : null,
       };
     }
 
@@ -170,8 +212,12 @@ export function inicializarConfiguracionMensajes({ api, esAdministrador }) {
     for (const dia of DIAS_SEMANA) {
       const error = $(`error-jornada-${dia.clave}`);
       if (error) error.textContent = "";
-      $(`jornada-${dia.clave}-inicio`)?.removeAttribute("aria-invalid");
-      $(`jornada-${dia.clave}-fin`)?.removeAttribute("aria-invalid");
+
+      $(`jornada-${dia.clave}-inicio`)
+        ?.removeAttribute("aria-invalid");
+
+      $(`jornada-${dia.clave}-fin`)
+        ?.removeAttribute("aria-invalid");
     }
 
     for (const id of [
@@ -179,7 +225,9 @@ export function inicializarConfiguracionMensajes({ api, esAdministrador }) {
       "cfg-respuesta-unidad",
       "cfg-contacto-valor",
       "cfg-contacto-unidad",
-    ]) $(id).removeAttribute("aria-invalid");
+    ]) {
+      $(id).removeAttribute("aria-invalid");
+    }
 
     limpiarMensaje();
   }
@@ -190,36 +238,48 @@ export function inicializarConfiguracionMensajes({ api, esAdministrador }) {
         $("error-respuesta").textContent = texto;
         $("cfg-respuesta-valor").setAttribute("aria-invalid", "true");
         $("cfg-respuesta-unidad").setAttribute("aria-invalid", "true");
+
       } else if (campo === "tiempoEsperaContactoPrevio") {
         $("error-contacto").textContent = texto;
         $("cfg-contacto-valor").setAttribute("aria-invalid", "true");
         $("cfg-contacto-unidad").setAttribute("aria-invalid", "true");
+
       } else if (campo.startsWith("jornada.")) {
         const dia = campo.split(".")[1];
         const errorDia = $(`error-jornada-${dia}`);
+
         if (errorDia) {
           errorDia.textContent = texto;
           $(`jornada-${dia}-inicio`).setAttribute("aria-invalid", "true");
           $(`jornada-${dia}-fin`).setAttribute("aria-invalid", "true");
         }
+
       } else if (campo === "jornada") {
         $("error-jornada").textContent = texto;
       }
     }
-    mensaje.textContent = "Revisa los campos marcados antes de guardar.";
+
+    mensaje.textContent =
+      "Revisa los campos marcados antes de guardar.";
+
     mensaje.classList.add("error");
   }
 
   function actualizarLimitesTiempo(inputId, unidadId) {
     const input = $(inputId);
     const unidad = $(unidadId).value;
+
     input.min = "1";
     input.max = unidad === "dias" ? "30" : "720";
   }
 
   function limpiarErrorTiempo(errorId, controles) {
     $(errorId).textContent = "";
-    for (const id of controles) $(id).removeAttribute("aria-invalid");
+
+    for (const id of controles) {
+      $(id).removeAttribute("aria-invalid");
+    }
+
     limpiarMensaje();
   }
 
@@ -227,44 +287,60 @@ export function inicializarConfiguracionMensajes({ api, esAdministrador }) {
     limpiarErrores();
     habilitarFormulario(false);
     mensaje.textContent = "Cargando configuración…";
+
     try {
-      const configuracion = await api.configuracionEnvio.obtener();
+      const configuracion =
+        await api.configuracionEnvio.obtener();
+
       cargarValores(configuracion);
       limpiarErrores();
       habilitarFormulario(true);
+
     } catch (error) {
       if (error.estado === 403 || error.codigo === "SIN_PERMISO") {
         botonAbrir.hidden = true;
         cerrarPanel();
         return;
       }
-      mensaje.textContent = "No se pudo cargar la configuración del servidor. Inténtalo nuevamente.";
+
+      mensaje.textContent =
+        "No se pudo cargar la configuración del servidor. Inténtalo nuevamente.";
+
       mensaje.classList.add("error");
     }
   }
 
   function abrirPanel() {
     if (!esAdministrador || botonAbrir.hidden) return;
+
     panel.hidden = false;
     botonAbrir.setAttribute("aria-expanded", "true");
     botonCerrar.focus();
+
     cargarConfiguracion();
   }
 
   function cerrarPanel() {
     panel.hidden = true;
     botonAbrir.setAttribute("aria-expanded", "false");
-    if (!botonAbrir.hidden) botonAbrir.focus();
-    else $("nav-mensajes")?.focus();
+
+    if (!botonAbrir.hidden) {
+      botonAbrir.focus();
+    } else {
+      $("nav-mensajes")?.focus();
+    }
   }
 
   async function guardarConfiguracion(evento) {
     evento.preventDefault();
+
     if (guardando) return;
+
     limpiarErrores();
 
     const configuracion = leerConfiguracionFormulario();
     const resultado = validarConfiguracion(configuracion);
+
     if (!resultado.valido) {
       mostrarErrores(resultado.errores);
       return;
@@ -274,23 +350,41 @@ export function inicializarConfiguracionMensajes({ api, esAdministrador }) {
     habilitarFormulario(false);
     botonGuardar.textContent = "Guardando…";
     mensaje.textContent = "Guardando configuración…";
+
     try {
-      const guardada = await api.configuracionEnvio.guardar(configuracion);
+      const guardada =
+        await api.configuracionEnvio.guardar(configuracion);
+
       cargarValores(guardada);
-      mensaje.textContent = "Configuración guardada correctamente.";
+
+      mensaje.textContent =
+        "Configuración guardada correctamente.";
+
       mensaje.classList.add("exito");
+
     } catch (error) {
       if (error.codigo === "CONFIGURACION_INVALIDA" && error.errores) {
         mostrarErrores(error.errores);
-      } else if (error.estado === 403 || error.codigo === "SIN_PERMISO") {
+
+      } else if (
+        error.estado === 403 ||
+        error.codigo === "SIN_PERMISO"
+      ) {
         botonAbrir.hidden = true;
-        mensaje.textContent = "Tu cuenta ya no tiene permisos para modificar esta configuración.";
+
+        mensaje.textContent =
+          "Tu cuenta ya no tiene permisos para modificar esta configuración.";
+
         mensaje.classList.add("error");
         cerrarPanel();
+
       } else {
-        mensaje.textContent = "No se pudo guardar la configuración. Tus cambios siguen disponibles para reintentar.";
+        mensaje.textContent =
+          "No se pudo guardar la configuración. Tus cambios siguen disponibles para reintentar.";
+
         mensaje.classList.add("error");
       }
+
     } finally {
       guardando = false;
       habilitarFormulario(true);
@@ -303,31 +397,62 @@ export function inicializarConfiguracionMensajes({ api, esAdministrador }) {
   formulario.addEventListener("submit", guardarConfiguracion);
 
   document.addEventListener("keydown", (evento) => {
-    if (evento.key === "Escape" && !panel.hidden) cerrarPanel();
+    if (evento.key === "Escape" && !panel.hidden) {
+      cerrarPanel();
+    }
   });
 
-  const controlesRespuesta = ["cfg-respuesta-valor", "cfg-respuesta-unidad"];
-  const controlesContacto = ["cfg-contacto-valor", "cfg-contacto-unidad"];
+  const controlesRespuesta = [
+    "cfg-respuesta-valor",
+    "cfg-respuesta-unidad"
+  ];
+
+  const controlesContacto = [
+    "cfg-contacto-valor",
+    "cfg-contacto-unidad"
+  ];
 
   $("cfg-respuesta-unidad").addEventListener("change", () => {
-    actualizarLimitesTiempo("cfg-respuesta-valor", "cfg-respuesta-unidad");
+    actualizarLimitesTiempo(
+      "cfg-respuesta-valor",
+      "cfg-respuesta-unidad"
+    );
+
     limpiarErrorTiempo("error-respuesta", controlesRespuesta);
   });
+
   $("cfg-contacto-unidad").addEventListener("change", () => {
-    actualizarLimitesTiempo("cfg-contacto-valor", "cfg-contacto-unidad");
+    actualizarLimitesTiempo(
+      "cfg-contacto-valor",
+      "cfg-contacto-unidad"
+    );
+
     limpiarErrorTiempo("error-contacto", controlesContacto);
   });
-  $("cfg-respuesta-valor").addEventListener("input", () => limpiarErrorTiempo("error-respuesta", controlesRespuesta));
-  $("cfg-contacto-valor").addEventListener("input", () => limpiarErrorTiempo("error-contacto", controlesContacto));
 
+  $("cfg-respuesta-valor").addEventListener("input", () => {
+    limpiarErrorTiempo("error-respuesta", controlesRespuesta);
+  });
+
+  $("cfg-contacto-valor").addEventListener("input", () => {
+    limpiarErrorTiempo("error-contacto", controlesContacto);
+  });
+
+  // EQ-109 / EQ-110: controles para aumentar o disminuir valores.
   for (const boton of document.querySelectorAll(".boton-stepper")) {
     boton.addEventListener("click", () => {
       const input = $(boton.dataset.target);
+      if (!input) return;
+
       const paso = Number(boton.dataset.step);
       const minimo = Number(input.min || 1);
       const maximo = Number(input.max || 720);
       const valorActual = Number(input.value || minimo);
-      input.value = String(Math.min(maximo, Math.max(minimo, valorActual + paso)));
+
+      input.value = String(
+        Math.min(maximo, Math.max(minimo, valorActual + paso))
+      );
+
       input.dispatchEvent(new Event("input", { bubbles: true }));
     });
   }
