@@ -1,0 +1,179 @@
+{
+  "_nota": "HU 8 · EQ-95: catálogo aprobado por el PO en EQ-93 (docs/decisiones/HU8-catalogo-mensajes.md). Los textos son literales; no editarlos sin una nueva decisión del PO. Las variables usan {{nombre}} y {{carrera}}. El horario NO va en los textos: se consulta en HU9. datos-semilla/mensajes-ia.json es el catálogo provisional anterior y solo lo sigue usando disparo-automatico hasta EQ-84.",
+  "fuente": "EQ-93",
+  "fechaAprobacion": "2026-11-18",
+  "mensajes": [
+    {
+      "id": "saludo_inicial",
+      "categoria": "ENVIO",
+      "nombre": "Saludo inicial automático",
+      "orden": 1,
+      "disparador": "AUTOMATICO",
+      "canal": "WHATSAPP",
+      "requierePlantillaMeta": false,
+      "plantillaMeta": null,
+      "texto": "¡Hola, {{nombre}}! Bienvenido(a). Estamos aquí para ayudarte con tu proceso de ingreso a {{carrera}}. ¿En qué podemos apoyarte?",
+      "variables": ["nombre", "carrera"],
+      "llaves": [
+        { "tipo": "Disparador", "valor": "Primer mensaje del aspirante" },
+        { "tipo": "Horario", "valor": "Dentro del horario de atención" }
+      ],
+      "reglas": [
+        "Se activa cuando el aspirante inicia por primera vez una conversación por WhatsApp.",
+        "Si el primer contacto ocurre dentro del horario de atención, SIRA envía automáticamente este saludo.",
+        "Después del saludo, el colaborador puede continuar la atención manualmente.",
+        "Si el primer contacto ocurre fuera del horario, se envía el aviso fuera de horario en lugar del saludo; no se envían ambos mensajes.",
+        "El horario vigente se consulta desde la configuración de HU9; no se fija en el catálogo."
+      ]
+    },
+    {
+      "id": "contacto_iniciado_colaborador",
+      "categoria": "ENVIO",
+      "nombre": "Contacto iniciado por el colaborador",
+      "orden": 2,
+      "disparador": "MANUAL",
+      "canal": "WHATSAPP",
+      "requierePlantillaMeta": true,
+      "plantillaMeta": { "referencia": "Tarea aprobada por el PO (sin clave)", "estado": "PENDIENTE" },
+      "texto": "Hola, {{nombre}}. Soy parte del equipo de atención de ITSON. Me gustaría apoyarte con tu proceso de ingreso a {{carrera}}. ¿Tienes alguna duda o necesitas ayuda?",
+      "variables": ["nombre", "carrera"],
+      "llaves": [
+        { "tipo": "Semáforo", "valor": "Rojo" },
+        { "tipo": "Semáforo", "valor": "Naranja" },
+        { "tipo": "Envío", "valor": "Manual (lo decide el colaborador)" }
+      ],
+      "reglas": [
+        "El colaborador puede iniciar el contacto cuando el aspirante tenga semáforo rojo o amarillo/naranja, conforme a las reglas de HU1.",
+        "SIRA presenta el mensaje como texto predefinido; el colaborador lo revisa y decide si lo envía. No se envía automáticamente.",
+        "Si la ventana de WhatsApp está abierta se envía como mensaje normal; si está cerrada se requiere una plantilla aprobada por Meta.",
+        "Si se requiere plantilla y no existe una aprobada, se bloquea el envío y se informa al colaborador."
+      ]
+    },
+    {
+      "id": "recordatorio_documentacion",
+      "categoria": "ENVIO",
+      "nombre": "Recordatorio por falta de documentación",
+      "orden": 3,
+      "disparador": "AUTOMATICO_Y_MANUAL",
+      "canal": "WHATSAPP",
+      "requierePlantillaMeta": true,
+      "plantillaMeta": { "referencia": "Tarea aprobada por el PO (sin clave)", "estado": "PENDIENTE" },
+      "texto": "Hola, {{nombre}}. Te recordamos que aún tienes pendiente entregar tu constancia de calificaciones para continuar con tu proceso de admisión a {{carrera}}. Si tienes alguna duda sobre este requisito, estamos para apoyarte.",
+      "variables": ["nombre", "carrera"],
+      "llaves": [
+        { "tipo": "Estatus", "valor": "RECIBIDA (sin constancia entregada)" },
+        { "tipo": "Tiempo de espera", "valor": "24 horas en RECIBIDA" }
+      ],
+      "reglas": [
+        "Automático: si el aspirante sigue en RECIBIDA 24 horas continuas después de entrar a ese estado, SIRA envía un único recordatorio.",
+        "Si entrega la constancia antes de las 24 horas, se cancela el recordatorio pendiente.",
+        "El recordatorio automático no se repite.",
+        "Manual: el colaborador puede enviarlo en cualquier momento; si lo hace antes de las 24 horas, se cancela el automático pendiente.",
+        "Después del automático, el colaborador todavía puede enviar otro recordatorio manual.",
+        "Si la constancia ya fue entregada, no se envía el recordatorio pendiente.",
+        "Este contador es independiente de la ventana de WhatsApp y el envío no modifica el contador de inactividad del aspirante."
+      ]
+    },
+    {
+      "id": "reactivacion_hu1",
+      "categoria": "ENVIO",
+      "nombre": "Reactivación (lote de HU1)",
+      "orden": 4,
+      "disparador": "LOTE_HU1",
+      "canal": "WHATSAPP",
+      "requierePlantillaMeta": true,
+      "plantillaMeta": { "referencia": "EQ-79", "estado": "PENDIENTE" },
+      "texto": "Hola, {{nombre}}. Tu proceso de ingreso a {{carrera}} todavía puede continuar. ¿Necesitas ayuda para completar tus siguientes pasos?\n\nResponde a este mensaje y con gusto te orientaremos.",
+      "variables": ["nombre", "carrera"],
+      "llaves": [
+        { "tipo": "Semáforo", "valor": "Rojo" },
+        { "tipo": "Semáforo", "valor": "Naranja" },
+        { "tipo": "Lote", "valor": "Reactivación de HU1" }
+      ],
+      "reglas": [
+        "Se usa en los lotes de reactivación de HU1.",
+        "Aplica a aspirantes de la cartera del colaborador autenticado, con semáforo distinto de verde y teléfono válido.",
+        "El aspirante debe estar fuera del tiempo de espera por contacto previo de HU9 y cumplir la inactividad mínima de EQ-77.",
+        "Los umbrales y la aplicabilidad definitiva pertenecen a EQ-77 y EQ-102; HU8 no los fija.",
+        "Con la ventana de WhatsApp cerrada solo se puede usar si Meta aprobó la plantilla (EQ-79)."
+      ]
+    },
+    {
+      "id": "faq_documentos",
+      "categoria": "RESPUESTA",
+      "grupo": "faq_admision",
+      "nombre": "FAQ: documentos necesarios",
+      "orden": 1,
+      "disparador": "RESPUESTA",
+      "canal": "WHATSAPP",
+      "requierePlantillaMeta": false,
+      "plantillaMeta": null,
+      "pregunta": "¿Qué documentos necesito?",
+      "texto": "Necesitas entregar tu constancia de calificaciones y tu certificado de preparatoria.",
+      "variables": [],
+      "llaves": [{ "tipo": "FAQ", "valor": "¿Qué documentos necesito?" }],
+      "reglas": [
+        "Se consulta como mensaje de respuesta predefinido.",
+        "Si una pregunta no está cubierta por el catálogo no se inventa una respuesta; su atención se define en IA/Conocimiento."
+      ]
+    },
+    {
+      "id": "faq_examen",
+      "categoria": "RESPUESTA",
+      "grupo": "faq_admision",
+      "nombre": "FAQ: examen de admisión",
+      "orden": 2,
+      "disparador": "RESPUESTA",
+      "canal": "WHATSAPP",
+      "requierePlantillaMeta": false,
+      "plantillaMeta": null,
+      "pregunta": "¿Tengo que presentar examen de admisión?",
+      "texto": "Actualmente no se realiza examen de admisión. El ingreso se determina con base en el promedio de preparatoria y los requisitos correspondientes.",
+      "variables": [],
+      "llaves": [{ "tipo": "FAQ", "valor": "¿Tengo que presentar examen de admisión?" }],
+      "reglas": [
+        "Se consulta como mensaje de respuesta predefinido.",
+        "Si una pregunta no está cubierta por el catálogo no se inventa una respuesta; su atención se define en IA/Conocimiento."
+      ]
+    },
+    {
+      "id": "faq_validacion",
+      "categoria": "RESPUESTA",
+      "grupo": "faq_admision",
+      "nombre": "FAQ: tiempo de validación",
+      "orden": 3,
+      "disparador": "RESPUESTA",
+      "canal": "WHATSAPP",
+      "requierePlantillaMeta": false,
+      "plantillaMeta": null,
+      "pregunta": "¿Cuánto tarda la validación?",
+      "texto": "La validación tarda aproximadamente de 3 a 5 días hábiles por parte de Registro Escolar. Se te notificará cuando esté lista.",
+      "variables": [],
+      "llaves": [{ "tipo": "FAQ", "valor": "¿Cuánto tarda la validación?" }],
+      "reglas": [
+        "Se consulta como mensaje de respuesta predefinido.",
+        "Si una pregunta no está cubierta por el catálogo no se inventa una respuesta; su atención se define en IA/Conocimiento."
+      ]
+    },
+    {
+      "id": "aviso_fuera_horario",
+      "categoria": "RESPUESTA",
+      "nombre": "Aviso fuera del horario de atención",
+      "orden": 4,
+      "disparador": "AUTOMATICO",
+      "canal": "WHATSAPP",
+      "requierePlantillaMeta": false,
+      "plantillaMeta": null,
+      "texto": "Gracias por comunicarte con ITSON. En este momento estamos fuera de nuestro horario de atención. Hemos recibido tu mensaje y te brindaremos orientación.",
+      "variables": [],
+      "llaves": [{ "tipo": "Horario", "valor": "Fuera del horario de atención" }],
+      "reglas": [
+        "SIRA consulta el horario vigente en la configuración de HU9.",
+        "Si el aspirante inicia una conversación fuera del horario, se envía este aviso en lugar del saludo inicial.",
+        "Se envía una sola vez por conversación, aunque el aspirante mande varios mensajes fuera de horario.",
+        "La atención posterior con IA queda para una etapa futura.",
+        "El horario no se escribe en el texto ni se duplica en el catálogo."
+      ]
+    }
+  ]
+}

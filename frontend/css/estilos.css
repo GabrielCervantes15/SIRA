@@ -177,24 +177,8 @@ body {
   .panel { width: 100%; flex: none; border-left: 0; border-top: 1px solid var(--borde); }
 }
 
-/* HU 9 (EQ-109, EQ-110): configuración de envío. */
-.campo-config { border: 1px solid var(--borde); border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; }
-.campo-config legend { font-weight: 600; padding: 0 4px; }
-.campo-config input, .campo-config select { margin-right: 8px; padding: 4px 6px; }
-.error-campo { color: #a4161a; font-size: 13px; margin: 4px 0 0; min-height: 16px; }
-#mensaje-configuracion.error { color: #a4161a; }
-
-/* Paleta negro/blanco del Figma, solo para esta pantalla. */
-.campo-config select, .campo-config input { border: 1px solid #d0d0d0; border-radius: 6px; }
-#btn-guardar-configuracion {
-  background: #111111; color: #ffffff; border: none; border-radius: 8px;
-  padding: 10px 22px; font: inherit; font-weight: 600; cursor: pointer;
-}
-#btn-guardar-configuracion:hover { background: #2b2b2b; }
-#btn-guardar-configuracion:disabled { background: #9aa5b1; cursor: not-allowed; }
-
 /* HU 8 (EQ-98, EQ-99): mensajes predefinidos de la IA. */
-.mia-cuerpo { display: flex; gap: 18px; margin-top: 14px; }
+.mia-cuerpo { position: relative; display: flex; gap: 18px; margin-top: 14px; min-height: 540px; }
 .mia-categorias { display: flex; flex-direction: column; gap: 4px; width: 140px; flex: none; }
 .mia-categorias button {
   text-align: left; background: none; border: none; border-radius: 6px;
@@ -215,7 +199,93 @@ body {
 .mia-llave-tipo { color: #555; }
 .mia-llave-valor { background: #111111; color: #fff; border-radius: 999px; padding: 0 8px; }
 .mia-mensaje { font-size: 13px; line-height: 1.4; color: #333; margin: 0; }
-@media (max-width: 900px) { .mia-tarjetas { grid-template-columns: 1fr; } .mia-cuerpo { flex-direction: column; } .mia-categorias { flex-direction: row; width: auto; } }
+@media (max-width: 900px) {
+  .mia-tarjetas { grid-template-columns: 1fr; }
+  .mia-cuerpo { flex-direction: column; }
+  .mia-categorias { flex-direction: row; width: auto; }
+  .panel-configuracion { width: min(420px, 100%); }
+}
+
+/* HU9 (EQ-103, EQ-109, EQ-110): panel lateral integrado en Mensajes. */
+#vista-mensajes-ia .mia-layout { position: relative; } /* el panel se ancla al catálogo */
+.boton-configuracion {
+  min-height: 32px; padding: 6px 12px; border: 0 !important; border-radius: 6px;
+  background: var(--azul-tabla) !important; color: #fff; font: inherit; font-weight: 600;
+  white-space: nowrap; cursor: pointer;
+}
+.boton-configuracion:hover { background: var(--azul-oscuro) !important; }
+.boton-configuracion:focus-visible { outline: 3px solid var(--azul); outline-offset: 2px; }
+
+.panel-configuracion {
+  position: absolute; z-index: 8; top: 0; right: 0; bottom: 0;
+  width: min(420px, 100%); display: flex; flex-direction: column;
+  background: var(--blanco); border: 1px solid var(--borde);
+  border-radius: 8px; box-shadow: -5px 2px 18px rgba(20, 35, 55, .18);
+}
+.encabezado-panel {
+  min-height: 52px; padding: 10px 14px; display: flex; align-items: center;
+  justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--borde);
+}
+.encabezado-panel h2 { margin: 0; font-size: 16px; line-height: 1.25; }
+.cerrar-panel {
+  width: 30px; height: 30px; border: 0; border-radius: 5px;
+  background: transparent; color: var(--texto); font-size: 23px; line-height: 1; cursor: pointer;
+}
+.cerrar-panel:hover { background: var(--fondo); }
+#form-configuracion { min-height: 0; flex: 1; display: flex; flex-direction: column; }
+.contenido-panel { min-height: 0; flex: 1; overflow-y: auto; padding: 12px 14px 8px; }
+.seccion-configuracion { min-width: 0; margin: 0 0 16px; padding: 0 0 12px; border: 0; border-bottom: 1px solid var(--borde); }
+.seccion-configuracion:last-child { border-bottom: 0; }
+.seccion-configuracion legend { width: 100%; margin: 0 0 8px; padding: 0; font-size: 12px; line-height: 1.35; font-weight: 700; text-align: center; }
+.seccion-configuracion .ayuda { margin: 6px 0 0; font-size: 11px; line-height: 1.4; }
+.zona-horaria { margin: 8px 0; padding: 7px 8px; border-radius: 5px; background: #eef4fb; color: var(--azul-oscuro); font-size: 11px; text-align: center; }
+.lista-jornada { display: flex; flex-direction: column; gap: 5px; margin: 8px 0; }
+.fila-dia {
+  display: grid; grid-template-columns: 68px 30px minmax(0, 1fr) 12px minmax(0, 1fr);
+  align-items: center; gap: 5px; min-height: 36px; padding: 4px 6px;
+  border: 1px solid var(--borde); border-radius: 6px; background: #fff;
+}
+.fila-dia.dia-deshabilitado { background: #f6f7f8; color: var(--texto-suave); }
+.nombre-dia { font-size: 11px; font-weight: 700; }
+.switch-dia { position: relative; width: 30px; height: 18px; display: inline-flex; align-items: center; cursor: pointer; }
+.switch-dia input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.switch-pista { width: 30px; height: 17px; border-radius: 20px; background: #b9c1cb; transition: background .15s ease; }
+.switch-pista::after { content: ""; display: block; width: 13px; height: 13px; margin: 2px; border-radius: 50%; background: #fff; transition: transform .15s ease; }
+.switch-dia input:checked + .switch-pista { background: var(--azul); }
+.switch-dia input:checked + .switch-pista::after { transform: translateX(13px); }
+.switch-dia input:focus-visible + .switch-pista { outline: 2px solid var(--azul); outline-offset: 2px; }
+.hora-dia {
+  width: 100%; min-width: 0; height: 29px; padding: 3px 5px;
+  border: 1px solid var(--borde); border-radius: 5px; background: #fff; color: var(--texto);
+  font: inherit; font-size: 11px;
+}
+.hora-dia:disabled { background: #eef0f2; color: #8a929b; }
+.separador-hora { text-align: center; color: var(--texto-suave); font-size: 11px; }
+.error-campo { min-height: 0; margin: 4px 0 0; color: #a4161a; font-size: 11px; line-height: 1.35; }
+.error-campo:empty { display: none; }
+[aria-invalid="true"] { border-color: #b42318 !important; }
+.control-tiempo { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 8px 0; }
+.stepper { height: 32px; display: inline-flex; align-items: center; border: 1px solid var(--borde); border-radius: 6px; overflow: hidden; }
+.boton-stepper { width: 30px; height: 30px; padding: 0; border: 0; background: #fff; color: var(--texto); font-size: 18px; cursor: pointer; }
+.boton-stepper:hover { background: #edf3fa; }
+.boton-stepper:disabled { color: #aab2bc; cursor: not-allowed; }
+.stepper input { width: 48px; height: 30px; padding: 0 3px; border: 0; border-left: 1px solid #edf0f3; border-right: 1px solid #edf0f3; text-align: center; font: inherit; font-size: 12px; appearance: textfield; -moz-appearance: textfield; }
+.stepper input::-webkit-inner-spin-button, .stepper input::-webkit-outer-spin-button { margin: 0; -webkit-appearance: none; }
+.control-tiempo select { min-width: 95px; height: 32px; padding: 0 8px; border: 0; border-radius: 6px; background: var(--azul-tabla); color: #fff; font: inherit; font-size: 12px; }
+.pie-panel { padding: 10px 14px 12px; border-top: 1px solid var(--borde); background: #fff; }
+.boton-guardar { min-width: 82px; min-height: 34px; padding: 7px 16px; border: 0; border-radius: 6px; background: var(--azul); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+.boton-guardar:hover { background: var(--azul-oscuro); }
+.boton-guardar:disabled { background: #9aa5b1; cursor: not-allowed; }
+.mensaje-configuracion { margin: 7px 0 0; font-size: 11px; line-height: 1.4; }
+.mensaje-configuracion:empty { display: none; }
+.mensaje-configuracion.exito { color: #176b3a; }
+.mensaje-configuracion.error { color: #a4161a; }
+@media (max-width: 600px) {
+  .mia-filtros { flex-wrap: wrap; }
+  .mia-indicador { margin-left: 0; }
+  .panel-configuracion { width: 100%; }
+  .fila-dia { grid-template-columns: 62px 28px minmax(0, 1fr) 10px minmax(0, 1fr); gap: 4px; padding: 3px 4px; }
+}
 
 /* HU 1 (EQ-86, EQ-88, EQ-89): modal de disparo de mensajes automáticos. */
 .boton-oscuro, .boton-claro { font: inherit; font-weight: 600; border-radius: 8px; padding: 9px 20px; cursor: pointer; }

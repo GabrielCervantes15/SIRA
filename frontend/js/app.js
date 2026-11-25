@@ -2,9 +2,11 @@
  * Monitoreo de aspirantes (HU 2 y HU 3).
  *   EQ-26 · HU2-1 / HU2-8 / HU2-10 → tabla con semáforo, orden, paginación y estados
  *   EQ-40 · HU3-1 / HU3-6 / HU3-8  → panel de contacto y de actividades (historial)
+ *   EQ-36 · HU2-11                 → abrir el expediente al seleccionar (y desde la URL)
  */
 
 import { api } from "./api.js";
+import { aspiranteDesdeUrl, urlConAspirante } from "./expediente-url.js";
 import { inicialesUsuario } from "./usuario.js";
 import { inicializarConfiguracionMensajes } from "./configuracion-mensajes.js";
 import { inicializarEnvioMensajes } from "./envio-mensajes.js";
@@ -291,8 +293,17 @@ function seleccionarPestana(nombre) {
   if (nombre === "chat") cargarChat();
 }
 
+function recordarEnUrl(id) {
+  try {
+    window.history.replaceState(null, "", urlConAspirante(window.location.href, id));
+  } catch {
+    // Sin History API (p. ej. vista incrustada): el panel funciona igual.
+  }
+}
+
 async function abrirPanel(id) {
   estado.aspiranteId = id;
+  recordarEnUrl(id);
   for (const fila of cuerpo.querySelectorAll("tr")) {
     fila.setAttribute("aria-selected", String(fila.dataset.id === id));
   }
@@ -316,6 +327,7 @@ async function abrirPanel(id) {
 
 function cerrarPanel() {
   estado.aspiranteId = null;
+  recordarEnUrl(null);
   $("panel").hidden = true;
   for (const fila of cuerpo.querySelectorAll("tr")) fila.setAttribute("aria-selected", "false");
 }
@@ -324,7 +336,6 @@ function cerrarPanel() {
 
 const VISTAS = {
   monitoreo: "nav-aspirantes",
-  configuracion: "nav-configuracion",
   "mensajes-ia": "nav-mensajes",
 };
 
@@ -337,15 +348,12 @@ function mostrarVista(nombre) {
   if (layoutAspirantes) layoutAspirantes.hidden = !esMonitoreo;
 
   document.querySelector(".monitoreo").hidden = !esMonitoreo;
-  $("vista-configuracion").hidden = nombre !== "configuracion";
   $("vista-mensajes-ia").hidden = nombre !== "mensajes-ia";
 
   for (const [clave, idNav] of Object.entries(VISTAS)) {
     $(idNav).classList.toggle("activo", clave === nombre);
     $(idNav).setAttribute("aria-current", clave === nombre ? "page" : "false");
   }
-
-  if (nombre === "configuracion") cargarConfiguracion();
   if (nombre === "mensajes-ia") cargarMensajesIA();
 }
 
@@ -435,55 +443,6 @@ async function cargarMensajesIA() {
     estadoMensajesIA.datos = []; estadoMensajesIA.seleccionado = null; pintarDetalleMensajeIA(null);
     $("mia-tarjetas").replaceChildren(); mostrarEstadoMensajesIA("error", error.mensaje || "No se pudo cargar el catálogo. Revisa tu conexión e inténtalo nuevamente.", true);
     console.error("Error al cargar mensajes predefinidos:", error);
-  }
-}
-
-function limpiarErroresConfiguracion() {
-  for (const campo of ["tiempoMaximoRespuesta", "tiempoInactividad", "horario"]) $(`error-${campo}`).textContent = "";
-  $("mensaje-configuracion").textContent = "";
-  $("mensaje-configuracion").classList.remove("error");
-}
-
-async function cargarConfiguracion() {
-  limpiarErroresConfiguracion();
-  try {
-    const cfg = await api.configuracionEnvio.obtener();
-    $("cfg-respuesta-valor").value = cfg.tiempoMaximoRespuesta.valor;
-    $("cfg-respuesta-unidad").value = cfg.tiempoMaximoRespuesta.unidad;
-    $("cfg-inactividad-valor").value = cfg.tiempoInactividad.valor;
-    $("cfg-inactividad-unidad").value = cfg.tiempoInactividad.unidad;
-    $("cfg-horario-inicio").value = cfg.horario.inicio;
-    $("cfg-horario-fin").value = cfg.horario.fin;
-  } catch (error) {
-    $("mensaje-configuracion").textContent = "No se pudo cargar la configuración actual.";
-    $("mensaje-configuracion").classList.add("error");
-  }
-}
-
-async function guardarConfiguracion(evento) {
-  evento.preventDefault();
-  limpiarErroresConfiguracion();
-  const payload = {
-    tiempoMaximoRespuesta: { valor: Number($("cfg-respuesta-valor").value), unidad: $("cfg-respuesta-unidad").value },
-    tiempoInactividad: { valor: Number($("cfg-inactividad-valor").value), unidad: $("cfg-inactividad-unidad").value },
-    horario: { inicio: $("cfg-horario-inicio").value, fin: $("cfg-horario-fin").value },
-  };
-  try {
-    await api.configuracionEnvio.guardar(payload);
-    $("mensaje-configuracion").textContent = "Configuración guardada.";
-  } catch (error) {
-    if (error.codigo === "CONFIGURACION_INVALIDA" && error.errores) {
-      for (const [campo, texto] of Object.entries(error.errores)) {
-        const base = campo.split(".")[0];
-        if ($(`error-${base}`)) $(`error-${base}`).textContent = texto;
-      }
-      $("mensaje-configuracion").textContent = "Revisa los campos marcados.";
-    } else {
-      $("mensaje-configuracion").textContent = error.codigo === "SIN_PERMISO"
-        ? "Solo un administrador puede guardar esta configuración."
-        : "No se pudo guardar. Inténtalo de nuevo.";
-    }
-    $("mensaje-configuracion").classList.add("error");
   }
 }
 
@@ -595,8 +554,6 @@ async function enviarDisparo() {
 
 function configurarEventos() {
   $("nav-aspirantes").addEventListener("click", (e) => { e.preventDefault(); mostrarVista("monitoreo"); });
-  $("nav-configuracion").addEventListener("click", (e) => { e.preventDefault(); mostrarVista("configuracion"); });
-  $("form-configuracion").addEventListener("submit", guardarConfiguracion);
   $("nav-mensajes").addEventListener("click", (e) => { e.preventDefault(); mostrarVista("mensajes-ia"); });
   $("mia-cat-envio").addEventListener("click", () => {
   estadoMensajesIA.categoria = "ENVIO";
@@ -696,13 +653,7 @@ async function iniciar() {
   try {
     const sesion = await api.sesion();
     $("nombre-usuario").textContent = sesion.nombre;
-
-    if (sesion.usuario?.rol === "administrador") {
-      $("nav-configuracion").hidden = false;
-    }
-
     $("avatar-usuario").textContent = inicialesUsuario(sesion.nombre);
-
     inicializarConfiguracionMensajes({
       api,
       esAdministrador: sesion.usuario?.rol === "administrador",
@@ -749,6 +700,11 @@ async function iniciar() {
     }
   });
   cargarTabla();
+  // Desde la pantalla de Colaboradores, «Mensajes» llega como /app?vista=mensajes.
+  if (new URLSearchParams(window.location.search).get("vista") === "mensajes") mostrarVista("mensajes-ia");
+  // EQ-36: si la URL trae ?aspirante=ID se abre su expediente (403/404 se informan en el panel).
+  const aspiranteInicial = aspiranteDesdeUrl(window.location.href);
+  if (aspiranteInicial) abrirPanel(aspiranteInicial);
   window.setInterval(revisarSesion, 5000);
 }
 

@@ -15,7 +15,9 @@ El módulo `Monitoreo` implementa el patrón de **Puertos y Adaptadores (Arquite
 |                          CASOS DE USO (APLICACIÓN)                      |
 |  - ObtenerFiltrosCasoUso (HU2-7)                                        |
 |  - ListarAspirantesCasoUso (HU2-4)                                      |
+|  - ObtenerDetalleAspiranteCasoUso (HU3-3 / EQ-42)                       |
 |  - ObtenerConversacionCasoUso (HU3-5)                                   |
+|  - ObtenerHistorialAspiranteCasoUso (HU3-6 / EQ-43)                     |
 +------------------------------------+------------------------------------+
                                      |
                                      v (Dependencia invertida)
@@ -26,6 +28,8 @@ El módulo `Monitoreo` implementa el patrón de **Puertos y Adaptadores (Arquite
 |    - listarAspirantes(filtros)                                          |
 |    - obtenerAspirantePorId(id)                                          |
 |    - obtenerConversacionAspirante(aspiranteId)                          |
+|    - obtenerHistorialAspirante(aspiranteId, { desde, hasta })           |
+|    - registrarActividad(evento)                                         |
 +-------------------+---------------------------------+-------------------+
                     |                                 |
                     v (Sprint 1)                      v (Producción / BD)
@@ -57,6 +61,86 @@ Devuelve la lista paginada y filtrada de aspirantes de la cartera del colaborado
   * `mostrar_aceptados`: Interruptor (`false` oculta aspirantes aceptados; `true` o ausente los incluye).
   * `limit` y `offset`: Paginación.
   * `ordenar_por` y `orden_direccion`: Ordenamiento por columna (`ASC` / `DESC`).
+
+### `GET /api/monitoreo/aspirantes/:id` (HU3-3 / EQ-42)
+Detalle del expediente de un aspirante de la cartera del colaborador autenticado. También responde en `/api/v1/monitoreo/...`. `:id` acepta el id interno o el folio de solicitud.
+
+**Respuesta 200**
+```json
+{
+  "aspirante": {
+    "id": "asp-001",
+    "nombreCompleto": "…",
+    "carreraSolicitada": "Ingeniería en Software",
+    "preparatoriaProcedencia": "CBTIS 37",
+    "estadoSolicitud": "EN_REVISION",
+    "fechaSolicitud": "2026-10-15T09:00:00Z",
+    "telefono": "+52…",
+    "correo": "…",
+    "semaforo": "ROJO"
+  }
+}
+```
+* `preparatoriaProcedencia`, `telefono` y `correo` pueden ser `null`.
+* **No** se devuelve `colaboradorId` (el expediente no expone a quién está asignado).
+
+| Código | `codigo` | Cuándo |
+|---|---|---|
+| 200 | — | El aspirante existe y es de la cartera del colaborador. |
+| 400 | `PARAMETRO_INVALIDO` | El `:id` no se puede decodificar. |
+| 401 | `NO_AUTORIZADO` | No hay sesión. |
+| 403 | `SIN_PERMISO` | El aspirante existe pero pertenece a otro colaborador. |
+| 404 | `NO_ENCONTRADO` | No existe un aspirante con ese id o folio. |
+
+El orden de validación es 401 → 404 → 403.
+
+### `GET /api/monitoreo/aspirantes/:id/actividades?desde=&hasta=` (HU3-6 / EQ-43)
+Historial de actividades del aspirante (tabla `aspirantes.historial_eventos`): mensajes enviados, constancias entregadas, cambios de estado, rechazos y notas de seguimiento.
+
+**Query params (opcionales)**
+* `desde`, `hasta`: fecha ISO 8601 (`2026-10-18T12:00:00Z`) o solo fecha (`2026-10-18`). El rango es **inclusivo**. Si `hasta` es solo fecha, cubre hasta las 23:59:59.999 UTC de ese día. Sin parámetros se devuelve todo el historial.
+
+**Respuesta 200**
+```json
+{
+  "actividades": [
+    { "id": "a1000000-…-0002", "tipo": "MENSAJE_ENVIADO", "fecha": "2026-10-16T10:05:00.000Z", "texto": "Envío de Bienvenida Automatizado — Mensaje de WhatsApp informativo…" }
+  ],
+  "total": 1
+}
+```
+* **Orden:** del más reciente al más antiguo; con la misma fecha, por `id` descendente.
+* `tipo`: `MENSAJE_ENVIADO`, `CONSTANCIA_ENTREGADA`, `CAMBIO_ESTADO`, `RECHAZO_SOLICITUD` o `NOTA_SEGUIMIENTO`.
+* `texto`: `titulo — detalle` (o solo `titulo` si no hay detalle).
+* `fecha`: siempre ISO 8601 en UTC.
+* `total`: número de actividades devueltas (después de aplicar el rango).
+
+| Código | `codigo` | Cuándo |
+|---|---|---|
+| 200 | — | Consulta correcta (la lista puede venir vacía). |
+| 400 | `PARAMETRO_INVALIDO` | `desde`/`hasta` mal formados, `desde` > `hasta`, o `:id` no decodificable. |
+| 401 | `NO_AUTORIZADO` | No hay sesión. |
+| 403 | `SIN_PERMISO` | El aspirante pertenece a otro colaborador. |
+| 404 | `NO_ENCONTRADO` | El aspirante no existe. |
+
+El orden de validación es 401 → 404 → 403 → 400 (rango).
+
+Cuando el colaborador envía un mensaje (`POST /api/monitoreo/aspirantes/:id/conversacion`), se registra un evento `MENSAJE_ENVIADO` con `repositorio.registrarActividad(...)`, así que aparece de inmediato en este historial.
+
+### Orden de la lista por semáforo (EQ-48)
+`ordenar_por=semaforo` ordena por **severidad** (`ROJO` > `NARANJA` > `AMARILLO` > `VERDE`), no alfabéticamente:
+`DESC` muestra primero a quien más atención necesita. En todas las columnas los empates se resuelven por `id`,
+así que paginar no repite ni pierde aspirantes, y los valores vacíos van al final en ambas direcciones.
+
+### Interfaz pública `cartera` (para HU 6)
+`crearModuloMonitoreo()` expone `cartera`, que usa el módulo Colaboradores sin tocar el esquema `aspirantes`:
+
+| Método | Devuelve |
+|---|---|
+| `idInstitucionalDe(colaboradorId)` | ID institucional canónico (resuelve alias de semilla como `colab-001`). |
+| `contarPorColaborador()` | `{ [idInstitucional]: totalAspirantes }` |
+| `previsualizarAsignacion({ campus, carreras })` | `[{ aspiranteId, carrera, colaboradorActual }]` sin modificar nada. |
+| `asignarCarreras({ colaboradorId, campus, carreras })` | `{ aspirantesIds, transferencias, deshacer() }` |
 
 ---
 
