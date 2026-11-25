@@ -40,7 +40,7 @@ export class CatalogoMensajesControlador {
     }
   }
 
-  /** GET /api/v1/mensajes-ia/:id?nombre=&carrera= (EQ-97) */
+  /** GET /api/v1/mensajes-ia/:id?aspirante=&valor=&magnitud= (EQ-97) */
   async detalle(req, res, idCrudo) {
     try {
       let id;
@@ -52,7 +52,7 @@ export class CatalogoMensajesControlador {
       const q = new URL(req.url, "http://localhost").searchParams;
       return responder(res, 200, await this.obtenerDetalleMensaje.ejecutar({
         id,
-        valores: { nombre: q.get("nombre"), carrera: q.get("carrera") },
+        valores: { aspirante: q.get("aspirante"), valor: q.get("valor"), magnitud: q.get("magnitud") },
       }));
     } catch (error) {
       return responderError(res, error, "No se pudo consultar el mensaje.");

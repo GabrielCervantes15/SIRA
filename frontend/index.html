@@ -6,7 +6,6 @@
   <title>CRM Admisiones · Monitoreo de aspirantes</title>
   <link rel="stylesheet" href="/app/css/estilos.css">
   <link rel="stylesheet" href="/app/css/envio-mensajes.css">
-  <link rel="stylesheet" href="/app/css/mensajes-ia.css">
 </head>
 <body>
   <header class="barra-superior">
@@ -132,18 +131,40 @@
       </section>
     </div>
 
-    <!-- HU 8 (EQ-94): catálogo navegable con vista previa y reglas, solo lectura. -->
-    <section class="tarjeta mia-vista" id="vista-mensajes-ia" hidden aria-labelledby="titulo-mensajes-ia">
-      <header class="mia-encabezado">
-        <div>
-          <p class="mia-eyebrow">MENSAJES · CENTRO DE CONOCIMIENTO</p>
-          <h1 id="titulo-mensajes-ia">Mensajes predefinidos del asistente de IA</h1>
-          <p class="ayuda">Consulta los mensajes disponibles, su contenido y las reglas asociadas.</p>
+    <!-- HU 8 (EQ-98, EQ-99): mensajes predefinidos de la IA, solo lectura. -->
+    <section class="tarjeta" id="vista-mensajes-ia" hidden aria-labelledby="titulo-mensajes-ia">
+      <h1 id="titulo-mensajes-ia">Mensajes Predefinidos del Asistente de IA</h1>
+      <p class="ayuda">Total de mensajes: <strong id="mia-total">—</strong></p>
+      <div class="mia-cuerpo">
+        <nav class="mia-categorias" aria-label="Tipo de mensaje">
+          <span class="mia-categorias-titulo">Tipo</span>
+          <button type="button" id="mia-cat-envio" data-categoria="ENVIO">Envío</button>
+          <button type="button" id="mia-cat-respuesta" data-categoria="RESPUESTA">Respuesta</button>
+        </nav>
+        <div class="mia-lista">
+          <div class="mia-filtros">
+            <label>Semáforo:
+              <select id="mia-filtro-semaforo">
+                <option value="">Todos</option>
+                <option value="Rojo">Rojo</option>
+                <option value="Naranja">Naranja</option>
+                <option value="Verde">Verde</option>
+              </select>
+            </label>
+            <button type="button" id="abrir-configuracion" class="boton-configuracion"
+              aria-controls="panel-configuracion" aria-expanded="false" hidden>
+              <span class="mia-engrane" aria-hidden="true">⚙</span> Configurar envío de mensajes
+            </button>
+            <div class="mia-paginacion">
+              <button type="button" id="mia-anterior" aria-label="Página anterior">‹</button>
+              <span id="mia-indicador" class="mia-indicador" aria-live="polite"></span>
+              <button type="button" id="mia-siguiente" aria-label="Página siguiente">›</button>
+            </div>
+          </div>
+          <div class="mia-tarjetas" id="mia-tarjetas"></div>
+          <p class="ayuda" id="mia-sin-resultados" hidden>No hay mensajes que coincidan con ese filtro.</p>
         </div>
-        <span class="mia-solo-lectura">Solo lectura</span>
-      </header>
 
-      <div class="mia-layout">
         <!-- HU9 (EQ-103, EQ-109, EQ-110): panel lateral exclusivo de Administrador. -->
         <aside id="panel-configuracion" class="panel-configuracion"
           aria-labelledby="titulo-configuracion" hidden>
@@ -157,10 +178,13 @@
             <div class="contenido-panel">
               <fieldset class="seccion-configuracion">
                 <legend>Horario permitido para el envío de mensajes automáticos</legend>
-                <p class="ayuda">Configura la jornada laboral de cada día. Los envíos automáticos solo podrán realizarse dentro de estos horarios.</p>
-                <p class="zona-horaria">Zona horaria institucional: <strong>America/Hermosillo</strong></p>
-                <div id="lista-jornada" class="lista-jornada" aria-label="Jornada laboral por día"></div>
-                <p class="ayuda">El horario permitido abarca toda la jornada configurada de cada día. No existe una segunda ventana de envío.</p>
+                <div class="fila-horario">
+                  <label for="cfg-horario-inicio">Inicio:</label>
+                  <input type="time" id="cfg-horario-inicio" class="hora-config" required>
+                  <label for="cfg-horario-fin">Fin:</label>
+                  <input type="time" id="cfg-horario-fin" class="hora-config" required>
+                </div>
+                <p class="ayuda">Establece el horario en el cual los colaboradores pueden realizar el envío masivo de mensajes automáticos. Se recomienda que se ubique en el momento más apropiado al inicio de la jornada. No lo establezca antes o después del horario laboral.</p>
                 <p id="error-jornada" class="error-campo" role="alert"></p>
               </fieldset>
 
@@ -177,98 +201,34 @@
                     <option value="horas">horas</option>
                   </select>
                 </div>
-                <p class="ayuda">Tiempo máximo que debe transcurrir para enviar otro mensaje automático si el aspirante no ha respondido. Valor inicial: 24 horas (1 día).</p>
+                <p class="ayuda">Establece el tiempo máximo de espera para enviar otro mensaje automático si el aspirante no ha respondido. El colaborador no puede interactuar durante este intervalo.</p>
                 <p id="error-respuesta" class="error-campo" role="alert"></p>
               </fieldset>
 
               <fieldset class="seccion-configuracion">
-                <legend>Tiempo de espera por contacto previo</legend>
+                <legend>Tiempo de espera de notificación por inactividad</legend>
                 <div class="control-tiempo">
-                  <div class="stepper" aria-label="Valor del tiempo de espera por contacto previo">
-                    <button type="button" class="boton-stepper" data-target="cfg-contacto-valor" data-step="-1" aria-label="Disminuir tiempo por contacto previo">−</button>
+                  <div class="stepper" aria-label="Valor del tiempo de espera por inactividad">
+                    <button type="button" class="boton-stepper" data-target="cfg-contacto-valor" data-step="-1" aria-label="Disminuir tiempo de espera por inactividad">−</button>
                     <input type="number" id="cfg-contacto-valor" min="1" max="30" step="1" value="2" required>
-                    <button type="button" class="boton-stepper" data-target="cfg-contacto-valor" data-step="1" aria-label="Aumentar tiempo por contacto previo">+</button>
+                    <button type="button" class="boton-stepper" data-target="cfg-contacto-valor" data-step="1" aria-label="Aumentar tiempo de espera por inactividad">+</button>
                   </div>
-                  <select id="cfg-contacto-unidad" aria-label="Unidad del tiempo por contacto previo">
+                  <select id="cfg-contacto-unidad" aria-label="Unidad del tiempo de espera por inactividad">
                     <option value="dias" selected>días</option>
                     <option value="horas">horas</option>
                   </select>
                 </div>
-                <p class="ayuda">Periodo durante el cual el aspirante queda excluido temporalmente de los lotes de contacto de HU1 después de un mensaje saliente exitoso. Valor inicial: 48 horas (2 días).</p>
+                <p class="ayuda">Establece el tiempo de espera para alertar al colaborador por la inactividad de un aspirante después de haber mantenido un contacto previo.</p>
                 <p id="error-contacto" class="error-campo" role="alert"></p>
               </fieldset>
-            </div>
 
-            <footer class="pie-panel">
-              <button type="submit" id="guardar-configuracion" class="boton-guardar">Guardar</button>
-              <p id="mensaje-configuracion" class="mensaje-configuracion" role="status" aria-live="polite"></p>
-            </footer>
+              <div class="pie-panel">
+                <button type="submit" id="guardar-configuracion" class="boton-guardar">Guardar</button>
+                <p id="mensaje-configuracion" class="mensaje-configuracion" role="status" aria-live="polite"></p>
+              </div>
+            </div>
           </form>
         </aside>
-
-        <nav class="mia-categorias" aria-label="Tipo de mensaje">
-          <span class="mia-categorias-titulo">Tipo</span>
-          <button type="button" id="mia-cat-envio" data-categoria="ENVIO" class="activo" aria-pressed="true" aria-label="Mensajes de envío">Envío</button>
-          <button type="button" id="mia-cat-respuesta" data-categoria="RESPUESTA" aria-pressed="false" aria-label="Mensajes de respuesta">Respuesta</button>
-        </nav>
-
-        <div class="mia-contenido">
-          <div class="mia-toolbar" role="search" aria-label="Buscar y filtrar mensajes">
-            <div class="mia-busqueda-grupo">
-              <label class="mia-busqueda" for="mia-buscar">Buscar mensaje</label>
-              <input id="mia-buscar" type="search" placeholder="Buscar por contenido o regla..." autocomplete="off">
-            </div>
-            <div class="mia-filtros">
-              <label for="mia-filtro-semaforo">Semáforo</label>
-              <select id="mia-filtro-semaforo">
-                <option value="">Todos</option>
-                <option value="Rojo">Rojo</option>
-                <option value="Naranja">Naranja</option>
-                <option value="Verde">Verde</option>
-              </select>
-            </div>
-            <span id="mia-indicador" class="mia-indicador" aria-live="polite"></span>
-            <button type="button" id="abrir-configuracion" class="boton-configuracion"
-              aria-controls="panel-configuracion" aria-expanded="false" hidden>
-              ⚙ Configurar envío de mensajes
-            </button>
-            <div class="mia-paginacion" aria-label="Paginación del catálogo">
-              <button type="button" id="mia-anterior" aria-label="Página anterior">‹</button>
-              <button type="button" id="mia-siguiente" aria-label="Página siguiente">›</button>
-            </div>
-          </div>
-
-          <div class="mia-cuerpo">
-            <section class="mia-panel mia-panel-catalogo" aria-labelledby="mia-titulo-catalogo">
-              <header class="mia-panel-encabezado">
-                <div>
-                  <h2 id="mia-titulo-catalogo">Catálogo</h2>
-                  <p id="mia-descripcion-categoria">Mensajes para iniciar o dar seguimiento al contacto.</p>
-                </div>
-                <span id="mia-total" class="mia-contador">— mensajes</span>
-              </header>
-              <div id="mia-estado" class="mia-estado" role="status" aria-live="polite" hidden></div>
-              <div class="mia-tarjetas" id="mia-tarjetas"></div>
-            </section>
-
-            <aside class="mia-panel mia-panel-detalle" aria-labelledby="mia-titulo-detalle">
-              <header class="mia-panel-encabezado">
-                <div>
-                  <h2 id="mia-titulo-detalle">Vista previa</h2>
-                  <p>Contenido y reglas del mensaje seleccionado.</p>
-                </div>
-              </header>
-              <div id="mia-detalle" class="mia-detalle">
-                <div class="mia-detalle-vacio">
-                  <span aria-hidden="true">✉</span>
-                  <h3>Selecciona un mensaje</h3>
-                  <p>Elige una tarjeta del catálogo para consultar su contenido y sus reglas.</p>
-                </div>
-              </div>
-            </aside>
-          </div>
-        </div>
-
       </div>
     </section>
 

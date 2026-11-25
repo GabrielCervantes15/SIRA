@@ -1,15 +1,15 @@
 /**
  * EQ-95: genera datos-semilla/05_catalogo_mensajes_semilla.sql a partir de
- * datos-semilla/catalogo-mensajes.json, para que el JSON (memoria) y el SQL (PostgreSQL)
+ * datos-semilla/mensajes-ia.json, para que el JSON (memoria) y el SQL (PostgreSQL)
  * tengan siempre el mismo catálogo.
  *
  *   node scripts/generar-semilla-catalogo-mensajes.js
  */
 import { readFileSync, writeFileSync } from 'node:fs';
-import { validarCatalogo } from '../src/modulos/mensajes-ia/dominio/catalogo.js';
+import { catalogoDesdeSemilla, validarCatalogo } from '../src/modulos/mensajes-ia/dominio/catalogo.js';
 
 const raiz = new URL('../', import.meta.url);
-const { mensajes } = JSON.parse(readFileSync(new URL('datos-semilla/catalogo-mensajes.json', raiz), 'utf8'));
+const mensajes = catalogoDesdeSemilla(JSON.parse(readFileSync(new URL('datos-semilla/mensajes-ia.json', raiz), 'utf8')).mensajes);
 const errores = validarCatalogo(mensajes);
 if (errores.length) {
   console.error(`El catálogo tiene errores:\n- ${errores.join('\n- ')}`);
@@ -19,9 +19,9 @@ if (errores.length) {
 const lit = (v) => (v == null ? 'NULL' : `'${String(v).replaceAll("'", "''")}'`);
 const lineas = [
   '-- =========================================================================',
-  '-- HU 8 · EQ-95: semilla del catálogo de mensajes aprobado en EQ-93.',
+  '-- HU 8 · EQ-95: semilla del catálogo de mensajes (EQ-98/99).',
   '-- GENERADO por scripts/generar-semilla-catalogo-mensajes.js desde',
-  '-- datos-semilla/catalogo-mensajes.json. No editar a mano.',
+  '-- datos-semilla/mensajes-ia.json. No editar a mano.',
   '-- Requiere docker/postgres/migrations/05_catalogo_mensajes.sql.',
   '-- Se puede correr más de una vez: reemplaza el catálogo completo.',
   '-- =========================================================================',

@@ -1,9 +1,12 @@
 /**
  * HU 8 · Dominio del catálogo de mensajes predefinidos (EQ-95).
- * Reglas y contenido aprobados por el PO en EQ-93 (docs/decisiones/HU8-catalogo-mensajes.md).
+ *
+ * Fuente: datos-semilla/mensajes-ia.json (catálogo de Gabriel, EQ-98/99), que también usa el
+ * envío de HU 1. Su formato es { id, categoria, llaves, mensaje }; `desdeSemilla` completa lo que
+ * no trae (nombre, pregunta, disparador y reglas a partir de las llaves).
  *
  * El catálogo es de SOLO LECTURA para Administrador y Colaborador.
- * Las variables usan la sintaxis {{nombre}}.
+ * Variables: {aspirante}, {valor} y {magnitud} (también se acepta la forma {{variable}}).
  */
 
 export const CATEGORIAS = Object.freeze(["ENVIO", "RESPUESTA"]);
@@ -12,14 +15,17 @@ export const ESTADOS_PLANTILLA_META = Object.freeze(["PENDIENTE", "ENVIADA", "AP
 
 /** Descripción de cada variable permitida en los textos. */
 export const VARIABLES = Object.freeze({
-  nombre: "Nombre del aspirante",
-  carrera: "Carrera solicitada por el aspirante",
+  aspirante: "Nombre del aspirante",
+  valor: "Cantidad de tiempo sin actividad",
+  magnitud: "Unidad de ese tiempo (días, semanas…)",
 });
 
 /** Valores de ejemplo para la vista previa cuando no se indica otro. */
-export const VALORES_EJEMPLO = Object.freeze({ nombre: "Ana", carrera: "Ingeniería en Software" });
+export const VALORES_EJEMPLO = Object.freeze({ aspirante: "Ana", valor: "3", magnitud: "días" });
 
-const PATRON_VARIABLE = /\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g;
+/** Acepta {variable} y {{variable}}. */
+const PATRON_VARIABLE = /\{\{?\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}?/g;
+export const PATRON_ID = /^[a-z][a-z0-9_-]{2,59}$/;
 const LIMITE_VALOR_VISTA_PREVIA = 80;
 
 export class ErrorCatalogo extends Error {
@@ -38,17 +44,20 @@ export function variablesDeTexto(texto) {
 
 /**
  * Sustituye las variables del texto. Si falta un valor lanza error: un mensaje al
- * aspirante nunca debe salir con «{{nombre}}» sin reemplazar.
+ * aspirante nunca debe salir con «{aspirante}» sin reemplazar.
  * @param {string} texto
  * @param {Record<string, string>} valores
  */
 export function renderizarPlantilla(texto, valores = {}) {
-  return String(texto).replace(PATRON_VARIABLE, (_, variable) => {
+  return String(texto).replace(PATRON_VARIABLE, (_, variable, desplazamiento, completo) => {
     const valor = valores[variable];
     if (valor == null || String(valor).trim() === "") {
       throw new ErrorCatalogo(400, "VARIABLE_FALTANTE", `Falta el valor de la variable «${variable}».`);
     }
-    return String(valor).trim();
+    const limpio = String(valor).trim();
+    // «{valor}{magnitud}» van pegados en el texto: la unidad necesita un espacio antes.
+    const pegadoAOtraVariable = variable === "magnitud" && completo[desplazamiento - 1] === "}";
+    return pegadoAOtraVariable ? ` ${limpio}` : limpio;
   });
 }
 
@@ -80,7 +89,7 @@ export function valoresVistaPrevia(personalizados = {}) {
 export function validarMensaje(m) {
   const errores = [];
   const id = m?.id ?? "(sin id)";
-  if (!/^[a-z][a-z0-9_]{2,59}$/.test(m?.id ?? "")) errores.push(`${id}: id inválido (minúsculas, números y _).`);
+  if (!PATRON_ID.test(m?.id ?? "")) errores.push(`${id}: id inválido (minúsculas, números, _ y -).`);
   if (!CATEGORIAS.includes(m?.categoria)) errores.push(`${id}: categoría inválida.`);
   if (!DISPARADORES.includes(m?.disparador)) errores.push(`${id}: disparador inválido.`);
   if (!m?.nombre?.trim()) errores.push(`${id}: falta nombre.`);
@@ -108,6 +117,46 @@ export function validarMensaje(m) {
     errores.push(`${id}: tiene plantilla de Meta pero requierePlantillaMeta es false.`);
   }
   return errores;
+}
+
+/**
+ * Convierte un mensaje de datos-semilla/mensajes-ia.json ({ id, categoria, llaves, mensaje })
+ * al modelo del catálogo. Si el mensaje ya trae un campo, se respeta.
+ * @param {Object} m
+ * @param {number} orden - Posición dentro de su categoría (empieza en 1).
+ */
+export function desdeSemilla(m, orden) {
+  const llaves = (m.llaves ?? []).map((l) => ({ tipo: String(l.tipo), valor: String(l.valor) }));
+  const faq = llaves.find((l) => l.tipo === "FAQ");
+  const texto = m.texto ?? m.mensaje ?? "";
+  const esRespuesta = m.categoria === "RESPUESTA";
+  return {
+    id: m.id,
+    categoria: m.categoria,
+    nombre: m.nombre ?? (faq ? faq.valor : llaves.map((l) => l.valor).join(" · ")) ?? m.id,
+    orden: m.orden ?? orden,
+    grupo: m.grupo ?? null,
+    pregunta: m.pregunta ?? (esRespuesta && faq ? faq.valor : null),
+    disparador: m.disparador ?? (esRespuesta ? "RESPUESTA" : "AUTOMATICO"),
+    canal: m.canal ?? "WHATSAPP",
+    requierePlantillaMeta: Boolean(m.requierePlantillaMeta),
+    plantillaMeta: m.plantillaMeta ?? null,
+    texto,
+    variables: m.variables ?? variablesDeTexto(texto),
+    llaves,
+    reglas: m.reglas ?? llaves.map((l) => (l.tipo === "FAQ"
+      ? `Se usa para responder la pregunta «${l.valor}».`
+      : `Aplica cuando ${l.tipo.toLowerCase()} es «${l.valor}».`)),
+  };
+}
+
+/** Convierte toda la semilla, numerando el orden por categoría. */
+export function catalogoDesdeSemilla(mensajes) {
+  const contador = {};
+  return mensajes.map((m) => {
+    contador[m.categoria] = (contador[m.categoria] ?? 0) + 1;
+    return desdeSemilla(m, contador[m.categoria]);
+  });
 }
 
 /** Valida todo el catálogo (incluye ids únicos y orden sin repetir por categoría). */

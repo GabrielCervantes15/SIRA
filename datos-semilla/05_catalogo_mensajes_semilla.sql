@@ -1,93 +1,147 @@
 -- =========================================================================
--- HU 8 · EQ-95: semilla del catálogo de mensajes aprobado en EQ-93.
+-- HU 8 · EQ-95: semilla del catálogo de mensajes (EQ-98/99).
 -- GENERADO por scripts/generar-semilla-catalogo-mensajes.js desde
--- datos-semilla/catalogo-mensajes.json. No editar a mano.
+-- datos-semilla/mensajes-ia.json. No editar a mano.
 -- Requiere docker/postgres/migrations/05_catalogo_mensajes.sql.
 -- Se puede correr más de una vez: reemplaza el catálogo completo.
 -- =========================================================================
 
 BEGIN;
 
-DELETE FROM mensajes.catalogo_mensaje WHERE id IN ('saludo_inicial', 'contacto_iniciado_colaborador', 'recordatorio_documentacion', 'reactivacion_hu1', 'faq_documentos', 'faq_examen', 'faq_validacion', 'aviso_fuera_horario');
+DELETE FROM mensajes.catalogo_mensaje WHERE id IN ('env-001', 'env-002', 'env-003', 'env-004', 'env-005', 'env-006', 'env-007', 'env-008', 'env-009', 'env-010', 'res-001', 'res-002', 'res-003', 'res-004', 'res-005', 'res-006', 'res-007', 'res-008', 'res-009', 'res-010');
 
 INSERT INTO mensajes.catalogo_mensaje (id, categoria, nombre, orden, grupo, pregunta, disparador, canal, requiere_plantilla_meta, plantilla_meta_referencia, plantilla_meta_estado, texto)
-VALUES ('saludo_inicial', 'ENVIO', 'Saludo inicial automático', 1, NULL, NULL, 'AUTOMATICO', 'WHATSAPP', FALSE, NULL, NULL, '¡Hola, {{nombre}}! Bienvenido(a). Estamos aquí para ayudarte con tu proceso de ingreso a {{carrera}}. ¿En qué podemos apoyarte?');
-INSERT INTO mensajes.catalogo_variable (mensaje_id, nombre, orden) VALUES ('saludo_inicial', 'nombre', 1);
-INSERT INTO mensajes.catalogo_variable (mensaje_id, nombre, orden) VALUES ('saludo_inicial', 'carrera', 2);
-INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('saludo_inicial', 1, 'Disparador', 'Primer mensaje del aspirante');
-INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('saludo_inicial', 2, 'Horario', 'Dentro del horario de atención');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('saludo_inicial', 1, 'Se activa cuando el aspirante inicia por primera vez una conversación por WhatsApp.');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('saludo_inicial', 2, 'Si el primer contacto ocurre dentro del horario de atención, SIRA envía automáticamente este saludo.');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('saludo_inicial', 3, 'Después del saludo, el colaborador puede continuar la atención manualmente.');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('saludo_inicial', 4, 'Si el primer contacto ocurre fuera del horario, se envía el aviso fuera de horario en lugar del saludo; no se envían ambos mensajes.');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('saludo_inicial', 5, 'El horario vigente se consulta desde la configuración de HU9; no se fija en el catálogo.');
+VALUES ('env-001', 'ENVIO', 'Rojo · Sin documentos entregados', 1, NULL, NULL, 'AUTOMATICO', 'WHATSAPP', FALSE, NULL, NULL, '¡Saludos {aspirante}! Estamos muy contentos de que desees formar parte de esta universidad. Te recordamos que debes entregar tu kardex oficial de calificaciones y tu certificado de preparatoria para completar tu proceso de admisión.');
+INSERT INTO mensajes.catalogo_variable (mensaje_id, nombre, orden) VALUES ('env-001', 'aspirante', 1);
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('env-001', 1, 'Semáforo', 'Rojo');
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('env-001', 2, 'Estatus', 'Sin documentos entregados');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('env-001', 1, 'Aplica cuando semáforo es «Rojo».');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('env-001', 2, 'Aplica cuando estatus es «Sin documentos entregados».');
 
 INSERT INTO mensajes.catalogo_mensaje (id, categoria, nombre, orden, grupo, pregunta, disparador, canal, requiere_plantilla_meta, plantilla_meta_referencia, plantilla_meta_estado, texto)
-VALUES ('contacto_iniciado_colaborador', 'ENVIO', 'Contacto iniciado por el colaborador', 2, NULL, NULL, 'MANUAL', 'WHATSAPP', TRUE, 'Tarea aprobada por el PO (sin clave)', 'PENDIENTE', 'Hola, {{nombre}}. Soy parte del equipo de atención de ITSON. Me gustaría apoyarte con tu proceso de ingreso a {{carrera}}. ¿Tienes alguna duda o necesitas ayuda?');
-INSERT INTO mensajes.catalogo_variable (mensaje_id, nombre, orden) VALUES ('contacto_iniciado_colaborador', 'nombre', 1);
-INSERT INTO mensajes.catalogo_variable (mensaje_id, nombre, orden) VALUES ('contacto_iniciado_colaborador', 'carrera', 2);
-INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('contacto_iniciado_colaborador', 1, 'Semáforo', 'Rojo');
-INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('contacto_iniciado_colaborador', 2, 'Semáforo', 'Naranja');
-INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('contacto_iniciado_colaborador', 3, 'Envío', 'Manual (lo decide el colaborador)');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('contacto_iniciado_colaborador', 1, 'El colaborador puede iniciar el contacto cuando el aspirante tenga semáforo rojo o amarillo/naranja, conforme a las reglas de HU1.');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('contacto_iniciado_colaborador', 2, 'SIRA presenta el mensaje como texto predefinido; el colaborador lo revisa y decide si lo envía. No se envía automáticamente.');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('contacto_iniciado_colaborador', 3, 'Si la ventana de WhatsApp está abierta se envía como mensaje normal; si está cerrada se requiere una plantilla aprobada por Meta.');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('contacto_iniciado_colaborador', 4, 'Si se requiere plantilla y no existe una aprobada, se bloquea el envío y se informa al colaborador.');
+VALUES ('env-002', 'ENVIO', 'Naranja · Falta de entregar el certificado', 2, NULL, NULL, 'AUTOMATICO', 'WHATSAPP', FALSE, NULL, NULL, 'Hola {aspirante}. Hace tiempo que no te hemos contactado, así que queremos avisarte que estás a solo un paso de terminar tu admisión con ITSON: tan solo falta entregar tu certificado de preparatoria.');
+INSERT INTO mensajes.catalogo_variable (mensaje_id, nombre, orden) VALUES ('env-002', 'aspirante', 1);
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('env-002', 1, 'Semáforo', 'Naranja');
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('env-002', 2, 'Estatus', 'Falta de entregar el certificado');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('env-002', 1, 'Aplica cuando semáforo es «Naranja».');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('env-002', 2, 'Aplica cuando estatus es «Falta de entregar el certificado».');
 
 INSERT INTO mensajes.catalogo_mensaje (id, categoria, nombre, orden, grupo, pregunta, disparador, canal, requiere_plantilla_meta, plantilla_meta_referencia, plantilla_meta_estado, texto)
-VALUES ('recordatorio_documentacion', 'ENVIO', 'Recordatorio por falta de documentación', 3, NULL, NULL, 'AUTOMATICO_Y_MANUAL', 'WHATSAPP', TRUE, 'Tarea aprobada por el PO (sin clave)', 'PENDIENTE', 'Hola, {{nombre}}. Te recordamos que aún tienes pendiente entregar tu constancia de calificaciones para continuar con tu proceso de admisión a {{carrera}}. Si tienes alguna duda sobre este requisito, estamos para apoyarte.');
-INSERT INTO mensajes.catalogo_variable (mensaje_id, nombre, orden) VALUES ('recordatorio_documentacion', 'nombre', 1);
-INSERT INTO mensajes.catalogo_variable (mensaje_id, nombre, orden) VALUES ('recordatorio_documentacion', 'carrera', 2);
-INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('recordatorio_documentacion', 1, 'Estatus', 'RECIBIDA (sin constancia entregada)');
-INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('recordatorio_documentacion', 2, 'Tiempo de espera', '24 horas en RECIBIDA');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('recordatorio_documentacion', 1, 'Automático: si el aspirante sigue en RECIBIDA 24 horas continuas después de entrar a ese estado, SIRA envía un único recordatorio.');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('recordatorio_documentacion', 2, 'Si entrega la constancia antes de las 24 horas, se cancela el recordatorio pendiente.');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('recordatorio_documentacion', 3, 'El recordatorio automático no se repite.');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('recordatorio_documentacion', 4, 'Manual: el colaborador puede enviarlo en cualquier momento; si lo hace antes de las 24 horas, se cancela el automático pendiente.');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('recordatorio_documentacion', 5, 'Después del automático, el colaborador todavía puede enviar otro recordatorio manual.');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('recordatorio_documentacion', 6, 'Si la constancia ya fue entregada, no se envía el recordatorio pendiente.');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('recordatorio_documentacion', 7, 'Este contador es independiente de la ventana de WhatsApp y el envío no modifica el contador de inactividad del aspirante.');
+VALUES ('env-003', 'ENVIO', 'Naranja · Constancia rechazada', 3, NULL, NULL, 'AUTOMATICO', 'WHATSAPP', FALSE, NULL, NULL, 'Hola {aspirante}. Hace tiempo que no te hemos contactado y queremos informarte que tu constancia fue rechazada por Registro Escolar. Si tienes dudas, recuerda que puedes solicitar comunicarte con una persona.');
+INSERT INTO mensajes.catalogo_variable (mensaje_id, nombre, orden) VALUES ('env-003', 'aspirante', 1);
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('env-003', 1, 'Semáforo', 'Naranja');
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('env-003', 2, 'Estatus', 'Constancia rechazada');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('env-003', 1, 'Aplica cuando semáforo es «Naranja».');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('env-003', 2, 'Aplica cuando estatus es «Constancia rechazada».');
 
 INSERT INTO mensajes.catalogo_mensaje (id, categoria, nombre, orden, grupo, pregunta, disparador, canal, requiere_plantilla_meta, plantilla_meta_referencia, plantilla_meta_estado, texto)
-VALUES ('reactivacion_hu1', 'ENVIO', 'Reactivación (lote de HU1)', 4, NULL, NULL, 'LOTE_HU1', 'WHATSAPP', TRUE, 'EQ-79', 'PENDIENTE', 'Hola, {{nombre}}. Tu proceso de ingreso a {{carrera}} todavía puede continuar. ¿Necesitas ayuda para completar tus siguientes pasos?
-
-Responde a este mensaje y con gusto te orientaremos.');
-INSERT INTO mensajes.catalogo_variable (mensaje_id, nombre, orden) VALUES ('reactivacion_hu1', 'nombre', 1);
-INSERT INTO mensajes.catalogo_variable (mensaje_id, nombre, orden) VALUES ('reactivacion_hu1', 'carrera', 2);
-INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('reactivacion_hu1', 1, 'Semáforo', 'Rojo');
-INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('reactivacion_hu1', 2, 'Semáforo', 'Naranja');
-INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('reactivacion_hu1', 3, 'Lote', 'Reactivación de HU1');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('reactivacion_hu1', 1, 'Se usa en los lotes de reactivación de HU1.');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('reactivacion_hu1', 2, 'Aplica a aspirantes de la cartera del colaborador autenticado, con semáforo distinto de verde y teléfono válido.');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('reactivacion_hu1', 3, 'El aspirante debe estar fuera del tiempo de espera por contacto previo de HU9 y cumplir la inactividad mínima de EQ-77.');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('reactivacion_hu1', 4, 'Los umbrales y la aplicabilidad definitiva pertenecen a EQ-77 y EQ-102; HU8 no los fija.');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('reactivacion_hu1', 5, 'Con la ventana de WhatsApp cerrada solo se puede usar si Meta aprobó la plantilla (EQ-79).');
+VALUES ('env-004', 'ENVIO', 'Naranja · {valor} {magnitud}', 4, NULL, NULL, 'AUTOMATICO', 'WHATSAPP', FALSE, NULL, NULL, '¡Hola {aspirante}! Han pasado {valor} {magnitud} desde la última vez que te contactaste con nosotros. Te recordamos que tu proceso de admisión no ha concluido.');
+INSERT INTO mensajes.catalogo_variable (mensaje_id, nombre, orden) VALUES ('env-004', 'aspirante', 1);
+INSERT INTO mensajes.catalogo_variable (mensaje_id, nombre, orden) VALUES ('env-004', 'valor', 2);
+INSERT INTO mensajes.catalogo_variable (mensaje_id, nombre, orden) VALUES ('env-004', 'magnitud', 3);
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('env-004', 1, 'Semáforo', 'Naranja');
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('env-004', 2, 'Tiempo de inactividad', '{valor} {magnitud}');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('env-004', 1, 'Aplica cuando semáforo es «Naranja».');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('env-004', 2, 'Aplica cuando tiempo de inactividad es «{valor} {magnitud}».');
 
 INSERT INTO mensajes.catalogo_mensaje (id, categoria, nombre, orden, grupo, pregunta, disparador, canal, requiere_plantilla_meta, plantilla_meta_referencia, plantilla_meta_estado, texto)
-VALUES ('faq_documentos', 'RESPUESTA', 'FAQ: documentos necesarios', 1, 'faq_admision', '¿Qué documentos necesito?', 'RESPUESTA', 'WHATSAPP', FALSE, NULL, NULL, 'Necesitas entregar tu constancia de calificaciones y tu certificado de preparatoria.');
-INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('faq_documentos', 1, 'FAQ', '¿Qué documentos necesito?');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('faq_documentos', 1, 'Se consulta como mensaje de respuesta predefinido.');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('faq_documentos', 2, 'Si una pregunta no está cubierta por el catálogo no se inventa una respuesta; su atención se define en IA/Conocimiento.');
+VALUES ('env-005', 'ENVIO', 'Rojo · Falta de entregar el certificado', 5, NULL, NULL, 'AUTOMATICO', 'WHATSAPP', FALSE, NULL, NULL, 'Hola {aspirante}. Somos muy afortunados de que desees formar parte de ITSON. Este aviso es para recordarte que estás a tan solo un paso de terminar tu proceso de admisión: debes entregar tu certificado de preparatoria.');
+INSERT INTO mensajes.catalogo_variable (mensaje_id, nombre, orden) VALUES ('env-005', 'aspirante', 1);
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('env-005', 1, 'Semáforo', 'Rojo');
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('env-005', 2, 'Estatus', 'Falta de entregar el certificado');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('env-005', 1, 'Aplica cuando semáforo es «Rojo».');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('env-005', 2, 'Aplica cuando estatus es «Falta de entregar el certificado».');
 
 INSERT INTO mensajes.catalogo_mensaje (id, categoria, nombre, orden, grupo, pregunta, disparador, canal, requiere_plantilla_meta, plantilla_meta_referencia, plantilla_meta_estado, texto)
-VALUES ('faq_examen', 'RESPUESTA', 'FAQ: examen de admisión', 2, 'faq_admision', '¿Tengo que presentar examen de admisión?', 'RESPUESTA', 'WHATSAPP', FALSE, NULL, NULL, 'Actualmente no se realiza examen de admisión. El ingreso se determina con base en el promedio de preparatoria y los requisitos correspondientes.');
-INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('faq_examen', 1, 'FAQ', '¿Tengo que presentar examen de admisión?');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('faq_examen', 1, 'Se consulta como mensaje de respuesta predefinido.');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('faq_examen', 2, 'Si una pregunta no está cubierta por el catálogo no se inventa una respuesta; su atención se define en IA/Conocimiento.');
+VALUES ('env-006', 'ENVIO', 'Falta de entregar el certificado · 1 semana', 6, NULL, NULL, 'AUTOMATICO', 'WHATSAPP', FALSE, NULL, NULL, 'Hola {aspirante}. Te avisamos que ya solo falta una semana y te falta entregar tu certificado de preparatoria para concluir el periodo de admisiones. Entrega tu documento lo antes posible.');
+INSERT INTO mensajes.catalogo_variable (mensaje_id, nombre, orden) VALUES ('env-006', 'aspirante', 1);
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('env-006', 1, 'Estatus', 'Falta de entregar el certificado');
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('env-006', 2, 'Proximidad con término de periodo de admisiones', '1 semana');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('env-006', 1, 'Aplica cuando estatus es «Falta de entregar el certificado».');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('env-006', 2, 'Aplica cuando proximidad con término de periodo de admisiones es «1 semana».');
 
 INSERT INTO mensajes.catalogo_mensaje (id, categoria, nombre, orden, grupo, pregunta, disparador, canal, requiere_plantilla_meta, plantilla_meta_referencia, plantilla_meta_estado, texto)
-VALUES ('faq_validacion', 'RESPUESTA', 'FAQ: tiempo de validación', 3, 'faq_admision', '¿Cuánto tarda la validación?', 'RESPUESTA', 'WHATSAPP', FALSE, NULL, NULL, 'La validación tarda aproximadamente de 3 a 5 días hábiles por parte de Registro Escolar. Se te notificará cuando esté lista.');
-INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('faq_validacion', 1, 'FAQ', '¿Cuánto tarda la validación?');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('faq_validacion', 1, 'Se consulta como mensaje de respuesta predefinido.');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('faq_validacion', 2, 'Si una pregunta no está cubierta por el catálogo no se inventa una respuesta; su atención se define en IA/Conocimiento.');
+VALUES ('env-007', 'ENVIO', 'Rojo · Solicitud rechazada', 7, NULL, NULL, 'AUTOMATICO', 'WHATSAPP', FALSE, NULL, NULL, 'Hola {aspirante}. Lamentamos informarte que tu solicitud fue rechazada por Registro Escolar. Si crees que esto es un error, puedes solicitar comunicarte con una persona.');
+INSERT INTO mensajes.catalogo_variable (mensaje_id, nombre, orden) VALUES ('env-007', 'aspirante', 1);
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('env-007', 1, 'Semáforo', 'Rojo');
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('env-007', 2, 'Estatus', 'Solicitud rechazada');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('env-007', 1, 'Aplica cuando semáforo es «Rojo».');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('env-007', 2, 'Aplica cuando estatus es «Solicitud rechazada».');
 
 INSERT INTO mensajes.catalogo_mensaje (id, categoria, nombre, orden, grupo, pregunta, disparador, canal, requiere_plantilla_meta, plantilla_meta_referencia, plantilla_meta_estado, texto)
-VALUES ('aviso_fuera_horario', 'RESPUESTA', 'Aviso fuera del horario de atención', 4, NULL, NULL, 'AUTOMATICO', 'WHATSAPP', FALSE, NULL, NULL, 'Gracias por comunicarte con ITSON. En este momento estamos fuera de nuestro horario de atención. Hemos recibido tu mensaje y te brindaremos orientación.');
-INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('aviso_fuera_horario', 1, 'Horario', 'Fuera del horario de atención');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('aviso_fuera_horario', 1, 'SIRA consulta el horario vigente en la configuración de HU9.');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('aviso_fuera_horario', 2, 'Si el aspirante inicia una conversación fuera del horario, se envía este aviso en lugar del saludo inicial.');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('aviso_fuera_horario', 3, 'Se envía una sola vez por conversación, aunque el aspirante mande varios mensajes fuera de horario.');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('aviso_fuera_horario', 4, 'La atención posterior con IA queda para una etapa futura.');
-INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('aviso_fuera_horario', 5, 'El horario no se escribe en el texto ni se duplica en el catálogo.');
+VALUES ('env-008', 'ENVIO', 'Solicitud aceptada', 8, NULL, NULL, 'AUTOMATICO', 'WHATSAPP', FALSE, NULL, NULL, '¡Felicidades {aspirante}! Tu solicitud fue aceptada. Ya puedes descargar tu ficha de inscripción desde el portal de aspirantes.');
+INSERT INTO mensajes.catalogo_variable (mensaje_id, nombre, orden) VALUES ('env-008', 'aspirante', 1);
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('env-008', 1, 'Estatus', 'Solicitud aceptada');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('env-008', 1, 'Aplica cuando estatus es «Solicitud aceptada».');
+
+INSERT INTO mensajes.catalogo_mensaje (id, categoria, nombre, orden, grupo, pregunta, disparador, canal, requiere_plantilla_meta, plantilla_meta_referencia, plantilla_meta_estado, texto)
+VALUES ('env-009', 'ENVIO', 'Verde · 2 semanas', 9, NULL, NULL, 'AUTOMATICO', 'WHATSAPP', FALSE, NULL, NULL, 'Hola {aspirante}. Tu proceso va muy bien. Quedan 2 semanas para el cierre del periodo; revisa que todos tus datos estén completos en el portal.');
+INSERT INTO mensajes.catalogo_variable (mensaje_id, nombre, orden) VALUES ('env-009', 'aspirante', 1);
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('env-009', 1, 'Semáforo', 'Verde');
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('env-009', 2, 'Proximidad con término de periodo de admisiones', '2 semanas');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('env-009', 1, 'Aplica cuando semáforo es «Verde».');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('env-009', 2, 'Aplica cuando proximidad con término de periodo de admisiones es «2 semanas».');
+
+INSERT INTO mensajes.catalogo_mensaje (id, categoria, nombre, orden, grupo, pregunta, disparador, canal, requiere_plantilla_meta, plantilla_meta_referencia, plantilla_meta_estado, texto)
+VALUES ('env-010', 'ENVIO', 'Sin contacto previo', 10, NULL, NULL, 'AUTOMATICO', 'WHATSAPP', FALSE, NULL, NULL, '¡Hola {aspirante}! Somos ITSON. Queremos darte la bienvenida a tu proceso de admisión y resolver cualquier duda que tengas desde el inicio.');
+INSERT INTO mensajes.catalogo_variable (mensaje_id, nombre, orden) VALUES ('env-010', 'aspirante', 1);
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('env-010', 1, 'Estatus', 'Sin contacto previo');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('env-010', 1, 'Aplica cuando estatus es «Sin contacto previo».');
+
+INSERT INTO mensajes.catalogo_mensaje (id, categoria, nombre, orden, grupo, pregunta, disparador, canal, requiere_plantilla_meta, plantilla_meta_referencia, plantilla_meta_estado, texto)
+VALUES ('res-001', 'RESPUESTA', '¿Dónde entrego mi certificado?', 1, NULL, '¿Dónde entrego mi certificado?', 'RESPUESTA', 'WHATSAPP', FALSE, NULL, NULL, 'El certificado de preparatoria debe entregarse en el módulo de Registro Escolar. En Ciudad Obregón, Registro Escolar se ubica en Campus Náinari, justo en frente de la explanada.');
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('res-001', 1, 'FAQ', '¿Dónde entrego mi certificado?');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('res-001', 1, 'Se usa para responder la pregunta «¿Dónde entrego mi certificado?».');
+
+INSERT INTO mensajes.catalogo_mensaje (id, categoria, nombre, orden, grupo, pregunta, disparador, canal, requiere_plantilla_meta, plantilla_meta_referencia, plantilla_meta_estado, texto)
+VALUES ('res-002', 'RESPUESTA', 'COBACH 1 · Constancia de Calificaciones', 2, NULL, NULL, 'RESPUESTA', 'WHATSAPP', FALSE, NULL, NULL, 'Para obtener la constancia de calificaciones del COBACH 1 de Ciudad Obregón, debes solicitarla en ventanilla, ubicada en el edificio que se encuentra en frente de la explanada.');
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('res-002', 1, 'Preparatoria', 'COBACH 1');
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('res-002', 2, 'Documento', 'Constancia de Calificaciones');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('res-002', 1, 'Aplica cuando preparatoria es «COBACH 1».');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('res-002', 2, 'Aplica cuando documento es «Constancia de Calificaciones».');
+
+INSERT INTO mensajes.catalogo_mensaje (id, categoria, nombre, orden, grupo, pregunta, disparador, canal, requiere_plantilla_meta, plantilla_meta_referencia, plantilla_meta_estado, texto)
+VALUES ('res-003', 'RESPUESTA', '¿Dónde puedo consultar los requisitos para ser aceptado por la carrera que seleccioné?', 3, NULL, '¿Dónde puedo consultar los requisitos para ser aceptado por la carrera que seleccioné?', 'RESPUESTA', 'WHATSAPP', FALSE, NULL, NULL, 'Para saber la puntuación requerida para ser aceptado por la carrera que seleccionaste, debes ingresar a la página oficial de la institución y entrar a la sección de Oferta Educativa.');
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('res-003', 1, 'FAQ', '¿Dónde puedo consultar los requisitos para ser aceptado por la carrera que seleccioné?');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('res-003', 1, 'Se usa para responder la pregunta «¿Dónde puedo consultar los requisitos para ser aceptado por la carrera que seleccioné?».');
+
+INSERT INTO mensajes.catalogo_mensaje (id, categoria, nombre, orden, grupo, pregunta, disparador, canal, requiere_plantilla_meta, plantilla_meta_referencia, plantilla_meta_estado, texto)
+VALUES ('res-004', 'RESPUESTA', '¿Cuál es la fecha límite para entregar todos mis documentos?', 4, NULL, '¿Cuál es la fecha límite para entregar todos mis documentos?', 'RESPUESTA', 'WHATSAPP', FALSE, NULL, NULL, 'Para el periodo Agosto-Diciembre 2027, tienes como límite el 31 de julio para entregar todos tus documentos. Ten en cuenta que Registro Escolar debe revisar la validez de tus documentos.');
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('res-004', 1, 'FAQ', '¿Cuál es la fecha límite para entregar todos mis documentos?');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('res-004', 1, 'Se usa para responder la pregunta «¿Cuál es la fecha límite para entregar todos mis documentos?».');
+
+INSERT INTO mensajes.catalogo_mensaje (id, categoria, nombre, orden, grupo, pregunta, disparador, canal, requiere_plantilla_meta, plantilla_meta_referencia, plantilla_meta_estado, texto)
+VALUES ('res-005', 'RESPUESTA', 'CBTIS 137 · Certificado', 5, NULL, NULL, 'RESPUESTA', 'WHATSAPP', FALSE, NULL, NULL, 'Para obtener tu certificado del CBTIS 137, debes ingresar a la página oficial de certificados con tu usuario y contraseña institucionales y descargar el documento en formato PDF.');
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('res-005', 1, 'Preparatoria', 'CBTIS 137');
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('res-005', 2, 'Documento', 'Certificado');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('res-005', 1, 'Aplica cuando preparatoria es «CBTIS 137».');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('res-005', 2, 'Aplica cuando documento es «Certificado».');
+
+INSERT INTO mensajes.catalogo_mensaje (id, categoria, nombre, orden, grupo, pregunta, disparador, canal, requiere_plantilla_meta, plantilla_meta_referencia, plantilla_meta_estado, texto)
+VALUES ('res-006', 'RESPUESTA', '¿Qué pasa si entrego mis documentos fuera de la fecha límite?', 6, NULL, '¿Qué pasa si entrego mis documentos fuera de la fecha límite?', 'RESPUESTA', 'WHATSAPP', FALSE, NULL, NULL, 'Si entregas tus documentos fuera de la fecha límite, tu solicitud podría no ser considerada para el periodo de admisión en curso. Te recomendamos contactar a Registro Escolar lo antes posible.');
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('res-006', 1, 'FAQ', '¿Qué pasa si entrego mis documentos fuera de la fecha límite?');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('res-006', 1, 'Se usa para responder la pregunta «¿Qué pasa si entrego mis documentos fuera de la fecha límite?».');
+
+INSERT INTO mensajes.catalogo_mensaje (id, categoria, nombre, orden, grupo, pregunta, disparador, canal, requiere_plantilla_meta, plantilla_meta_referencia, plantilla_meta_estado, texto)
+VALUES ('res-007', 'RESPUESTA', '¿Puedo cambiar de carrera después de haber solicitado mi admisión?', 7, NULL, '¿Puedo cambiar de carrera después de haber solicitado mi admisión?', 'RESPUESTA', 'WHATSAPP', FALSE, NULL, NULL, 'Sí, puedes solicitar un cambio de carrera mientras el periodo de admisión siga abierto. Debes comunicarte con un colaborador para realizar el trámite correspondiente.');
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('res-007', 1, 'FAQ', '¿Puedo cambiar de carrera después de haber solicitado mi admisión?');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('res-007', 1, 'Se usa para responder la pregunta «¿Puedo cambiar de carrera después de haber solicitado mi admisión?».');
+
+INSERT INTO mensajes.catalogo_mensaje (id, categoria, nombre, orden, grupo, pregunta, disparador, canal, requiere_plantilla_meta, plantilla_meta_referencia, plantilla_meta_estado, texto)
+VALUES ('res-008', 'RESPUESTA', 'CECyTE Esperanza · Constancia de Calificaciones', 8, NULL, NULL, 'RESPUESTA', 'WHATSAPP', FALSE, NULL, NULL, 'Para obtener la constancia de calificaciones de CECyTE Esperanza, debes solicitarla directamente en el plantel con el área de servicios escolares.');
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('res-008', 1, 'Preparatoria', 'CECyTE Esperanza');
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('res-008', 2, 'Documento', 'Constancia de Calificaciones');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('res-008', 1, 'Aplica cuando preparatoria es «CECyTE Esperanza».');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('res-008', 2, 'Aplica cuando documento es «Constancia de Calificaciones».');
+
+INSERT INTO mensajes.catalogo_mensaje (id, categoria, nombre, orden, grupo, pregunta, disparador, canal, requiere_plantilla_meta, plantilla_meta_referencia, plantilla_meta_estado, texto)
+VALUES ('res-009', 'RESPUESTA', '¿Cómo sé si mi solicitud fue aceptada?', 9, NULL, '¿Cómo sé si mi solicitud fue aceptada?', 'RESPUESTA', 'WHATSAPP', FALSE, NULL, NULL, 'Recibirás una notificación por este medio y por correo electrónico en cuanto Registro Escolar concluya la validación de tu solicitud.');
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('res-009', 1, 'FAQ', '¿Cómo sé si mi solicitud fue aceptada?');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('res-009', 1, 'Se usa para responder la pregunta «¿Cómo sé si mi solicitud fue aceptada?».');
+
+INSERT INTO mensajes.catalogo_mensaje (id, categoria, nombre, orden, grupo, pregunta, disparador, canal, requiere_plantilla_meta, plantilla_meta_referencia, plantilla_meta_estado, texto)
+VALUES ('res-010', 'RESPUESTA', '¿Puedo hablar con una persona en lugar del asistente automático?', 10, NULL, '¿Puedo hablar con una persona en lugar del asistente automático?', 'RESPUESTA', 'WHATSAPP', FALSE, NULL, NULL, 'Claro, puedes solicitar hablar con una persona en cualquier momento dentro del horario de atención y un colaborador continuará la conversación contigo.');
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('res-010', 1, 'FAQ', '¿Puedo hablar con una persona en lugar del asistente automático?');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('res-010', 1, 'Se usa para responder la pregunta «¿Puedo hablar con una persona en lugar del asistente automático?».');
 
 COMMIT;

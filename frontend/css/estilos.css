@@ -137,7 +137,7 @@ body {
 }
 .panel-encabezado h2 { margin: 0; font-size: 18px; }
 .icono { background: none; border: 0; font-size: 16px; cursor: pointer; padding: 4px 8px; color: var(--texto-suave); }
-.pestanas { display: grid; grid-template-columns: 1fr 1fr 1fr; margin: 4px 14px 0; border: 1px solid var(--borde); border-radius: 8px; overflow: hidden; }
+.pestanas { display: grid; grid-template-columns: 1fr 1fr 1fr; margin: 4px 14px 0; border: 1px solid var(--borde); border-radius: 8px; }
 .pestana { background: none; border: 0; padding: 10px; font: inherit; cursor: pointer; color: var(--texto); }
 .pestana.activa, .pestana[aria-selected="true"] { background: var(--azul-tabla); color: #fff; font-weight: 600; }
 .vista-panel { padding: 14px 18px; overflow-y: auto; }
@@ -177,28 +177,80 @@ body {
   .panel { width: 100%; flex: none; border-left: 0; border-top: 1px solid var(--borde); }
 }
 
-/* HU 8 (EQ-98, EQ-99): mensajes predefinidos de la IA. */
-.mia-cuerpo { position: relative; display: flex; gap: 18px; margin-top: 14px; min-height: 540px; }
-.mia-categorias { display: flex; flex-direction: column; gap: 4px; width: 140px; flex: none; }
-.mia-categorias button {
-  text-align: left; background: none; border: none; border-radius: 6px;
-  padding: 8px 10px; font: inherit; cursor: pointer; color: #444;
+/* HU 8 (EQ-98, EQ-99): mensajes predefinidos de la IA, con los colores del prototipo de Figma. */
+#vista-mensajes-ia { --mia-barra: var(--azul-tabla); --mia-pastilla: #1b5aa6; --mia-claro: #e9eef6; --mia-borde: #d0d5dd; }
+#vista-mensajes-ia > h1 { margin-bottom: 4px; }
+#vista-mensajes-ia > .ayuda { color: var(--texto); }
+#mia-total { color: var(--texto); }
+
+.mia-cuerpo { position: relative; display: flex; gap: 0; margin-top: 14px; min-height: 540px; border: 1px solid var(--borde); border-radius: 8px; }
+
+/* Columna «Tipo» */
+.mia-categorias { display: flex; flex-direction: column; width: 150px; flex: none; border-right: 1px solid var(--borde); background: var(--blanco); border-radius: 8px 0 0 8px; }
+.mia-categorias-titulo { border-radius: 7px 0 0 0; }
+.mia-filtros { border-radius: 0 7px 0 0; }
+.mia-categorias-titulo {
+  display: flex; align-items: center; justify-content: center; height: 56px;
+  background: var(--mia-barra); color: var(--blanco); font-weight: 700; font-size: 16px;
 }
-.mia-categorias button.activo { background: #111111; color: #ffffff; font-weight: 600; }
+.mia-categorias button {
+  background: none; border: none; border-radius: 0; padding: 10px 12px;
+  font: inherit; cursor: pointer; color: var(--texto); text-align: center;
+}
+.mia-categorias button:hover { background: #f3f6fa; }
+.mia-categorias button.activo { background: var(--mia-claro); color: var(--texto); font-weight: 400; }
+
+/* Barra azul de filtros, configuración y paginación */
 .mia-lista { flex: 1; min-width: 0; }
-.mia-filtros { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
-.mia-filtros select { border: 1px solid #d0d0d0; border-radius: 6px; padding: 3px 6px; }
-.mia-filtros button { background: #fff; border: 1px solid #d0d0d0; border-radius: 6px; cursor: pointer; padding: 2px 10px; }
-.mia-filtros button:disabled { color: #bbb; cursor: not-allowed; }
-.mia-indicador { margin-left: auto; color: #666; font-size: 13px; }
-.mia-tarjetas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-.mia-tarjeta { border: 1px solid #e2e2e2; border-radius: 10px; padding: 12px 14px; }
-.mia-etiqueta { font-weight: 700; font-size: 13px; margin: 0 0 6px; }
-.mia-llaves { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
-.mia-llave { display: inline-flex; gap: 4px; background: #f2f2f2; border-radius: 999px; padding: 3px 10px; font-size: 12px; }
-.mia-llave-tipo { color: #555; }
-.mia-llave-valor { background: #111111; color: #fff; border-radius: 999px; padding: 0 8px; }
-.mia-mensaje { font-size: 13px; line-height: 1.4; color: #333; margin: 0; }
+.mia-filtros {
+  display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 16px;
+  background: var(--mia-barra); color: var(--blanco); font-weight: 600; margin: 0;
+}
+.mia-filtros label { display: inline-flex; align-items: center; gap: 8px; }
+.mia-filtros select {
+  min-width: 120px; height: 36px; padding: 0 30px 0 12px; border: 0; border-radius: 6px;
+  background: var(--mia-pastilla) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='white' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 10px center;
+  color: var(--blanco); font: inherit; font-weight: 600; appearance: none; -webkit-appearance: none; cursor: pointer;
+}
+.mia-filtros select option { color: var(--texto); background: var(--blanco); }
+.mia-filtros select:focus-visible { outline: 2px solid var(--blanco); outline-offset: 2px; }
+
+#vista-mensajes-ia .boton-configuracion {
+  margin-left: auto; height: 38px; padding: 0 16px; border: 0; border-radius: 6px;
+  background: var(--blanco) !important; color: var(--texto); font-weight: 600;
+}
+#vista-mensajes-ia .boton-configuracion:hover { background: var(--mia-claro) !important; }
+#vista-mensajes-ia .boton-configuracion:focus-visible { outline: 2px solid var(--blanco); outline-offset: 2px; }
+.mia-engrane { color: var(--mia-pastilla); font-size: 17px; }
+
+.mia-paginacion { display: inline-flex; align-items: center; gap: 10px; }
+.boton-configuracion[hidden] + .mia-paginacion { margin-left: auto; }
+.mia-paginacion button, .mia-indicador {
+  height: 38px; border: 0; border-radius: 6px; background: var(--mia-pastilla); color: var(--blanco);
+}
+.mia-paginacion button { width: 38px; padding: 0; font-size: 22px; line-height: 1; cursor: pointer; }
+.mia-paginacion button:hover:not(:disabled) { background: #2a6bbb; }
+.mia-paginacion button:disabled { opacity: .45; cursor: not-allowed; }
+.mia-indicador { display: inline-flex; align-items: center; padding: 0 18px; font-size: 14px; font-weight: 600; white-space: nowrap; }
+
+/* Tarjetas */
+.mia-tarjetas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; padding: 18px; align-items: start; }
+.mia-tarjeta { border: 1px solid var(--mia-borde); border-radius: 8px; padding: 16px 18px; background: var(--blanco); }
+.mia-fila-llaves { display: grid; grid-template-columns: auto 1fr; gap: 12px 18px; align-items: start; margin-bottom: 14px; }
+.mia-etiqueta { font-weight: 700; font-size: 14px; margin: 0 0 10px; color: var(--texto); }
+.mia-fila-llaves .mia-etiqueta { margin: 6px 0 0; }
+.mia-llaves { display: flex; flex-wrap: wrap; gap: 8px; }
+.mia-llave {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
+  padding: 3px; border: 1px solid var(--mia-borde); border-radius: 7px; background: var(--blanco); font-size: 12px;
+}
+.mia-llave-tipo { padding: 0 4px 0 6px; color: var(--texto); line-height: 1.2; }
+.mia-llave-valor {
+  padding: 5px 10px; border-radius: 6px; background: var(--mia-pastilla); color: var(--blanco); white-space: nowrap;
+}
+.mia-mensaje { margin: 0; font-size: 14px; line-height: 1.45; color: var(--texto); text-align: justify; }
+.mia-mensaje strong { font-weight: 700; }
+#mia-sin-resultados { padding: 0 18px 18px; }
 @media (max-width: 900px) {
   .mia-tarjetas { grid-template-columns: 1fr; }
   .mia-cuerpo { flex-direction: column; }
@@ -207,7 +259,6 @@ body {
 }
 
 /* HU9 (EQ-103, EQ-109, EQ-110): panel lateral integrado en Mensajes. */
-#vista-mensajes-ia .mia-layout { position: relative; } /* el panel se ancla al catálogo */
 .boton-configuracion {
   min-height: 32px; padding: 6px 12px; border: 0 !important; border-radius: 6px;
   background: var(--azul-tabla) !important; color: #fff; font: inherit; font-weight: 600;
@@ -238,29 +289,6 @@ body {
 .seccion-configuracion:last-child { border-bottom: 0; }
 .seccion-configuracion legend { width: 100%; margin: 0 0 8px; padding: 0; font-size: 12px; line-height: 1.35; font-weight: 700; text-align: center; }
 .seccion-configuracion .ayuda { margin: 6px 0 0; font-size: 11px; line-height: 1.4; }
-.zona-horaria { margin: 8px 0; padding: 7px 8px; border-radius: 5px; background: #eef4fb; color: var(--azul-oscuro); font-size: 11px; text-align: center; }
-.lista-jornada { display: flex; flex-direction: column; gap: 5px; margin: 8px 0; }
-.fila-dia {
-  display: grid; grid-template-columns: 68px 30px minmax(0, 1fr) 12px minmax(0, 1fr);
-  align-items: center; gap: 5px; min-height: 36px; padding: 4px 6px;
-  border: 1px solid var(--borde); border-radius: 6px; background: #fff;
-}
-.fila-dia.dia-deshabilitado { background: #f6f7f8; color: var(--texto-suave); }
-.nombre-dia { font-size: 11px; font-weight: 700; }
-.switch-dia { position: relative; width: 30px; height: 18px; display: inline-flex; align-items: center; cursor: pointer; }
-.switch-dia input { position: absolute; width: 1px; height: 1px; opacity: 0; }
-.switch-pista { width: 30px; height: 17px; border-radius: 20px; background: #b9c1cb; transition: background .15s ease; }
-.switch-pista::after { content: ""; display: block; width: 13px; height: 13px; margin: 2px; border-radius: 50%; background: #fff; transition: transform .15s ease; }
-.switch-dia input:checked + .switch-pista { background: var(--azul); }
-.switch-dia input:checked + .switch-pista::after { transform: translateX(13px); }
-.switch-dia input:focus-visible + .switch-pista { outline: 2px solid var(--azul); outline-offset: 2px; }
-.hora-dia {
-  width: 100%; min-width: 0; height: 29px; padding: 3px 5px;
-  border: 1px solid var(--borde); border-radius: 5px; background: #fff; color: var(--texto);
-  font: inherit; font-size: 11px;
-}
-.hora-dia:disabled { background: #eef0f2; color: #8a929b; }
-.separador-hora { text-align: center; color: var(--texto-suave); font-size: 11px; }
 .error-campo { min-height: 0; margin: 4px 0 0; color: #a4161a; font-size: 11px; line-height: 1.35; }
 .error-campo:empty { display: none; }
 [aria-invalid="true"] { border-color: #b42318 !important; }
@@ -280,11 +308,44 @@ body {
 .mensaje-configuracion:empty { display: none; }
 .mensaje-configuracion.exito { color: #176b3a; }
 .mensaje-configuracion.error { color: #a4161a; }
+
+/* HU9: panel con el diseño del prototipo de Figma. */
+#panel-configuracion { --cfg-azul: var(--azul-tabla); top: 56px; border-radius: 0 0 8px 8px; }
+#panel-configuracion .encabezado-panel { min-height: 64px; padding: 12px 20px; border-bottom: 0; }
+#panel-configuracion .encabezado-panel h2 { font-size: 20px; font-weight: 600; }
+#panel-configuracion .cerrar-panel { font-size: 28px; }
+#panel-configuracion .contenido-panel {
+  margin: 0 0 14px; padding: 22px 22px 18px; border-top: 1px solid var(--borde); border-bottom: 1px solid var(--borde);
+}
+#panel-configuracion .seccion-configuracion { margin: 0 0 28px; padding: 0; border: 0; }
+#panel-configuracion .seccion-configuracion legend { margin: 0 0 12px; font-size: 14px; font-weight: 700; color: var(--texto); }
+#panel-configuracion .seccion-configuracion .ayuda { margin: 10px 0 0; font-size: 12px; line-height: 1.35; color: var(--texto); text-align: justify; }
+.fila-horario { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.fila-horario label { font-size: 13px; }
+.hora-config {
+  width: 122px; height: 36px; padding: 0 8px; border: 0; border-radius: 6px;
+  background: var(--cfg-azul); color: var(--blanco); font: inherit; font-size: 13px; font-weight: 600;
+  color-scheme: dark; cursor: pointer;
+}
+.hora-config::-webkit-calendar-picker-indicator { cursor: pointer; }
+.hora-config:focus-visible { outline: 2px solid var(--azul); outline-offset: 2px; }
+#panel-configuracion .control-tiempo { justify-content: space-around; gap: 16px; margin: 4px 0; }
+#panel-configuracion .stepper { height: 38px; border-radius: 8px; border-color: var(--borde); }
+#panel-configuracion .boton-stepper { width: 38px; height: 36px; font-size: 22px; color: var(--texto); }
+#panel-configuracion .stepper input { width: 40px; height: 36px; border: 0; font-size: 13px; }
+#panel-configuracion .control-tiempo select {
+  min-width: 120px; height: 38px; padding: 0 30px 0 14px; border-radius: 6px; background: var(--cfg-azul)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='white' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 12px center;
+  font-size: 13px; font-weight: 600; appearance: none; -webkit-appearance: none; cursor: pointer;
+}
+#panel-configuracion .control-tiempo select option { color: var(--texto); background: var(--blanco); }
+#panel-configuracion .pie-panel { padding: 4px 0 0; border-top: 0; background: transparent; }
+#panel-configuracion .boton-guardar { min-width: 112px; min-height: 40px; border-radius: 8px; background: var(--cfg-azul); font-size: 15px; }
+#panel-configuracion .boton-guardar:hover { background: var(--azul-oscuro); }
 @media (max-width: 600px) {
-  .mia-filtros { flex-wrap: wrap; }
+  .mia-filtros { flex-wrap: wrap; height: auto; padding: 10px 12px; }
   .mia-indicador { margin-left: 0; }
   .panel-configuracion { width: 100%; }
-  .fila-dia { grid-template-columns: 62px 28px minmax(0, 1fr) 10px minmax(0, 1fr); gap: 4px; padding: 3px 4px; }
 }
 
 /* HU 1 (EQ-86, EQ-88, EQ-89): modal de disparo de mensajes automáticos. */
