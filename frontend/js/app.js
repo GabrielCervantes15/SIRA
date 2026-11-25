@@ -329,13 +329,22 @@ const VISTAS = {
 };
 
 function mostrarVista(nombre) {
-  document.querySelector(".monitoreo").hidden = nombre !== "monitoreo";
+  const esMonitoreo = nombre === "monitoreo";
+  const layoutAspirantes = document.querySelector(".layout-aspirantes");
+
+  // EQ-94: al entrar a Mensajes o Configuración se oculta el layout completo
+  // de Aspirantes, incluida la tarjeta lateral de EQ-78.
+  if (layoutAspirantes) layoutAspirantes.hidden = !esMonitoreo;
+
+  document.querySelector(".monitoreo").hidden = !esMonitoreo;
   $("vista-configuracion").hidden = nombre !== "configuracion";
   $("vista-mensajes-ia").hidden = nombre !== "mensajes-ia";
+
   for (const [clave, idNav] of Object.entries(VISTAS)) {
     $(idNav).classList.toggle("activo", clave === nombre);
     $(idNav).setAttribute("aria-current", clave === nombre ? "page" : "false");
   }
+
   if (nombre === "configuracion") cargarConfiguracion();
   if (nombre === "mensajes-ia") cargarMensajesIA();
 }
@@ -349,8 +358,19 @@ function pintarLlave(llave) {
 }
 
 function pintarTarjetaMensaje(m) {
-  return elemento("button", { type: "button", class: `mia-tarjeta${estadoMensajesIA.seleccionado === m.id ? " seleccionada" : ""}`, "aria-pressed": String(estadoMensajesIA.seleccionado === m.id), onclick: () => seleccionarMensajeIA(m.id) }, [
-    elemento("span", { class: "mia-tarjeta-titulo", text: m.llaves?.map((l) => l.valor).join(" · ") || "Mensaje predefinido" }),
+  const llaves = elemento("div", { class: "mia-llaves" }, [
+    elemento("span", { class: "mia-tarjeta-seccion", text: "Llaves:" }),
+    ...(m.llaves ?? []).map(pintarLlave),
+  ]);
+
+  return elemento("button", {
+    type: "button",
+    class: `mia-tarjeta${estadoMensajesIA.seleccionado === m.id ? " seleccionada" : ""}`,
+    "aria-pressed": String(estadoMensajesIA.seleccionado === m.id),
+    onclick: () => seleccionarMensajeIA(m.id),
+  }, [
+    llaves,
+    elemento("span", { class: "mia-tarjeta-seccion", text: "Mensaje:" }),
     elemento("span", { class: "mia-tarjeta-texto", text: m.mensaje }),
     elemento("span", { class: "mia-tarjeta-pista", text: "Ver contenido y reglas →" }),
   ]);

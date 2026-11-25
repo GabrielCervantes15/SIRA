@@ -23,6 +23,7 @@ function cargarDatosSemilla() {
   }
 }
 
+
 export function crearModuloMonitoreo(opciones = {}) {
   const semilla = opciones.datosSemilla || cargarDatosSemilla();
 
@@ -47,16 +48,32 @@ export function crearModuloMonitoreo(opciones = {}) {
     listarAspirantesCasoUso,
   });
 
+  // EQ-71: enrutador del módulo Monitoreo.
   const enrutador = crearEnrutadorMonitoreo({ controlador });
+
+  // EQ-55 / EQ-59 / EQ-64 / EQ-71:
+  // Interfaz pública para gestionar las carteras.
+  const cartera = {
+    contarPorColaborador: () =>
+      repositorio.contarAspirantesPorColaborador(),
+
+    previsualizarAsignacion: (params) =>
+      repositorio.previsualizarAsignacion(params),
+
+    asignarCarreras: (params) =>
+      repositorio.reasignarAspirantes(params),
+  };
 
   return {
     repositorio,
+    cartera,
     obtenerFiltrosCasoUso,
     listarAspirantesCasoUso,
     controlador,
     enrutador,
   };
 }
+
 
 export {
   ObtenerFiltrosCasoUso,

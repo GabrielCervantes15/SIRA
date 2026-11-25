@@ -298,4 +298,110 @@ export class RepositorioMonitoreoMemoria {
       .filter((m) => m.aspiranteId === idLimpio)
       .sort((a, b) => new Date(a.fechaEnvio).getTime() - new Date(b.fechaEnvio).getTime());
   }
+
+
+  /**
+   * Cuenta los aspirantes asignados a cada colaborador.
+   * Normaliza los alias de la semilla al ID institucional.
+   */
+  async contarAspirantesPorColaborador() {
+    const conteo = {};
+
+    for (const aspirante of this.aspirantes) {
+      if (!aspirante.colaboradorId) continue;
+
+      const idGuardado = String(aspirante.colaboradorId).trim();
+      const idCanonico = this.aliasColaborador[idGuardado]?.[0] ?? idGuardado;
+
+      conteo[idCanonico] = (conteo[idCanonico] ?? 0) + 1;
+    }
+
+    return conteo;
+  }
+
+  /**
+   * Consulta los aspirantes afectados por una asignación.
+   * No modifica los registros.
+   */
+  async previsualizarAsignacion({ campus, carreras }) {
+    const carrerasSeleccionadas = new Set(carreras);
+
+    return this.aspirantes
+      .filter((aspirante) =>
+        aspirante.campus === campus &&
+        carrerasSeleccionadas.has(aspirante.carreraSolicitada)
+      )
+      .map((aspirante) => ({
+        aspiranteId: aspirante.id,
+        carrera: aspirante.carreraSolicitada,
+        colaboradorActual: aspirante.colaboradorId ?? null,
+      }))
+      .sort((a, b) =>
+        String(a.aspiranteId).localeCompare(String(b.aspiranteId))
+      );
+  }
+
+  /**
+   * Reasigna aspirantes y devuelve una operación para deshacer
+   * los cambios si falla la confirmación del registro.
+   */
+  async reasignarAspirantes({ colaboradorId, campus, carreras }) {
+    const idDestino = String(colaboradorId).trim();
+    const carrerasSeleccionadas = new Set(carreras);
+
+    const teniaAsignacion = Object.prototype.hasOwnProperty.call(
+      this.carrerasPorColaborador,
+      idDestino
+    );
+
+    const carrerasAnteriores = teniaAsignacion
+      ? [...this.carrerasPorColaborador[idDestino]]
+      : undefined;
+
+    const afectados = this.aspirantes.filter((aspirante) =>
+      aspirante.campus === campus &&
+      carrerasSeleccionadas.has(aspirante.carreraSolicitada)
+    );
+
+    const transferencias = afectados.map((aspirante) => ({
+      aspiranteId: aspirante.id,
+      colaboradorAnterior: aspirante.colaboradorId ?? null,
+    }));
+
+    for (const aspirante of afectados) {
+      aspirante.colaboradorId = idDestino;
+    }
+
+    this.carrerasPorColaborador[idDestino] = [...carrerasSeleccionadas];
+
+    let deshecho = false;
+
+    return {
+      aspirantesIds: afectados.map((aspirante) => aspirante.id),
+      transferencias,
+
+      deshacer: async () => {
+        if (deshecho) return;
+
+        for (const transferencia of transferencias) {
+          const aspirante = this.aspirantes.find(
+            (item) => item.id === transferencia.aspiranteId
+          );
+
+          if (aspirante) {
+            aspirante.colaboradorId = transferencia.colaboradorAnterior;
+          }
+        }
+
+        if (teniaAsignacion) {
+          this.carrerasPorColaborador[idDestino] = carrerasAnteriores;
+        } else {
+          delete this.carrerasPorColaborador[idDestino];
+        }
+
+        deshecho = true;
+      },
+    };
+  }
+
 }

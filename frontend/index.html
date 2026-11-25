@@ -179,23 +179,66 @@
         </div>
         <span class="mia-solo-lectura">Solo lectura</span>
       </header>
-      <nav class="mia-categorias" aria-label="Tipo de mensaje">
-        <button type="button" id="mia-cat-envio" data-categoria="ENVIO" class="activo" aria-pressed="true">Mensajes de envío</button>
-        <button type="button" id="mia-cat-respuesta" data-categoria="RESPUESTA" aria-pressed="false">Mensajes de respuesta</button>
-      </nav>
-      <div class="mia-cuerpo">
-        <section class="mia-panel mia-panel-catalogo" aria-labelledby="mia-titulo-catalogo">
-          <header class="mia-panel-encabezado"><div><h2 id="mia-titulo-catalogo">Catálogo</h2><p id="mia-descripcion-categoria">Mensajes para iniciar o dar seguimiento al contacto.</p></div><span id="mia-total" class="mia-contador">— mensajes</span></header>
-          <label class="mia-busqueda" for="mia-buscar">Buscar mensaje</label>
-          <input id="mia-buscar" type="search" placeholder="Buscar por contenido o regla..." autocomplete="off">
-          <div class="mia-filtros"><label for="mia-filtro-semaforo">Semáforo</label><select id="mia-filtro-semaforo"><option value="">Todos</option><option value="Rojo">Rojo</option><option value="Naranja">Naranja</option><option value="Verde">Verde</option></select><span id="mia-indicador" class="mia-indicador"></span><button type="button" id="mia-anterior" aria-label="Página anterior">←</button><button type="button" id="mia-siguiente" aria-label="Página siguiente">→</button></div>
-          <div id="mia-estado" class="mia-estado" role="status" aria-live="polite" hidden></div>
-          <div class="mia-tarjetas" id="mia-tarjetas"></div>
-        </section>
-        <aside class="mia-panel mia-panel-detalle" aria-labelledby="mia-titulo-detalle">
-          <header class="mia-panel-encabezado"><div><h2 id="mia-titulo-detalle">Vista previa</h2><p>Contenido y reglas del mensaje seleccionado.</p></div></header>
-          <div id="mia-detalle" class="mia-detalle"><div class="mia-detalle-vacio"><span aria-hidden="true">✉</span><h3>Selecciona un mensaje</h3><p>Elige una tarjeta del catálogo para consultar su contenido y sus reglas.</p></div></div>
-        </aside>
+
+      <div class="mia-layout">
+        <nav class="mia-categorias" aria-label="Tipo de mensaje">
+          <span class="mia-categorias-titulo">Tipo</span>
+          <button type="button" id="mia-cat-envio" data-categoria="ENVIO" class="activo" aria-pressed="true" aria-label="Mensajes de envío">Envío</button>
+          <button type="button" id="mia-cat-respuesta" data-categoria="RESPUESTA" aria-pressed="false" aria-label="Mensajes de respuesta">Respuesta</button>
+        </nav>
+
+        <div class="mia-contenido">
+          <div class="mia-toolbar" role="search" aria-label="Buscar y filtrar mensajes">
+            <div class="mia-busqueda-grupo">
+              <label class="mia-busqueda" for="mia-buscar">Buscar mensaje</label>
+              <input id="mia-buscar" type="search" placeholder="Buscar por contenido o regla..." autocomplete="off">
+            </div>
+            <div class="mia-filtros">
+              <label for="mia-filtro-semaforo">Semáforo</label>
+              <select id="mia-filtro-semaforo">
+                <option value="">Todos</option>
+                <option value="Rojo">Rojo</option>
+                <option value="Naranja">Naranja</option>
+                <option value="Verde">Verde</option>
+              </select>
+            </div>
+            <span id="mia-indicador" class="mia-indicador" aria-live="polite"></span>
+            <div class="mia-paginacion" aria-label="Paginación del catálogo">
+              <button type="button" id="mia-anterior" aria-label="Página anterior">‹</button>
+              <button type="button" id="mia-siguiente" aria-label="Página siguiente">›</button>
+            </div>
+          </div>
+
+          <div class="mia-cuerpo">
+            <section class="mia-panel mia-panel-catalogo" aria-labelledby="mia-titulo-catalogo">
+              <header class="mia-panel-encabezado">
+                <div>
+                  <h2 id="mia-titulo-catalogo">Catálogo</h2>
+                  <p id="mia-descripcion-categoria">Mensajes para iniciar o dar seguimiento al contacto.</p>
+                </div>
+                <span id="mia-total" class="mia-contador">— mensajes</span>
+              </header>
+              <div id="mia-estado" class="mia-estado" role="status" aria-live="polite" hidden></div>
+              <div class="mia-tarjetas" id="mia-tarjetas"></div>
+            </section>
+
+            <aside class="mia-panel mia-panel-detalle" aria-labelledby="mia-titulo-detalle">
+              <header class="mia-panel-encabezado">
+                <div>
+                  <h2 id="mia-titulo-detalle">Vista previa</h2>
+                  <p>Contenido y reglas del mensaje seleccionado.</p>
+                </div>
+              </header>
+              <div id="mia-detalle" class="mia-detalle">
+                <div class="mia-detalle-vacio">
+                  <span aria-hidden="true">✉</span>
+                  <h3>Selecciona un mensaje</h3>
+                  <p>Elige una tarjeta del catálogo para consultar su contenido y sus reglas.</p>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
       </div>
     </section>
 
