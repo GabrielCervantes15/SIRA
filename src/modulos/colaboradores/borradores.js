@@ -1,4 +1,3 @@
-
 /**
  * EQ-56: Guardado temporal de borradores de colaboradores.
  * EQ-59: Eliminación del borrador después de confirmar el registro.

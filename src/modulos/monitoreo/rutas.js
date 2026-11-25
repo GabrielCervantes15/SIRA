@@ -25,6 +25,40 @@ export function crearEnrutadorMonitoreo({ controlador }) {
       return true;
     }
 
+    // GET /api/monitoreo/aspirantes/:id (HU3-3 / EQ-42)
+    const rutaDetalle = rutaRelativa.match(/^\/aspirantes\/([^/]+)\/?$/);
+    if (rutaDetalle && req.method === "GET") {
+      await controlador.obtenerDetalleAspirante(req, res, contexto, rutaDetalle[1]);
+      return true;
+    }
+
+    // GET /api/monitoreo/aspirantes/:id/actividades?desde=&hasta= (HU3-6 / EQ-43)
+    const rutaActividades = rutaRelativa.match(/^\/aspirantes\/([^/]+)\/actividades\/?$/);
+    if (rutaActividades && req.method === "GET") {
+      await controlador.obtenerHistorial(req, res, contexto, rutaActividades[1]);
+      return true;
+    }
+
+    // GET /api/monitoreo/aspirantes/:id/conversacion (HU3-5)
+    const matchConversacion = rutaRelativa.match(/^\/aspirantes\/([^/]+)\/conversacion\/?$/);
+    if (matchConversacion && req.method === "GET") {
+      let aspiranteId;
+      try {
+        aspiranteId = decodeURIComponent(matchConversacion[1]);
+      } catch {
+        res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
+        res.end(
+          JSON.stringify({
+            codigo: "PARAMETRO_INVALIDO",
+            mensaje: "Identificador del aspirante inválido.",
+          })
+        );
+        return true;
+      }
+      await controlador.obtenerConversacion(req, res, contexto, aspiranteId);
+      return true;
+    }
+
     return false; // Ruta no manejada por este enrutador
   };
 }

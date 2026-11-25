@@ -1,0 +1,47 @@
+/**
+ * EQ-95: genera datos-semilla/05_catalogo_mensajes_semilla.sql a partir de
+ * datos-semilla/catalogo-mensajes.json, para que el JSON (memoria) y el SQL (PostgreSQL)
+ * tengan siempre el mismo catálogo.
+ *
+ *   node scripts/generar-semilla-catalogo-mensajes.js
+ */
+import { readFileSync, writeFileSync } from 'node:fs';
+import { validarCatalogo } from '../src/modulos/mensajes-ia/dominio/catalogo.js';
+
+const raiz = new URL('../', import.meta.url);
+const { mensajes } = JSON.parse(readFileSync(new URL('datos-semilla/catalogo-mensajes.json', raiz), 'utf8'));
+const errores = validarCatalogo(mensajes);
+if (errores.length) {
+  console.error(`El catálogo tiene errores:\n- ${errores.join('\n- ')}`);
+  process.exit(1);
+}
+
+const lit = (v) => (v == null ? 'NULL' : `'${String(v).replaceAll("'", "''")}'`);
+const lineas = [
+  '-- =========================================================================',
+  '-- HU 8 · EQ-95: semilla del catálogo de mensajes aprobado en EQ-93.',
+  '-- GENERADO por scripts/generar-semilla-catalogo-mensajes.js desde',
+  '-- datos-semilla/catalogo-mensajes.json. No editar a mano.',
+  '-- Requiere docker/postgres/migrations/05_catalogo_mensajes.sql.',
+  '-- Se puede correr más de una vez: reemplaza el catálogo completo.',
+  '-- =========================================================================',
+  '',
+  'BEGIN;',
+  '',
+  `DELETE FROM mensajes.catalogo_mensaje WHERE id IN (${mensajes.map((m) => lit(m.id)).join(', ')});`,
+  '',
+];
+for (const m of mensajes) {
+  lineas.push(
+    `INSERT INTO mensajes.catalogo_mensaje (id, categoria, nombre, orden, grupo, pregunta, disparador, canal, requiere_plantilla_meta, plantilla_meta_referencia, plantilla_meta_estado, texto)`,
+    `VALUES (${[m.id, m.categoria, m.nombre].map(lit).join(', ')}, ${m.orden}, ${lit(m.grupo)}, ${lit(m.pregunta)}, ${lit(m.disparador)}, ${lit(m.canal)}, ${m.requierePlantillaMeta ? 'TRUE' : 'FALSE'}, ${lit(m.plantillaMeta?.referencia)}, ${lit(m.plantillaMeta?.estado)}, ${lit(m.texto)});`,
+  );
+  m.variables.forEach((v, i) => lineas.push(`INSERT INTO mensajes.catalogo_variable (mensaje_id, nombre, orden) VALUES (${lit(m.id)}, ${lit(v)}, ${i + 1});`));
+  m.llaves.forEach((l, i) => lineas.push(`INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES (${lit(m.id)}, ${i + 1}, ${lit(l.tipo)}, ${lit(l.valor)});`));
+  m.reglas.forEach((r, i) => lineas.push(`INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES (${lit(m.id)}, ${i + 1}, ${lit(r)});`));
+  lineas.push('');
+}
+lineas.push('COMMIT;', '');
+
+writeFileSync(new URL('datos-semilla/05_catalogo_mensajes_semilla.sql', raiz), lineas.join('\n'));
+console.log(`Semilla generada: ${mensajes.length} mensajes.`);

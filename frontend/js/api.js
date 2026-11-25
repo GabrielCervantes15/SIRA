@@ -99,8 +99,9 @@ export const api = {
     enviar: (filtros) => pedir("/api/v1/disparo-mensajes/enviar", {}, { method: "POST", body: filtros }),
   },
   configuracionEnvio: {
-    obtener: () => pedir("/api/v1/configuracion/envio"),
-    guardar: (payload) => pedir("/api/v1/configuracion/envio", {}, { method: "PUT", body: payload }),
+    // HU9: el panel usa el módulo Mensajes y sus permisos administrativos.
+    obtener: () => pedir("/api/v1/mensajes/configuracion"),
+    guardar: (payload) => pedir("/api/v1/mensajes/configuracion", {}, { method: "PUT", body: payload }),
   },
   async listarAspirantes({ pagina = 1, tamano = 13, ordenarPor = "semaforo", direccion = "desc", incluirAceptados = false, busqueda = "" } = {}) {
     const limite = tamano;

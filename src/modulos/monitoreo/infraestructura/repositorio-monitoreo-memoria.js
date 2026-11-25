@@ -8,6 +8,8 @@
  * esté disponible, respetando exactamente el mismo contrato (IRepositorioMonitoreo).
  */
 
+import { SEVERIDAD } from "../semaforo.js";
+
 /**
  * Normaliza una cadena removiendo acentos y convirtiendo a minúsculas,
  * emulando la función PostgreSQL aspirantes.norm(texto) / unaccent.
@@ -50,11 +52,13 @@ export class RepositorioMonitoreoMemoria {
    * @param {Object} [opciones]
    * @param {Array} [opciones.aspirantes]
    * @param {Array} [opciones.conversaciones]
+   * @param {Array} [opciones.historial] - Eventos de aspirantes.historial_eventos (EQ-43).
    * @param {Record<string, string[]>} [opciones.asignacionesCarreras]
    */
   constructor(opciones = {}) {
     this.aspirantes = opciones.aspirantes ? [...opciones.aspirantes] : [];
     this.conversaciones = opciones.conversaciones ? [...opciones.conversaciones] : [];
+    this.historial = opciones.historial ? [...opciones.historial] : [];
 
     // Mapeo bidireccional de colaboradores (ID institucional <-> alias de semilla)
     this.aliasColaborador = {
@@ -255,21 +259,29 @@ export class RepositorioMonitoreoMemoria {
       const valA = a[campoDestino];
       const valB = b[campoDestino];
 
-      if (valA == null && valB == null) return 0;
+      if (valA == null && valB == null) return String(a.id).localeCompare(String(b.id));
       if (valA == null) return 1;
       if (valB == null) return -1;
+
+      // EQ-48: el semáforo se ordena por severidad (ROJO > NARANJA > AMARILLO > VERDE),
+      // no alfabéticamente; así DESC muestra primero a quien más atención necesita.
+      if (campoDestino === "semaforo") {
+        const sA = SEVERIDAD[String(valA).toUpperCase()] ?? 0;
+        const sB = SEVERIDAD[String(valB).toUpperCase()] ?? 0;
+        return (sA - sB) * factorOrden || String(a.id).localeCompare(String(b.id));
+      }
 
       // Comparación de fechas si es formato ISO/Date
       if (campoDestino.toLowerCase().includes("fecha") || campoDestino.toLowerCase().includes("actividad")) {
         const tA = new Date(valA).getTime();
         const tB = new Date(valB).getTime();
-        return (tA - tB) * factorOrden;
+        return (tA - tB) * factorOrden || String(a.id).localeCompare(String(b.id));
       }
 
-      // Comparación textual
+      // Comparación textual (sin acentos ni mayúsculas); empates por id para paginar estable.
       const strA = normalizarTexto(valA);
       const strB = normalizarTexto(valB);
-      return strA.localeCompare(strB, "es") * factorOrden;
+      return strA.localeCompare(strB, "es") * factorOrden || String(a.id).localeCompare(String(b.id));
     });
 
     // 10. Paginación (limit y offset)
@@ -299,109 +311,133 @@ export class RepositorioMonitoreoMemoria {
       .sort((a, b) => new Date(a.fechaEnvio).getTime() - new Date(b.fechaEnvio).getTime());
   }
 
+  /**
+   * Obtiene los eventos del historial de un aspirante, del más reciente al más antiguo (HU3-6 / EQ-43).
+   * @param {string} aspiranteId
+   * @param {import('../dominio/repositorio-monitoreo.js').RangoHistorial} [rango]
+   * @returns {Promise<import('../dominio/repositorio-monitoreo.js').EventoHistorial[]>}
+   */
+  async obtenerHistorialAspirante(aspiranteId, { desde = null, hasta = null } = {}) {
+    const idLimpio = String(aspiranteId).trim();
+    const desdeMs = desde ? Date.parse(desde) : null;
+    const hastaMs = hasta ? Date.parse(hasta) : null;
+    return this.historial
+      .filter((h) => h.aspiranteId === idLimpio)
+      .filter((h) => {
+        const fechaMs = Date.parse(h.fechaEvento ?? h.fecha);
+        return (desdeMs === null || fechaMs >= desdeMs) && (hastaMs === null || fechaMs <= hastaMs);
+      })
+      .sort(
+        (a, b) =>
+          Date.parse(b.fechaEvento ?? b.fecha) - Date.parse(a.fechaEvento ?? a.fecha) ||
+          String(b.id).localeCompare(String(a.id))
+      )
+      .map((h) => ({ ...h }));
+  }
 
   /**
-   * Cuenta los aspirantes asignados a cada colaborador.
-   * Normaliza los alias de la semilla al ID institucional.
+   * ID institucional canónico de un colaborador (resuelve alias de semilla como "colab-001").
+   * @param {string|null} colaboradorId
+   * @returns {string|null}
+   */
+  idInstitucionalDe(colaboradorId) {
+    if (colaboradorId == null || colaboradorId === "") return null;
+    const ids = this._obtenerIdsColaborador(colaboradorId);
+    return [...ids].find((id) => /^\d+$/.test(id)) ?? String(colaboradorId).trim();
+  }
+
+  /**
+   * Cuántos aspirantes tiene en cartera cada colaborador (HU6-12 / EQ-71).
+   * Los aspirantes sin colaborador no se cuentan.
+   * @returns {Promise<Record<string, number>>} ID institucional → total
    */
   async contarAspirantesPorColaborador() {
     const conteo = {};
-
     for (const aspirante of this.aspirantes) {
-      if (!aspirante.colaboradorId) continue;
-
-      const idGuardado = String(aspirante.colaboradorId).trim();
-      const idCanonico = this.aliasColaborador[idGuardado]?.[0] ?? idGuardado;
-
-      conteo[idCanonico] = (conteo[idCanonico] ?? 0) + 1;
+      const id = this.idInstitucionalDe(aspirante.colaboradorId);
+      if (!id) continue;
+      conteo[id] = (conteo[id] ?? 0) + 1;
     }
-
     return conteo;
   }
 
   /**
-   * Consulta los aspirantes afectados por una asignación.
-   * No modifica los registros.
+   * Aspirantes que cambiarían de responsable si las carreras del campus se asignan
+   * a un colaborador. No modifica nada (HU6-17 / EQ-64).
+   * @param {{ campus: string, carreras: string[] }} params
+   * @returns {Promise<Array<{ aspiranteId: string, carrera: string, colaboradorActual: string|null }>>}
    */
   async previsualizarAsignacion({ campus, carreras }) {
-    const carrerasSeleccionadas = new Set(carreras);
-
+    const elegidas = new Set(carreras);
     return this.aspirantes
-      .filter((aspirante) =>
-        aspirante.campus === campus &&
-        carrerasSeleccionadas.has(aspirante.carreraSolicitada)
-      )
-      .map((aspirante) => ({
-        aspiranteId: aspirante.id,
-        carrera: aspirante.carreraSolicitada,
-        colaboradorActual: aspirante.colaboradorId ?? null,
-      }))
-      .sort((a, b) =>
-        String(a.aspiranteId).localeCompare(String(b.aspiranteId))
-      );
+      .filter((a) => a.campus === campus && elegidas.has(a.carreraSolicitada))
+      .map((a) => ({
+        aspiranteId: a.id,
+        carrera: a.carreraSolicitada,
+        colaboradorActual: this.idInstitucionalDe(a.colaboradorId),
+      }));
   }
 
   /**
-   * Reasigna aspirantes y devuelve una operación para deshacer
-   * los cambios si falla la confirmación del registro.
+   * Asigna al colaborador todos los aspirantes del campus en esas carreras y le registra
+   * las carreras. Devuelve `deshacer()` para revertir exactamente este cambio si la
+   * confirmación del registro falla después (HU6-9 / EQ-59).
+   *
+   * @param {{ colaboradorId: string, campus: string, carreras: string[] }} params
+   * @returns {Promise<{ aspirantesIds: string[], transferencias: Array<{ aspiranteId: string, colaboradorAnterior: string|null }>, deshacer: () => Promise<void> }>}
    */
   async reasignarAspirantes({ colaboradorId, campus, carreras }) {
-    const idDestino = String(colaboradorId).trim();
-    const carrerasSeleccionadas = new Set(carreras);
+    const id = String(colaboradorId).trim();
+    const elegidas = new Set(carreras);
+    const anteriores = [];
+    const carrerasPrevias = this.carrerasPorColaborador[id];
+    const aliasPrevio = this.aliasColaborador[id];
 
-    const teniaAsignacion = Object.prototype.hasOwnProperty.call(
-      this.carrerasPorColaborador,
-      idDestino
-    );
-
-    const carrerasAnteriores = teniaAsignacion
-      ? [...this.carrerasPorColaborador[idDestino]]
-      : undefined;
-
-    const afectados = this.aspirantes.filter((aspirante) =>
-      aspirante.campus === campus &&
-      carrerasSeleccionadas.has(aspirante.carreraSolicitada)
-    );
-
-    const transferencias = afectados.map((aspirante) => ({
-      aspiranteId: aspirante.id,
-      colaboradorAnterior: aspirante.colaboradorId ?? null,
-    }));
-
-    for (const aspirante of afectados) {
-      aspirante.colaboradorId = idDestino;
+    for (const aspirante of this.aspirantes) {
+      if (aspirante.campus === campus && elegidas.has(aspirante.carreraSolicitada)) {
+        anteriores.push({ aspirante, colaboradorId: aspirante.colaboradorId });
+        aspirante.colaboradorId = id;
+      }
     }
-
-    this.carrerasPorColaborador[idDestino] = [...carrerasSeleccionadas];
-
-    let deshecho = false;
+    this.carrerasPorColaborador[id] = [...new Set([...(carrerasPrevias ?? []), ...carreras])];
+    if (!aliasPrevio) this.aliasColaborador[id] = [id];
 
     return {
-      aspirantesIds: afectados.map((aspirante) => aspirante.id),
-      transferencias,
-
+      aspirantesIds: anteriores.map(({ aspirante }) => aspirante.id),
+      transferencias: anteriores.map(({ aspirante, colaboradorId: previo }) => ({
+        aspiranteId: aspirante.id,
+        colaboradorAnterior: this.idInstitucionalDe(previo),
+      })),
       deshacer: async () => {
-        if (deshecho) return;
-
-        for (const transferencia of transferencias) {
-          const aspirante = this.aspirantes.find(
-            (item) => item.id === transferencia.aspiranteId
-          );
-
-          if (aspirante) {
-            aspirante.colaboradorId = transferencia.colaboradorAnterior;
-          }
-        }
-
-        if (teniaAsignacion) {
-          this.carrerasPorColaborador[idDestino] = carrerasAnteriores;
-        } else {
-          delete this.carrerasPorColaborador[idDestino];
-        }
-
-        deshecho = true;
+        for (const { aspirante, colaboradorId: previo } of anteriores) aspirante.colaboradorId = previo;
+        if (carrerasPrevias === undefined) delete this.carrerasPorColaborador[id];
+        else this.carrerasPorColaborador[id] = carrerasPrevias;
+        if (aliasPrevio === undefined) delete this.aliasColaborador[id];
       },
     };
   }
 
+  /**
+   * Registra un evento en el historial del aspirante (p. ej. al enviar un mensaje) (EQ-43).
+   * @param {Partial<import('../dominio/repositorio-monitoreo.js').EventoHistorial>} evento
+   * @returns {Promise<import('../dominio/repositorio-monitoreo.js').EventoHistorial>}
+   */
+  async registrarActividad(evento) {
+    if (!evento?.aspiranteId || !evento?.tipoEvento || !evento?.titulo) {
+      throw new Error("registrarActividad requiere aspiranteId, tipoEvento y titulo.");
+    }
+    const registro = {
+      id: evento.id ?? `ev-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
+      aspiranteId: String(evento.aspiranteId).trim(),
+      tipoEvento: evento.tipoEvento,
+      titulo: evento.titulo,
+      detalle: evento.detalle ?? null,
+      motivoRechazo: evento.motivoRechazo ?? null,
+      autorTipo: evento.autorTipo ?? "SISTEMA",
+      autorId: evento.autorId ?? null,
+      fechaEvento: evento.fechaEvento ?? new Date().toISOString(),
+    };
+    this.historial.push(registro);
+    return { ...registro };
+  }
 }
