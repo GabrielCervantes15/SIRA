@@ -6,7 +6,11 @@ import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
 import { crearProveedorAutenticacionSimulado, ErrorAutenticacion } from './modulos/autenticacion/index.js';
 import { crearModuloMonitoreo } from './modulos/monitoreo/index.js';
-import { crearModuloMensajes } from './modulos/mensajes/index.js';
+import {
+  crearModuloMensajes,
+  crearValidadorHorarioEnvio,
+  ErrorFueraDeHorarioPermitido,
+} from './modulos/mensajes/index.js';
 import { crearServicioBorradores } from './modulos/colaboradores/borradores.js';
 import { crearCatalogoRegistroDemo } from './modulos/colaboradores/catalogo-registro-demo.js';
 import { crearModuloColaboradores } from './modulos/colaboradores/index.js';
@@ -15,7 +19,10 @@ import { crearBusEnMemoria } from './compartido/eventos/bus-en-memoria.js';
 import { crearRepositorioConfiguracionEnvio, validarConfiguracion } from './modulos/configuracion-envio/configuracion-envio.js';
 import { crearModuloCatalogoMensajes } from './modulos/mensajes-ia/index.js';
 import {
-  validarFiltrosLote, calcularElegibles, generarMensajePersonalizado, intentarEnvioCorreo, dentroDeHorario,
+  validarFiltrosLote,
+  calcularElegibles,
+  generarMensajePersonalizado,
+  intentarEnvioCorreo,
 } from './modulos/disparo-automatico/disparo-automatico.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -136,6 +143,10 @@ export function crearServidor(opciones = {}) {
   const duracionSesionMs = opciones.duracionSesionMs ?? Number(process.env.SIRA_SESSION_TTL_MS || 1_800_000);
   const sesiones = new Map();
   const reloj = opciones.reloj || Date.now;
+  const obtenerFechaReloj = () => {
+    const valor = reloj();
+    return valor instanceof Date ? new Date(valor.getTime()) : new Date(valor);
+  };
   const sinAcceso = new Set([...(permisos.usuariosSinAcceso || []), ...(process.env.SIRA_DENIED_IDS || '').split(',').map((v) => v.trim()).filter(Boolean)]);
   const moduloMonitoreo = opciones.moduloMonitoreo || crearModuloMonitoreo();
   // HU 8 (EQ-95..97): catálogo de mensajes aprobado en EQ-93.
@@ -173,15 +184,22 @@ export function crearServidor(opciones = {}) {
   const moduloMensajes = opciones.moduloMensajes || crearModuloMensajes({
     repositorio: opciones.repositorioConfiguracionMensajes,
     busEventos,
+    reloj: obtenerFechaReloj,
+  });
+  // EQ-82 (HU1-6): Validador de horario permitido en el servidor conectado a HU9-4.
+  const validadorHorarioEnvio = opciones.validadorHorarioEnvio || crearValidadorHorarioEnvio({
+    interfazLectura: moduloMensajes.interfazLectura,
+    reloj: obtenerFechaReloj,
   });
   const repositorioConfiguracionEnvio = opciones.repositorioConfiguracionEnvio || crearRepositorioConfiguracionEnvio();
+  const historialMonitoreo = Array.isArray(opciones.historialMonitoreo) ? opciones.historialMonitoreo : null;
 
   function obtenerSesion(req) {
     const token = cookiesDe(req)[COOKIE_NAME];
     if (!token) return null;
     const sesion = sesiones.get(token);
     if (!sesion) return null;
-    if (sesion.expiraEn <= reloj()) { sesiones.delete(token); return null; }
+    if (sesion.expiraEn <= obtenerFechaReloj().getTime()) { sesiones.delete(token); return null; }
     return { token, ...sesion };
   }
 
@@ -228,7 +246,7 @@ export function crearServidor(opciones = {}) {
         if (sinAcceso.has(id)) return responderJson(res, 403, { codigo: 'USUARIO_SIN_ACCESO', mensaje: 'La cuenta no tiene autorización para acceder a SIRA.' });
 
         const token = randomBytes(32).toString('base64url');
-        const ahora = reloj();
+        const ahora = obtenerFechaReloj().getTime();
         const usuario = {
           ...resultado.colaborador,
           rol: resolverRol(id, permisos, opciones.usuariosCrm)
@@ -458,7 +476,7 @@ export function crearServidor(opciones = {}) {
           if (!contenido) {
             return responderJson(res, 400, { codigo: 'MENSAJE_VACIO', mensaje: 'El contenido del mensaje es obligatorio.' });
           }
-          const ahoraIso = new Date().toISOString();
+          const ahoraIso = obtenerFechaReloj().toISOString();
           const nuevoMensaje = {
             id: `msg-${randomBytes(8).toString('hex')}`,
             aspiranteId: aspirante.id,
@@ -475,8 +493,7 @@ export function crearServidor(opciones = {}) {
             repositorio.conversaciones.push(nuevoMensaje);
           }
           aspirante.fechaUltimaActividad = ahoraIso;
-          // EQ-43: el envío queda en el historial del módulo Monitoreo.
-          await repositorio.registrarActividad?.({
+          const actividad = {
             id: `ev-${randomBytes(8).toString('hex')}`,
             aspiranteId: aspirante.id,
             tipoEvento: 'MENSAJE_ENVIADO',
@@ -485,7 +502,11 @@ export function crearServidor(opciones = {}) {
             autorTipo: 'COLABORADOR',
             autorId: sesion.usuario.idInstitucional,
             fechaEvento: ahoraIso,
-          });
+          };
+          // EQ-43: el envío queda en el historial del módulo Monitoreo.
+          await repositorio.registrarActividad?.(actividad);
+          if (historialMonitoreo) historialMonitoreo.push(actividad);
+
           return responderJson(res, 201, {
             mensaje: {
               id: nuevoMensaje.id,
@@ -565,7 +586,7 @@ export function crearServidor(opciones = {}) {
         return responderJson(res, 200, repositorioConfiguracionEnvio.guardar(datos));
       }
 
-      // HU 1 (EQ-86, EQ-88, EQ-89): disparo de mensajes automáticos.
+      // HU 1 (EQ-82, EQ-86, EQ-88, EQ-89): disparo de mensajes automáticos conectado a HU 9-4.
       if (url.pathname === '/api/v1/disparo-mensajes/vista-previa' && req.method === 'GET') {
         const sesion = obtenerSesion(req);
         if (!sesion) return responderJson(res, 401, { codigo: 'SESION_NO_VALIDA', mensaje: 'La sesión no existe o expiró.' });
@@ -579,23 +600,63 @@ export function crearServidor(opciones = {}) {
         };
         const { valido, errores } = validarFiltrosLote(filtros);
         const { carreras: carrerasDisponibles } = await moduloMonitoreo.repositorio.obtenerFiltrosColaborador(sesion.usuario.idInstitucional);
-        const config = repositorioConfiguracionEnvio.leer();
-        const horarioOk = dentroDeHorario(config.horario);
+        const estadoHorario = validadorHorarioEnvio.obtenerEstadoHorario();
+        const horarioOk = estadoHorario.permitido;
 
-        if (!valido) return responderJson(res, 200, { valido, errores, carrerasDisponibles, dentroDeHorario: horarioOk, total: 0, mensajesEjemplo: [] });
+        if (!valido) {
+          return responderJson(res, 200, {
+            valido,
+            errores,
+            carrerasDisponibles,
+            dentroDeHorario: horarioOk,
+            estadoHorario,
+            mensajeHorario: estadoHorario.mensaje,
+            total: 0,
+            mensajesEjemplo: [],
+          });
+        }
 
         const { aspirantes: cartera } = await moduloMonitoreo.repositorio.listarAspirantes({ colaboradorId: sesion.usuario.idInstitucional, mostrarAceptados: true, limit: 10000 });
-        const elegibles = calcularElegibles(cartera, filtros);
+        const elegibles = calcularElegibles(cartera, filtros, obtenerFechaReloj());
         const mensajesEjemplo = [...new Set(elegibles.map(generarMensajePersonalizado))].slice(0, 5);
 
-        return responderJson(res, 200, { valido: true, errores: {}, carrerasDisponibles, dentroDeHorario: horarioOk, total: elegibles.length, mensajesEjemplo });
+        return responderJson(res, 200, {
+          valido: true,
+          errores: {},
+          carrerasDisponibles,
+          dentroDeHorario: horarioOk,
+          estadoHorario,
+          mensajeHorario: estadoHorario.mensaje,
+          total: elegibles.length,
+          mensajesEjemplo,
+        });
       }
 
       if (url.pathname === '/api/v1/disparo-mensajes/enviar' && req.method === 'POST') {
         const sesion = obtenerSesion(req);
         if (!sesion) return responderJson(res, 401, { codigo: 'SESION_NO_VALIDA', mensaje: 'La sesión no existe o expiró.' });
+        if (sesion.usuario?.rol !== 'colaborador') {
+          return responderJson(res, 403, { codigo: 'SIN_PERMISO', mensaje: 'Solo un colaborador puede iniciar un lote de envío de mensajes.' });
+        }
 
         const cuerpo = await leerCuerpo(req);
+
+        // EQ-82 (HU1-6): Validar horario vigente en el servidor mediante HU9-4
+        // usando exclusivamente el reloj del servidor (ignorando fechas/horas del cliente).
+        let estadoHorario;
+        try {
+          estadoHorario = validadorHorarioEnvio.validarEnvioPermitido();
+        } catch (errorHorario) {
+          if (errorHorario instanceof ErrorFueraDeHorarioPermitido || errorHorario?.codigo === 'FUERA_DE_HORARIO_PERMITIDO') {
+            return responderJson(res, errorHorario.status || 409, {
+              codigo: errorHorario.codigo,
+              mensaje: errorHorario.message,
+              detalle: errorHorario.detalle,
+            });
+          }
+          throw errorHorario;
+        }
+
         const filtros = {
           semaforos: Array.isArray(cuerpo.semaforos) ? cuerpo.semaforos : [],
           carreras: Array.isArray(cuerpo.carreras) ? cuerpo.carreras : [],
@@ -605,34 +666,36 @@ export function crearServidor(opciones = {}) {
         const { valido, errores } = validarFiltrosLote(filtros);
         if (!valido) return responderJson(res, 400, { codigo: 'FILTROS_INVALIDOS', mensaje: 'Revisa los filtros del lote.', errores });
 
-        const config = repositorioConfiguracionEnvio.leer();
-        if (!dentroDeHorario(config.horario)) {
-          return responderJson(res, 400, { codigo: 'FUERA_DE_HORARIO', mensaje: `El envío solo está disponible de ${config.horario.inicio} a ${config.horario.fin}.` });
-        }
-
+        const instanteServidor = obtenerFechaReloj();
         const { aspirantes: cartera } = await moduloMonitoreo.repositorio.listarAspirantes({ colaboradorId: sesion.usuario.idInstitucional, mostrarAceptados: true, limit: 10000 });
-        const elegibles = calcularElegibles(cartera, filtros);
+        const elegibles = calcularElegibles(cartera, filtros, instanteServidor);
         if (elegibles.length === 0) {
           return responderJson(res, 400, { codigo: 'SIN_ASPIRANTES', mensaje: 'No hay aspirantes que cumplan las condiciones de ese lote.' });
         }
 
-        const resultado = { totalEnviados: 0, correo: { exitosos: 0, fallidos: 0, detalles: [] } };
-        const ahoraIso = new Date().toISOString();
+        const resultado = {
+          totalEnviados: 0,
+          correo: { exitosos: 0, fallidos: 0, detalles: [] },
+          estadoHorario,
+        };
+        const ahoraIso = instanteServidor.toISOString();
         for (const aspirante of elegibles) {
           const mensaje = generarMensajePersonalizado(aspirante);
 
           // Canal principal (simulado, igual que el resto del chat): se registra en conversaciones e historial.
           moduloMonitoreo.repositorio.conversaciones.push({
-            id: `mia-${aspirante.id}-${Date.now()}`, aspiranteId: aspirante.id, direccion: 'SALIENTE',
+            id: `mia-${aspirante.id}-${instanteServidor.getTime()}`, aspiranteId: aspirante.id, direccion: 'SALIENTE',
             remitenteTipo: 'BOT_IA', remitenteId: 'disparo-automatico', contenido: mensaje,
             tipoContenido: 'TEXTO', estadoEntrega: 'ENVIADO', whatsappMessageId: null, fechaEnvio: ahoraIso,
           });
-          // EQ-43: el historial vive en el módulo Monitoreo.
-          await moduloMonitoreo.repositorio.registrarActividad({
-            id: `h-mia-${aspirante.id}-${Date.now()}`, aspiranteId: aspirante.id, tipoEvento: 'MENSAJE_ENVIADO',
+          const actividad = {
+            id: `h-mia-${aspirante.id}-${instanteServidor.getTime()}`, aspiranteId: aspirante.id, tipoEvento: 'MENSAJE_ENVIADO',
             titulo: 'Mensaje automático de reactivación', detalle: mensaje, motivoRechazo: null,
             autorTipo: 'SISTEMA', fechaEvento: ahoraIso,
-          });
+          };
+          // EQ-43: el historial vive en el módulo Monitoreo.
+          await moduloMonitoreo.repositorio.registrarActividad?.(actividad);
+          if (historialMonitoreo) historialMonitoreo.push(actividad);
 
           const registro = moduloMonitoreo.repositorio.aspirantes.find((a) => a.id === aspirante.id);
           if (registro) {
@@ -682,7 +745,13 @@ export function crearServidor(opciones = {}) {
   });
 
   // Acceso a los módulos para pruebas y demos (p. ej. revisar la bandeja de correo simulada).
-  servidor.modulos = { monitoreo: moduloMonitoreo, colaboradores: moduloColaboradores, notificaciones: moduloNotificaciones, bus: busEventos };
+  servidor.modulos = {
+    monitoreo: moduloMonitoreo,
+    colaboradores: moduloColaboradores,
+    notificaciones: moduloNotificaciones,
+    mensajes: moduloMensajes,
+    bus: busEventos,
+  };
   servidor.on('close', () => moduloNotificaciones.detener?.());
   return servidor;
 }

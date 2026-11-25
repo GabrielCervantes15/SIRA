@@ -77,7 +77,10 @@ export function intentarEnvioCorreo(aspirante) {
   return { exito: true };
 }
 
-/** @param {{ inicio: string, fin: string }} horario */
+/**
+ * @deprecated Usar `crearValidadorHorarioEnvio` o `estaDentroDeHorarioPermitido` de `src/modulos/mensajes/index.js` (HU9-4 / EQ-82).
+ * @param {{ inicio: string, fin: string }} horario
+ */
 export function dentroDeHorario(horario, ahora = new Date()) {
   const minutosAhora = ahora.getHours() * 60 + ahora.getMinutes();
   const [hi, mi] = horario.inicio.split(':').map(Number);

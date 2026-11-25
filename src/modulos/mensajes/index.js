@@ -1,8 +1,8 @@
 /**
  * Módulo de Negocio: Mensajes
- * Punto de entrada público, inyección de dependencias, bitácora, eventos e interfaz pública
- * de lectura de la configuración del envío de mensajes automáticos
- * (HU 9: EQ-104, EQ-105, EQ-106, EQ-107, EQ-108).
+ * Punto de entrada público, inyección de dependencias, bitácora, eventos, validador de horario
+ * e interfaz pública de lectura de la configuración del envío de mensajes automáticos
+ * (HU 9: EQ-104 a EQ-108 · HU 1: EQ-82).
  */
 import {
   ZONA_HORARIA_INSTITUCIONAL,
@@ -37,6 +37,11 @@ import {
   obtenerPartesEnZonaHoraria,
   construirFechaEnZonaHoraria,
 } from "./aplicacion/servicio-lectura-configuracion.js";
+import {
+  ErrorFueraDeHorarioPermitido,
+  crearValidadorHorarioEnvio,
+  crearGuardiaHorarioEnvio,
+} from "./aplicacion/validar-horario-envio.js";
 import { ObtenerConfiguracionCasoUso } from "./aplicacion/obtener-configuracion.caso-uso.js";
 import { GuardarConfiguracionCasoUso } from "./aplicacion/guardar-configuracion.caso-uso.js";
 import { ListarBitacoraConfiguracionCasoUso } from "./aplicacion/listar-bitacora-configuracion.caso-uso.js";
@@ -45,8 +50,8 @@ import { crearEnrutadorMensajes } from "./rutas.js";
 
 /**
  * Crea una instancia completa del módulo de Mensajes con sus casos de uso,
- * controlador HTTP, enrutador, bitácora, publicación de eventos e interfaz
- * pública de lectura (EQ-104 a EQ-108).
+ * controlador HTTP, enrutador, bitácora, publicación de eventos, interfaz
+ * pública de lectura y validador de horario de envío (EQ-104 a EQ-108 y EQ-82).
  *
  * @param {Object} [opciones]
  * @param {Object} [opciones.repositorio]
@@ -67,10 +72,20 @@ export function crearModuloMensajes(opciones = {}) {
     });
 
   const busEventos = opciones.busEventos || opciones.bus || null;
+  const reloj = opciones.reloj || (() => new Date());
 
   const interfazLectura = crearInterfazLecturaConfiguracion({
     repositorioConfiguracion: repositorio,
     busEventos,
+  });
+
+  const validadorHorarioEnvio = crearValidadorHorarioEnvio({
+    interfazLectura,
+    reloj,
+  });
+
+  const guardiaHorarioEnvio = crearGuardiaHorarioEnvio({
+    validadorHorarioEnvio,
   });
 
   const obtenerConfiguracionCasoUso = new ObtenerConfiguracionCasoUso({
@@ -103,6 +118,8 @@ export function crearModuloMensajes(opciones = {}) {
     repositorio,
     busEventos,
     interfazLectura,
+    validadorHorarioEnvio,
+    guardiaHorarioEnvio,
     obtenerConfiguracionVigente: interfazLectura.obtenerConfiguracionVigente,
     estaDentroDeHorarioPermitido: interfazLectura.estaDentroDeHorarioPermitido,
     calcularSiguienteApertura: interfazLectura.calcularSiguienteApertura,
@@ -155,6 +172,9 @@ export {
   calcularSiguienteAperturaDesdeConfig,
   obtenerPartesEnZonaHoraria,
   construirFechaEnZonaHoraria,
+  ErrorFueraDeHorarioPermitido,
+  crearValidadorHorarioEnvio,
+  crearGuardiaHorarioEnvio,
   ObtenerConfiguracionCasoUso,
   GuardarConfiguracionCasoUso,
   ListarBitacoraConfiguracionCasoUso,
