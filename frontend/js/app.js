@@ -342,45 +342,79 @@ function mostrarVista(nombre) {
 
 // ---------- HU 8 (EQ-98, EQ-99): mensajes predefinidos de la IA ----------
 
-const estadoMensajesIA = { categoria: "ENVIO", pagina: 1, semaforo: "" };
+const estadoMensajesIA = { categoria: "ENVIO", pagina: 1, semaforo: "", busqueda: "", datos: [], seleccionado: null, solicitud: 0 };
 
 function pintarLlave(llave) {
-  return elemento("span", { class: "mia-llave" }, [
-    elemento("span", { class: "mia-llave-tipo", text: `${llave.tipo}:` }),
-    elemento("span", { class: "mia-llave-valor", text: llave.valor }),
-  ]);
+  return elemento("span", { class: "mia-llave" }, [elemento("span", { class: "mia-llave-tipo", text: `${llave.tipo}:` }), elemento("span", { class: "mia-llave-valor", text: llave.valor })]);
 }
 
 function pintarTarjetaMensaje(m) {
-  return elemento("article", { class: "mia-tarjeta" }, [
-    elemento("p", { class: "mia-etiqueta", text: "Llaves:" }),
-    elemento("div", { class: "mia-llaves" }, m.llaves.map(pintarLlave)),
-    elemento("p", { class: "mia-etiqueta", text: "Mensaje:" }),
-    elemento("p", { class: "mia-mensaje", text: m.mensaje }),
+  return elemento("button", { type: "button", class: `mia-tarjeta${estadoMensajesIA.seleccionado === m.id ? " seleccionada" : ""}`, "aria-pressed": String(estadoMensajesIA.seleccionado === m.id), onclick: () => seleccionarMensajeIA(m.id) }, [
+    elemento("span", { class: "mia-tarjeta-titulo", text: m.llaves?.map((l) => l.valor).join(" · ") || "Mensaje predefinido" }),
+    elemento("span", { class: "mia-tarjeta-texto", text: m.mensaje }),
+    elemento("span", { class: "mia-tarjeta-pista", text: "Ver contenido y reglas →" }),
   ]);
 }
 
+function mostrarEstadoMensajesIA(tipo, texto, reintentar = false) {
+  const estado = $("mia-estado"); estado.hidden = false; estado.className = `mia-estado ${tipo}`;
+  estado.replaceChildren(elemento("p", { text: texto }));
+  if (reintentar) estado.append(elemento("button", { type: "button", class: "mia-reintentar", text: "Reintentar", onclick: cargarMensajesIA }));
+}
+function limpiarEstadoMensajesIA() { $("mia-estado").hidden = true; $("mia-estado").replaceChildren(); $("mia-estado").className = "mia-estado"; }
+
+function pintarDetalleMensajeIA(mensaje) {
+  const contenedor = $("mia-detalle");
+  if (!mensaje) {
+    contenedor.replaceChildren(elemento("div", { class: "mia-detalle-vacio" }, [elemento("span", { text: "✉", "aria-hidden": "true" }), elemento("h3", { text: "Selecciona un mensaje" }), elemento("p", { text: "Elige una tarjeta del catálogo para consultar su contenido y sus reglas." })]));
+    return;
+  }
+  const reglas = elemento("div", { class: "mia-reglas" }, (mensaje.llaves ?? []).map((llave) => elemento("div", { class: "mia-regla" }, [elemento("span", { class: "mia-regla-tipo", text: llave.tipo }), elemento("strong", { class: "mia-regla-valor", text: llave.valor })])));
+  contenedor.replaceChildren(elemento("div", { class: "mia-detalle-contenido" }, [
+    elemento("span", { class: "mia-detalle-etiqueta", text: estadoMensajesIA.categoria === "ENVIO" ? "MENSAJE DE ENVÍO" : "MENSAJE DE RESPUESTA" }),
+    elemento("h3", { text: "Contenido del mensaje" }), elemento("div", { class: "mia-mensaje-preview", text: mensaje.mensaje }),
+    elemento("h3", { class: "mia-subtitulo-reglas", text: "Reglas asociadas" }), reglas,
+  ]));
+}
+
+function seleccionarMensajeIA(id) {
+  const mensaje = estadoMensajesIA.datos.find((m) => String(m.id) === String(id));
+  if (!mensaje) return;
+  estadoMensajesIA.seleccionado = mensaje.id; pintarDetalleMensajeIA(mensaje); pintarTarjetasMensajesIA();
+}
+
+function pintarTarjetasMensajesIA() {
+  const consulta = normalizar(estadoMensajesIA.busqueda);
+  const datos = estadoMensajesIA.datos.filter((m) => normalizar([m.mensaje, ...(m.llaves ?? []).flatMap((l) => [l.tipo, l.valor])].join(" ")).includes(consulta));
+  $("mia-tarjetas").replaceChildren(...datos.map(pintarTarjetaMensaje));
+  $("mia-total").textContent = `${datos.length} ${datos.length === 1 ? "mensaje" : "mensajes"}`;
+  if (datos.length === 0) { mostrarEstadoMensajesIA("vacio", "No hay mensajes que coincidan con la búsqueda o los filtros."); }
+  else limpiarEstadoMensajesIA();
+  if (estadoMensajesIA.seleccionado && !datos.some((m) => m.id === estadoMensajesIA.seleccionado)) { estadoMensajesIA.seleccionado = null; pintarDetalleMensajeIA(null); }
+}
+
 async function cargarMensajesIA() {
+  const solicitud = ++estadoMensajesIA.solicitud;
   $("mia-cat-envio").classList.toggle("activo", estadoMensajesIA.categoria === "ENVIO");
   $("mia-cat-respuesta").classList.toggle("activo", estadoMensajesIA.categoria === "RESPUESTA");
+  $("mia-cat-envio").setAttribute("aria-pressed", String(estadoMensajesIA.categoria === "ENVIO"));
+  $("mia-cat-respuesta").setAttribute("aria-pressed", String(estadoMensajesIA.categoria === "RESPUESTA"));
+  $("mia-descripcion-categoria").textContent = estadoMensajesIA.categoria === "ENVIO" ? "Mensajes para iniciar o dar seguimiento al contacto." : "Respuestas predefinidas para consultas de los aspirantes.";
+  $("mia-tarjetas").replaceChildren(); mostrarEstadoMensajesIA("cargando", "Cargando mensajes del catálogo...");
   try {
-    const r = await api.mensajesIA.listar({
-      categoria: estadoMensajesIA.categoria,
-      semaforo: estadoMensajesIA.semaforo || undefined,
-      pagina: estadoMensajesIA.pagina,
-      tamano: 9,
-    });
-    $("mia-total").textContent = r.totalGeneral;
+    const r = await api.mensajesIA.listar({ categoria: estadoMensajesIA.categoria, semaforo: estadoMensajesIA.semaforo || undefined, pagina: estadoMensajesIA.pagina, tamano: 50 });
+    if (solicitud !== estadoMensajesIA.solicitud) return;
+    estadoMensajesIA.datos = Array.isArray(r.datos) ? r.datos : [];
     const totalPaginas = Math.max(1, Math.ceil(r.totalCategoria / r.tamano));
     $("mia-indicador").textContent = r.totalCategoria === 0 ? "" : `${r.pagina} de ${totalPaginas}`;
-    $("mia-anterior").disabled = r.pagina <= 1;
-    $("mia-siguiente").disabled = r.pagina >= totalPaginas;
-    $("mia-tarjetas").replaceChildren(...r.datos.map(pintarTarjetaMensaje));
-    $("mia-sin-resultados").hidden = r.datos.length > 0;
+    $("mia-anterior").disabled = r.pagina <= 1; $("mia-siguiente").disabled = r.pagina >= totalPaginas;
+    if (!estadoMensajesIA.datos.some((m) => m.id === estadoMensajesIA.seleccionado)) { estadoMensajesIA.seleccionado = null; pintarDetalleMensajeIA(null); }
+    pintarTarjetasMensajesIA();
   } catch (error) {
-    $("mia-tarjetas").replaceChildren();
-    $("mia-sin-resultados").hidden = false;
-    $("mia-sin-resultados").textContent = "No se pudo cargar el catálogo de mensajes.";
+    if (solicitud !== estadoMensajesIA.solicitud) return;
+    estadoMensajesIA.datos = []; estadoMensajesIA.seleccionado = null; pintarDetalleMensajeIA(null);
+    $("mia-tarjetas").replaceChildren(); mostrarEstadoMensajesIA("error", error.mensaje || "No se pudo cargar el catálogo. Revisa tu conexión e inténtalo nuevamente.", true);
+    console.error("Error al cargar mensajes predefinidos:", error);
   }
 }
 
@@ -543,11 +577,37 @@ function configurarEventos() {
   $("nav-aspirantes").addEventListener("click", (e) => { e.preventDefault(); mostrarVista("monitoreo"); });
   $("nav-configuracion").addEventListener("click", (e) => { e.preventDefault(); mostrarVista("configuracion"); });
   $("form-configuracion").addEventListener("submit", guardarConfiguracion);
-
   $("nav-mensajes").addEventListener("click", (e) => { e.preventDefault(); mostrarVista("mensajes-ia"); });
-  $("mia-cat-envio").addEventListener("click", () => { estadoMensajesIA.categoria = "ENVIO"; estadoMensajesIA.pagina = 1; cargarMensajesIA(); });
-  $("mia-cat-respuesta").addEventListener("click", () => { estadoMensajesIA.categoria = "RESPUESTA"; estadoMensajesIA.pagina = 1; cargarMensajesIA(); });
-  $("mia-filtro-semaforo").addEventListener("change", (e) => { estadoMensajesIA.semaforo = e.target.value; estadoMensajesIA.pagina = 1; cargarMensajesIA(); });
+  $("mia-cat-envio").addEventListener("click", () => {
+  estadoMensajesIA.categoria = "ENVIO";
+  estadoMensajesIA.pagina = 1;
+  estadoMensajesIA.semaforo = "";
+  estadoMensajesIA.seleccionado = null;
+  estadoMensajesIA.busqueda = "";
+
+  $("mia-filtro-semaforo").value = "";
+  $("mia-buscar").value = "";
+
+  pintarDetalleMensajeIA(null);
+  cargarMensajesIA();
+});
+
+$("mia-cat-respuesta").addEventListener("click", () => {
+  estadoMensajesIA.categoria = "RESPUESTA";
+  estadoMensajesIA.pagina = 1;
+  estadoMensajesIA.semaforo = "";
+  estadoMensajesIA.seleccionado = null;
+  estadoMensajesIA.busqueda = "";
+
+  $("mia-filtro-semaforo").value = "";
+  $("mia-buscar").value = "";
+
+  pintarDetalleMensajeIA(null);
+  cargarMensajesIA();
+});
+
+  $("mia-filtro-semaforo").addEventListener("change", (e) => { estadoMensajesIA.semaforo = e.target.value; estadoMensajesIA.pagina = 1; estadoMensajesIA.seleccionado = null; pintarDetalleMensajeIA(null); cargarMensajesIA(); });
+  $("mia-buscar").addEventListener("input", (e) => { estadoMensajesIA.busqueda = e.target.value; pintarTarjetasMensajesIA(); });
   $("mia-anterior").addEventListener("click", () => { estadoMensajesIA.pagina -= 1; cargarMensajesIA(); });
   $("mia-siguiente").addEventListener("click", () => { estadoMensajesIA.pagina += 1; cargarMensajesIA(); });
 
@@ -647,10 +707,16 @@ async function iniciar() {
       ? "Listado y registro de colaboradores"
       : "Listado de colaboradores";
   } catch (error) {
-    if (error.estado === 401) window.location.replace('/?expired=1');
-    else $("nombre-usuario").textContent = "Sin conexión al servicio de sesión";
+    console.error("[SIRA] ERROR AL INICIALIZAR LA APLICACIÓN:", error);
+    console.error("[SIRA] DETALLES:", error?.stack);
+
+    if (error.estado === 401) {
+        window.location.replace('/?expired=1');
+    } else {
+        $("nombre-usuario").textContent = "Sin conexión al servicio de sesión";
+    }
     return;
-  }
+}
   configurarEventos();
   $("cerrar-sesion").addEventListener("click", async () => {
     $("cerrar-sesion").disabled = true;

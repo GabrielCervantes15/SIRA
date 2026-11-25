@@ -6,18 +6,19 @@
   <title>CRM Admisiones · Monitoreo de aspirantes</title>
   <link rel="stylesheet" href="/app/css/estilos.css">
   <link rel="stylesheet" href="/app/css/envio-mensajes.css">
+  <link rel="stylesheet" href="/app/css/mensajes-ia.css">
 </head>
 <body>
   <header class="barra-superior">
     <nav class="menu-principal" aria-label="Principal">
       <a href="#" id="nav-aspirantes" class="activo" aria-current="page">Aspirantes</a>
-      <a href="#" aria-disabled="true" title="Fuera de este sprint">Colaboradores</a>
+      <a href="#" id="nav-colaboradores" aria-disabled="true" title="Fuera de este sprint">Colaboradores</a>
       <a href="#" id="nav-mensajes">Mensajes</a>
       <!-- HU 9 (EQ-109): solo se muestra para rol administrador; ver app.js -->
       <a href="#" id="nav-configuracion" hidden>Configuración</a>
     </nav>
     <div class="usuario" id="usuario">
-      <span class="avatar" aria-hidden="true">EO</span>
+      <span class="avatar" id="avatar-usuario" aria-hidden="true">EO</span>
       <span id="nombre-usuario">Cargando…</span>
       <button type="button" class="boton" id="cerrar-sesion">Cerrar sesión</button>
     </div>
@@ -168,32 +169,33 @@
       </form>
     </section>
 
-    <!-- HU 8 (EQ-98, EQ-99): mensajes predefinidos de la IA, solo lectura. -->
-    <section class="tarjeta" id="vista-mensajes-ia" hidden aria-labelledby="titulo-mensajes-ia">
-      <h1 id="titulo-mensajes-ia">Mensajes Predefinidos del Asistente de IA</h1>
-      <p class="ayuda">Total de mensajes: <strong id="mia-total">—</strong></p>
-      <div class="mia-cuerpo">
-        <nav class="mia-categorias" aria-label="Tipo de mensaje">
-          <button type="button" id="mia-cat-envio" data-categoria="ENVIO">Envío</button>
-          <button type="button" id="mia-cat-respuesta" data-categoria="RESPUESTA">Respuesta</button>
-        </nav>
-        <div class="mia-lista">
-          <div class="mia-filtros">
-            <label>Semáforo:
-              <select id="mia-filtro-semaforo">
-                <option value="">Todos</option>
-                <option value="Rojo">Rojo</option>
-                <option value="Naranja">Naranja</option>
-                <option value="Verde">Verde</option>
-              </select>
-            </label>
-            <span id="mia-indicador" class="mia-indicador"></span>
-            <button type="button" id="mia-anterior" aria-label="Página anterior">←</button>
-            <button type="button" id="mia-siguiente" aria-label="Página siguiente">→</button>
-          </div>
-          <div class="mia-tarjetas" id="mia-tarjetas"></div>
-          <p class="ayuda" id="mia-sin-resultados" hidden>No hay mensajes que coincidan con ese filtro.</p>
+    <!-- HU 8 (EQ-94): catálogo navegable con vista previa y reglas, solo lectura. -->
+    <section class="tarjeta mia-vista" id="vista-mensajes-ia" hidden aria-labelledby="titulo-mensajes-ia">
+      <header class="mia-encabezado">
+        <div>
+          <p class="mia-eyebrow">MENSAJES · CENTRO DE CONOCIMIENTO</p>
+          <h1 id="titulo-mensajes-ia">Mensajes predefinidos del asistente de IA</h1>
+          <p class="ayuda">Consulta los mensajes disponibles, su contenido y las reglas asociadas.</p>
         </div>
+        <span class="mia-solo-lectura">Solo lectura</span>
+      </header>
+      <nav class="mia-categorias" aria-label="Tipo de mensaje">
+        <button type="button" id="mia-cat-envio" data-categoria="ENVIO" class="activo" aria-pressed="true">Mensajes de envío</button>
+        <button type="button" id="mia-cat-respuesta" data-categoria="RESPUESTA" aria-pressed="false">Mensajes de respuesta</button>
+      </nav>
+      <div class="mia-cuerpo">
+        <section class="mia-panel mia-panel-catalogo" aria-labelledby="mia-titulo-catalogo">
+          <header class="mia-panel-encabezado"><div><h2 id="mia-titulo-catalogo">Catálogo</h2><p id="mia-descripcion-categoria">Mensajes para iniciar o dar seguimiento al contacto.</p></div><span id="mia-total" class="mia-contador">— mensajes</span></header>
+          <label class="mia-busqueda" for="mia-buscar">Buscar mensaje</label>
+          <input id="mia-buscar" type="search" placeholder="Buscar por contenido o regla..." autocomplete="off">
+          <div class="mia-filtros"><label for="mia-filtro-semaforo">Semáforo</label><select id="mia-filtro-semaforo"><option value="">Todos</option><option value="Rojo">Rojo</option><option value="Naranja">Naranja</option><option value="Verde">Verde</option></select><span id="mia-indicador" class="mia-indicador"></span><button type="button" id="mia-anterior" aria-label="Página anterior">←</button><button type="button" id="mia-siguiente" aria-label="Página siguiente">→</button></div>
+          <div id="mia-estado" class="mia-estado" role="status" aria-live="polite" hidden></div>
+          <div class="mia-tarjetas" id="mia-tarjetas"></div>
+        </section>
+        <aside class="mia-panel mia-panel-detalle" aria-labelledby="mia-titulo-detalle">
+          <header class="mia-panel-encabezado"><div><h2 id="mia-titulo-detalle">Vista previa</h2><p>Contenido y reglas del mensaje seleccionado.</p></div></header>
+          <div id="mia-detalle" class="mia-detalle"><div class="mia-detalle-vacio"><span aria-hidden="true">✉</span><h3>Selecciona un mensaje</h3><p>Elige una tarjeta del catálogo para consultar su contenido y sus reglas.</p></div></div>
+        </aside>
       </div>
     </section>
 

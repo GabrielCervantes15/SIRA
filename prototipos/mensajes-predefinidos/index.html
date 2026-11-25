@@ -1,0 +1,86 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SIRA | Mensajes predefinidos</title>
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">S</span>
+      <div>
+        <strong>SIRA</strong>
+        <small>Sistema Integral de Registro de Aspirantes</small>
+      </div>
+    </div>
+    <span class="role">Consulta de mensajes · Solo lectura</span>
+  </header>
+
+  <main class="container">
+    <header class="page-heading">
+      <div>
+        <p class="eyebrow">HU 8 · EQ-94</p>
+        <h1>Mensajes predefinidos</h1>
+        <p>Consulta los mensajes disponibles, su contenido y las reglas asociadas.</p>
+      </div>
+      <span class="readonly">Solo consulta</span>
+    </header>
+
+    <nav class="categories" aria-label="Categorías de mensajes">
+      <button class="category active" data-category="envio" aria-pressed="true">
+        Mensajes de envío
+      </button>
+      <button class="category" data-category="respuesta" aria-pressed="false">
+        Mensajes de respuesta
+      </button>
+    </nav>
+
+    <section class="workspace">
+      <section class="catalog-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Catálogo</h2>
+            <p id="catalog-description">Mensajes para iniciar o dar seguimiento al contacto.</p>
+          </div>
+          <span id="message-count" class="count">0 mensajes</span>
+        </div>
+
+        <label class="search-box">
+          <span>Buscar mensaje</span>
+          <input id="search-message" type="search"
+                 placeholder="Escribe el nombre del mensaje..."
+                 autocomplete="off">
+        </label>
+
+        <div id="catalog-list" class="catalog-list" aria-live="polite"></div>
+      </section>
+
+      <section class="detail-panel" aria-labelledby="detail-title">
+        <div class="panel-heading">
+          <div>
+            <h2>Vista previa</h2>
+            <p>Contenido y reglas del mensaje seleccionado.</p>
+          </div>
+        </div>
+
+        <div id="detail-content" aria-live="polite">
+          <div class="initial-state">
+            <span class="empty-icon">✉</span>
+            <h3>Selecciona un mensaje</h3>
+            <p>Elige una tarjeta del catálogo para consultar su contenido y sus reglas.</p>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <footer class="footer">
+      SIRA · Prototipo académico EQ-94 · Contenido demostrativo, sujeto a definición del PO.
+    </footer>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
