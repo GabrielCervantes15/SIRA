@@ -28,6 +28,25 @@ import {
 import { verificarRepositorioLotes } from "../dominio/repositorio-lotes.js";
 import { crearEventoEnvioSolicitado, routingKeyEnvio } from "../eventos.js";
 
+/**
+ * El cuerpo JSON del envío usa listas (a diferencia de la URL de la vista previa, que usa
+ * texto separado por comas). EQ-92: se rechazan tipos inesperados antes de normalizar.
+ */
+export function erroresDeTipoCuerpo(cuerpo) {
+  const errores = {};
+  if (!cuerpo || typeof cuerpo !== "object" || Array.isArray(cuerpo)) return { cuerpo: "El cuerpo debe ser un objeto JSON." };
+  for (const campo of ["semaforos", "carreras"]) {
+    const valor = cuerpo[campo];
+    if (valor !== undefined && !(Array.isArray(valor) && valor.every((v) => typeof v === "string"))) {
+      errores[campo] = "Debe ser una lista de textos.";
+    }
+  }
+  if (!["number", "string", "undefined"].includes(typeof cuerpo.inactividadValor)) errores.inactividadValor = "Debe ser un número.";
+  if (!["string", "undefined"].includes(typeof cuerpo.inactividadUnidad)) errores.inactividadUnidad = "Debe ser días, semanas o meses.";
+  if (!["boolean", "undefined"].includes(typeof cuerpo.enviarPorCorreo)) errores.enviarPorCorreo = "Debe ser verdadero o falso.";
+  return errores;
+}
+
 export class CrearLoteEnvioCasoUso {
   /**
    * @param {Object} d
@@ -65,6 +84,10 @@ export class CrearLoteEnvioCasoUso {
    */
   async ejecutar({ colaboradorId, claveIdempotencia = null, cuerpo = {} }) {
     const clave = leerClaveIdempotencia(claveIdempotencia);
+    const erroresTipo = erroresDeTipoCuerpo(cuerpo);
+    if (Object.keys(erroresTipo).length) {
+      throw new ErrorLoteEnvio(400, "FILTROS_INVALIDOS", "Revisa los filtros del lote.", { errores: erroresTipo });
+    }
     const filtros = normalizarFiltrosLote(cuerpo);
     const enviarPorCorreo = cuerpo.enviarPorCorreo === true;
     const huella = huellaPeticion(colaboradorId, filtros, enviarPorCorreo);
