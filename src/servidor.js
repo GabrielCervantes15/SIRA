@@ -19,11 +19,10 @@ import { crearBusEnMemoria } from './compartido/eventos/bus-en-memoria.js';
 import { crearRepositorioConfiguracionEnvio, validarConfiguracion } from './modulos/configuracion-envio/configuracion-envio.js';
 import { crearModuloCatalogoMensajes } from './modulos/mensajes-ia/index.js';
 import {
-  validarFiltrosLote,
-  calcularElegibles,
   generarMensajePersonalizado,
   intentarEnvioCorreo,
 } from './modulos/disparo-automatico/disparo-automatico.js';
+import { crearServicioVistaPreviaLote } from './modulos/disparo-automatico/vista-previa-lote.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -189,6 +188,12 @@ export function crearServidor(opciones = {}) {
   // EQ-82 (HU1-6): Validador de horario permitido en el servidor conectado a HU9-4.
   const validadorHorarioEnvio = opciones.validadorHorarioEnvio || crearValidadorHorarioEnvio({
     interfazLectura: moduloMensajes.interfazLectura,
+    reloj: obtenerFechaReloj,
+  });
+  // EQ-81 (HU1-5): vista previa del lote; el envío usa las mismas reglas para que el conteo coincida.
+  const servicioVistaPreviaLote = opciones.servicioVistaPreviaLote || crearServicioVistaPreviaLote({
+    repositorioMonitoreo: moduloMonitoreo.repositorio,
+    interfazLecturaConfiguracion: moduloMensajes.interfazLectura,
     reloj: obtenerFechaReloj,
   });
   const repositorioConfiguracionEnvio = opciones.repositorioConfiguracionEnvio || crearRepositorioConfiguracionEnvio();
@@ -591,44 +596,30 @@ export function crearServidor(opciones = {}) {
         const sesion = obtenerSesion(req);
         if (!sesion) return responderJson(res, 401, { codigo: 'SESION_NO_VALIDA', mensaje: 'La sesión no existe o expiró.' });
 
+        // EQ-81: la cartera sale de la sesión; los parámetros solo traen filtros.
         const p = url.searchParams;
-        const filtros = {
-          semaforos: (p.get('semaforos') || '').split(',').filter(Boolean),
-          carreras: (p.get('carreras') || '').split(',').filter(Boolean),
-          inactividadValor: Number(p.get('inactividadValor')),
+        const vista = await servicioVistaPreviaLote.calcular(sesion.usuario.idInstitucional, {
+          semaforos: p.get('semaforos'),
+          carreras: p.get('carreras'),
+          inactividadValor: p.get('inactividadValor'),
           inactividadUnidad: p.get('inactividadUnidad'),
-        };
-        const { valido, errores } = validarFiltrosLote(filtros);
-        const { carreras: carrerasDisponibles } = await moduloMonitoreo.repositorio.obtenerFiltrosColaborador(sesion.usuario.idInstitucional);
+        });
         const estadoHorario = validadorHorarioEnvio.obtenerEstadoHorario();
-        const horarioOk = estadoHorario.permitido;
 
-        if (!valido) {
-          return responderJson(res, 200, {
-            valido,
-            errores,
-            carrerasDisponibles,
-            dentroDeHorario: horarioOk,
-            estadoHorario,
-            mensajeHorario: estadoHorario.mensaje,
-            total: 0,
-            mensajesEjemplo: [],
-          });
-        }
-
-        const { aspirantes: cartera } = await moduloMonitoreo.repositorio.listarAspirantes({ colaboradorId: sesion.usuario.idInstitucional, mostrarAceptados: true, limit: 10000 });
-        const elegibles = calcularElegibles(cartera, filtros, obtenerFechaReloj());
-        const mensajesEjemplo = [...new Set(elegibles.map(generarMensajePersonalizado))].slice(0, 5);
-
+        // Con filtros inválidos responde 200 y valido:false: el modal usa las opciones para pintarse.
         return responderJson(res, 200, {
-          valido: true,
-          errores: {},
-          carrerasDisponibles,
-          dentroDeHorario: horarioOk,
+          valido: vista.valido,
+          errores: vista.errores,
+          carrerasDisponibles: vista.opciones.carreras,
+          semaforosDisponibles: vista.opciones.semaforos,
+          fechaCorte: vista.fechaCorte ? vista.fechaCorte.toISOString() : null,
+          horasContactoPrevio: vista.horasContactoPrevio,
+          dentroDeHorario: estadoHorario.permitido,
           estadoHorario,
           mensajeHorario: estadoHorario.mensaje,
-          total: elegibles.length,
-          mensajesEjemplo,
+          total: vista.total,
+          excluidos: vista.excluidos,
+          mensajesEjemplo: [...new Set(vista.elegibles.map(generarMensajePersonalizado))].slice(0, 5),
         });
       }
 
@@ -657,18 +648,18 @@ export function crearServidor(opciones = {}) {
           throw errorHorario;
         }
 
-        const filtros = {
+        // EQ-81: mismas reglas que la vista previa (cartera de la sesión, sin verde,
+        // sin aceptadas/rechazadas y fuera del tiempo de espera por contacto previo).
+        const vista = await servicioVistaPreviaLote.calcular(sesion.usuario.idInstitucional, {
           semaforos: Array.isArray(cuerpo.semaforos) ? cuerpo.semaforos : [],
           carreras: Array.isArray(cuerpo.carreras) ? cuerpo.carreras : [],
-          inactividadValor: Number(cuerpo.inactividadValor),
+          inactividadValor: cuerpo.inactividadValor,
           inactividadUnidad: cuerpo.inactividadUnidad,
-        };
-        const { valido, errores } = validarFiltrosLote(filtros);
-        if (!valido) return responderJson(res, 400, { codigo: 'FILTROS_INVALIDOS', mensaje: 'Revisa los filtros del lote.', errores });
+        });
+        if (!vista.valido) return responderJson(res, 400, { codigo: 'FILTROS_INVALIDOS', mensaje: 'Revisa los filtros del lote.', errores: vista.errores });
 
         const instanteServidor = obtenerFechaReloj();
-        const { aspirantes: cartera } = await moduloMonitoreo.repositorio.listarAspirantes({ colaboradorId: sesion.usuario.idInstitucional, mostrarAceptados: true, limit: 10000 });
-        const elegibles = calcularElegibles(cartera, filtros, instanteServidor);
+        const elegibles = vista.elegibles;
         if (elegibles.length === 0) {
           return responderJson(res, 400, { codigo: 'SIN_ASPIRANTES', mensaje: 'No hay aspirantes que cumplan las condiciones de ese lote.' });
         }
