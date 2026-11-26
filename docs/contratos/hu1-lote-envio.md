@@ -98,19 +98,43 @@ Por cada envío publica, con clave `<tipo>.whatsapp`:
 
 `eventId` = `<envioId>:<tipo>` (en diferido, con `:<codigo>` al final), para descartar repetidos.
 
-## Consumidor provisional (hasta EQ-87)
+## Consumo de resultados (EQ-87)
 
-`infraestructura/consumidor-envio-simulado.js` atiende `disparo.envio.enviado.whatsapp`:
-- agrega el mensaje a la conversación, con su `whatsappMessageId`;
-- registra «Mensaje automático de reactivación» en el historial;
-- actualiza `vecesNotificado` y `fechaUltimaActividad`.
+`aplicacion/consumir-resultados-envio.js` escucha `disparo.envio.enviado | fallido | diferido` (todos los canales). Código: `test/eq87-resultados-envio.test.js`; migración 09.
 
-Así, en el Chat solo aparecen los mensajes que WhatsApp aceptó. `crearServidor({ simularEnvios: false })` lo desactiva.
+| Resultado | Qué hace |
+|---|---|
+| **Enviado** | Guarda el resultado en el envío del lote. Pide a Monitoreo actualizar la **fecha de última notificación** y sumar uno a `vecesNotificado` (una vez por lote, aunque reciba por dos canales). Registra `MENSAJE_AUTOMATICO` en el historial con canal, fecha y mensaje. Por WhatsApp, deja el mensaje en el Chat (HU3-5). |
+| **Fallido** | Guarda el resultado y lo registra en el historial («no enviado» con el motivo). **No** cuenta ni cambia la fecha. |
+| **Diferido** | Solo guarda el resultado; después llega enviado o fallido. |
 
-**EQ-87** debe sustituirlo y decidir qué resultados actualizan la última actividad. EQ-77 §6.3 dice que el mensaje saliente no debería actualizarla.
+- **No toca la fecha de última actividad** ni el semáforo (EQ-77 §6.3 y §11).
+- **Es idempotente:** un resultado repetido, o uno que llega después de un resultado final, se ignora.
+- **Decisión del equipo (pendiente en el ticket):** el mensaje enviado también aparece en la conversación del aspirante.
+- **Fallos por dato faltante (EQ-84):** también se registran como `MENSAJE_AUTOMATICO` («no enviado»), con `metadatos.resultado = "NO_ENVIABLE"`.
+
+### Conteo del lote
+
+`GET /api/v1/disparo-mensajes/lotes/:loteId`: solo el colaborador que lanzó el lote; si no, 404.
+
+```json
+{
+  "loteId": "…", "estado": "CREADO", "creadoEn": "…", "filtros": { "…": "…" },
+  "totalAspirantes": 19, "notificados": 18, "fallidos": 1, "diferidos": 0, "pendientes": 0, "completo": true,
+  "porCanal": { "WHATSAPP": { "enviados": 18, "fallidos": 1, "diferidos": 0, "pendientes": 0, "noEnviables": 0 } }
+}
+```
+
+Se cuenta **por aspirante**, no por mensaje (EQ-77 §11). Cada aspirante cuenta una sola vez, en este orden:
+1. **notificado:** algún canal enviado;
+2. **pendiente:** algún canal sin resultado todavía;
+3. **diferido:** algún canal diferido;
+4. **fallido:** el resto.
+
+`completo` es `true` cuando no quedan pendientes ni diferidos. EQ-89 puede usarlo para mostrar el resultado en el modal.
 
 ## Pendiente
 
 - El servidor usa el repositorio **en memoria**, como el resto de los módulos. `RepositorioLotesPostgres` está listo y probado contra PostgreSQL 16, pero falta conectarlo cuando el servidor use base de datos.
-- `docker-compose` todavía no monta la migración 07, igual que pasa con la 02 a la 06.
+- `docker-compose` todavía no monta las migraciones 07 a 09, igual que pasa con la 02 a la 06.
 - Consentimiento de WhatsApp (EQ-77 §8.1): el modelo no tiene ese dato. Hoy solo se exige un teléfono válido.

@@ -224,6 +224,7 @@ function etiquetaTipo(tipo) {
     RECHAZO_SOLICITUD: "Rechazo",
     CAMBIO_ESTADO: "Estado",
     NOTA_SEGUIMIENTO: "Seguimiento",
+    MENSAJE_AUTOMATICO: "Mensaje automático", // EQ-87: lote de HU1, enviado o no enviado
   }[tipo] ?? "Actividad";
 }
 

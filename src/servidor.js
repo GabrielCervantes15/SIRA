@@ -21,7 +21,8 @@ import { crearModuloCatalogoMensajes } from './modulos/mensajes-ia/index.js';
 import { CrearLoteEnvioCasoUso } from './modulos/disparo-automatico/aplicacion/crear-lote-envio.caso-uso.js';
 import { ErrorLoteEnvio } from './modulos/disparo-automatico/dominio/lote-envio.js';
 import { RepositorioLotesMemoria } from './modulos/disparo-automatico/infraestructura/repositorio-lotes-memoria.js';
-import { conectarConsumidorEnvioSimulado } from './modulos/disparo-automatico/infraestructura/consumidor-envio-simulado.js';
+import { crearConsumidorResultadosEnvio, TIPO_EVENTO_HISTORIAL } from './modulos/disparo-automatico/aplicacion/consumir-resultados-envio.js';
+import { resumenResultados } from './modulos/disparo-automatico/dominio/lote-envio.js';
 import { crearColaEnvioWhatsApp } from './modulos/disparo-automatico/aplicacion/cola-envio-whatsapp.js';
 import { TIPO_ENVIO_SOLICITADO } from './modulos/disparo-automatico/eventos.js';
 import { crearProveedorWhatsAppCloudApi, crearProveedorWhatsAppSimulado, leerConfiguracionCloudApi } from './modulos/whatsapp/index.js';
@@ -225,8 +226,9 @@ export function crearServidor(opciones = {}) {
         if (envio.codigoMotivo !== 'VARIABLE_FALTANTE' || vistos.has(envio.aspiranteId)) continue;
         vistos.add(envio.aspiranteId);
         const fallo = {
-          id: `h-mia-fallo-${lote.id}-${envio.aspiranteId}`, aspiranteId: envio.aspiranteId, tipoEvento: 'NOTA_SEGUIMIENTO',
+          id: `h-mia-fallo-${lote.id}-${envio.aspiranteId}`, aspiranteId: envio.aspiranteId, tipoEvento: TIPO_EVENTO_HISTORIAL,
           titulo: TITULO_FALLO, detalle: envio.motivo, motivoRechazo: null, autorTipo: 'SISTEMA', fechaEvento: lote.creadoEn,
+          metadatos: { loteId: lote.id, envioId: envio.id, canal: envio.canal, resultado: 'NO_ENVIABLE', codigo: envio.codigoMotivo, faltantes: envio.faltantes },
         };
         await moduloMonitoreo.repositorio.registrarActividad?.(fallo);
         if (historialMonitoreo) historialMonitoreo.push(fallo);
@@ -255,9 +257,12 @@ export function crearServidor(opciones = {}) {
   });
   busEventos.suscribir(`${TIPO_ENVIO_SOLICITADO}.whatsapp`, (evento) => { colaEnvioWhatsApp.encolar(evento); });
 
-  // Provisional hasta EQ-87: registra en Chat y Actividades lo que la cola confirmó como enviado.
-  if (opciones.simularEnvios !== false) {
-    conectarConsumidorEnvioSimulado({ bus: busEventos, repositorioMonitoreo: moduloMonitoreo.repositorio, historialMonitoreo });
+  // EQ-87 (HU1-11): consume los resultados (enviado, fallido, diferido): conteo de notificados,
+  // fecha de última notificación, historial y conversación. No toca la última actividad.
+  if (opciones.simularEnvios !== false && opciones.consumirResultados !== false) {
+    crearConsumidorResultadosEnvio({
+      repositorioLotes, repositorioMonitoreo: moduloMonitoreo.repositorio, historialMonitoreo, reloj: obtenerFechaReloj,
+    }).conectar(busEventos);
   }
 
   function obtenerSesion(req) {
@@ -698,6 +703,22 @@ export function crearServidor(opciones = {}) {
           mensajesEjemplo,
           sinDatosParaMensaje,
           mensajeReactivacionDisponible,
+        });
+      }
+
+      // EQ-87: conteo de un lote (aspirantes notificados, fallidos, diferidos y pendientes).
+      const rutaLote = url.pathname.match(/^\/api\/v1\/disparo-mensajes\/lotes\/([0-9a-fA-F-]{36})\/?$/);
+      if (rutaLote && req.method === 'GET') {
+        const sesion = obtenerSesion(req);
+        if (!sesion) return responderJson(res, 401, { codigo: 'SESION_NO_VALIDA', mensaje: 'La sesión no existe o expiró.' });
+        const registro = await repositorioLotes.obtenerLote(rutaLote[1].toLowerCase());
+        // Un lote de otro colaborador responde igual que uno inexistente.
+        if (!registro || registro.lote.colaboradorId !== String(sesion.usuario.idInstitucional)) {
+          return responderJson(res, 404, { codigo: 'LOTE_NO_ENCONTRADO', mensaje: 'No existe ese lote en tu cartera.' });
+        }
+        return responderJson(res, 200, {
+          loteId: registro.lote.id, estado: registro.lote.estado, creadoEn: registro.lote.creadoEn,
+          filtros: registro.lote.filtros, ...resumenResultados(registro.envios),
         });
       }
 

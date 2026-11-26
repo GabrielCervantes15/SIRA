@@ -96,6 +96,7 @@ export function construirLote({
       const base = {
         id: generarId(), loteId, aspiranteId: p.aspirante.id, canal,
         mensajeId: p.mensajeId, destino: null, texto: null, motivo: null, codigoMotivo: null, faltantes: [], parametros: [], publicadoEn: null, reclamadoHasta: null,
+        resultado: null, resultadoCodigo: null, resultadoMotivo: null, whatsappMessageId: null, intentos: null, resultadoEn: null,
       };
       if (!p.enviable) {
         envios.push({ ...base, estado: "NO_ENVIABLE", motivo: p.motivo, codigoMotivo: p.codigo, faltantes: [...(p.faltantes ?? [])] });
@@ -170,4 +171,57 @@ export function resumenLote({ lote, envios }, nombres = new Map()) {
       detalles: correoFallido.map((e) => ({ aspiranteId: e.aspiranteId, nombre: nombre(e.aspiranteId), motivo: e.motivo })),
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// EQ-87 (HU1-11) · Resultados del envío y conteo de notificados por lote
+// ---------------------------------------------------------------------------
+export const RESULTADOS_ENVIO = Object.freeze(["ENVIADO", "FALLIDO", "DIFERIDO"]);
+export const RESULTADOS_FINALES = Object.freeze(["ENVIADO", "FALLIDO"]);
+
+/**
+ * ¿Se puede aplicar este resultado al envío? Solo a envíos PENDIENTES; ENVIADO y FALLIDO
+ * son finales (un evento repetido no cambia nada) y DIFERIDO puede pasar a final.
+ */
+export function aceptaResultado(envio, resultado) {
+  if (!envio || envio.estado !== "PENDIENTE" || !RESULTADOS_ENVIO.includes(resultado)) return false;
+  if (RESULTADOS_FINALES.includes(envio.resultado)) return false;
+  return !(envio.resultado === "DIFERIDO" && resultado === "DIFERIDO");
+}
+
+/**
+ * Conteo del lote por aspirante (EQ-77 §11: aspirantes únicos, no mensajes por canal).
+ * Cada aspirante cuenta una vez, en este orden:
+ *   notificado  al menos un canal ENVIADO
+ *   pendiente   algún canal sin resultado todavía
+ *   diferido    algún canal DIFERIDO (límite de 24 h u horario)
+ *   fallido     el resto (FALLIDO o NO_ENVIABLE en todos sus canales)
+ */
+export function resumenResultados(envios) {
+  const porAspirante = new Map();
+  for (const e of envios) {
+    if (!porAspirante.has(e.aspiranteId)) porAspirante.set(e.aspiranteId, []);
+    porAspirante.get(e.aspiranteId).push(e);
+  }
+  const conteo = { totalAspirantes: porAspirante.size, notificados: 0, pendientes: 0, diferidos: 0, fallidos: 0 };
+  for (const suyos of porAspirante.values()) {
+    if (suyos.some((e) => e.resultado === "ENVIADO")) conteo.notificados += 1;
+    else if (suyos.some((e) => e.estado === "PENDIENTE" && !e.resultado)) conteo.pendientes += 1;
+    else if (suyos.some((e) => e.resultado === "DIFERIDO")) conteo.diferidos += 1;
+    else conteo.fallidos += 1;
+  }
+
+  const porCanal = {};
+  for (const canal of CANALES) {
+    const delCanal = envios.filter((e) => e.canal === canal);
+    if (!delCanal.length) continue;
+    porCanal[canal] = {
+      enviados: delCanal.filter((e) => e.resultado === "ENVIADO").length,
+      fallidos: delCanal.filter((e) => e.resultado === "FALLIDO").length,
+      diferidos: delCanal.filter((e) => e.resultado === "DIFERIDO").length,
+      pendientes: delCanal.filter((e) => e.estado === "PENDIENTE" && !e.resultado).length,
+      noEnviables: delCanal.filter((e) => e.estado === "NO_ENVIABLE").length,
+    };
+  }
+  return { ...conteo, completo: conteo.pendientes === 0 && conteo.diferidos === 0, porCanal };
 }

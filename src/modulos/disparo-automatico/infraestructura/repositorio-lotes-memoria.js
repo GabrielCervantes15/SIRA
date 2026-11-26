@@ -4,6 +4,8 @@
  * `transaccion(fn)` se ejecuta en cola (una tras otra, como un bloqueo) y toma una
  * instantánea: si `fn` falla, los lotes y envíos vuelven a como estaban.
  */
+import { aceptaResultado } from "../dominio/lote-envio.js";
+
 const copiar = (valor) => structuredClone(valor);
 
 export class RepositorioLotesMemoria {
@@ -76,6 +78,23 @@ export class RepositorioLotesMemoria {
     for (const r of this.lotes.values()) {
       for (const e of r.envios) if (ids.has(e.id) && !e.publicadoEn) e.publicadoEn = fechaIso;
     }
+  }
+
+  async registrarResultado({ envioId, resultado, codigo = null, motivo = null, whatsappMessageId = null, intentos = null, fecha }) {
+    return this.transaccion(async () => {
+      for (const r of this.lotes.values()) {
+        const envio = r.envios.find((e) => e.id === envioId);
+        if (!envio) continue;
+        if (!aceptaResultado(envio, resultado)) return { aplicado: false };
+        const yaNotificadoEnLote = r.envios.some((e) => e.id !== envioId && e.aspiranteId === envio.aspiranteId && e.resultado === "ENVIADO");
+        Object.assign(envio, {
+          resultado, resultadoCodigo: codigo, resultadoMotivo: motivo,
+          whatsappMessageId: whatsappMessageId ?? envio.whatsappMessageId ?? null, intentos, resultadoEn: fecha,
+        });
+        return { aplicado: true, envio: copiar(envio), yaNotificadoEnLote };
+      }
+      return { aplicado: false };
+    });
   }
 
   async obtenerLote(loteId) {
