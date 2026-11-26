@@ -73,6 +73,17 @@ console.log(await whatsapp.obtenerEstadoEntrega(envio.whatsappMessageId));
 
 Controles exclusivos de prueba: `simularEstadoEntrega(id, estado, motivo)`, `simularIndisponibilidad(boolean)`, `simularRechazoSiguiente()`, `reiniciar()`. Se puede inyectar `reloj` y `generarId` para resultados deterministas. Los estados se pierden al reiniciar el proceso; no es almacenamiento de producción. No se guardan teléfonos ni parámetros en el almacén simulado.
 
+## 3.1 Adaptador real de Cloud API (EQ-85)
+
+`crearProveedorWhatsAppCloudApi({ token, phoneNumberId, urlBase })` implementa el mismo puerto con `POST {urlBase}/{phone-number-id}/messages`.
+
+- **Cuándo se usa:** el servidor lo usa en lugar del simulador cuando `WHATSAPP_MOCK_ENABLED=false` y existen `WHATSAPP_ACCESS_TOKEN` y `WHATSAPP_PHONE_NUMBER_ID` (`leerConfiguracionCloudApi`).
+- **`enviarPlantilla`:** manda la plantilla con `parametros` como variables de texto del cuerpo, y devuelve el `wamid` de Meta con estado `PENDIENTE`. Un 200 solo significa «aceptado».
+- **Errores:** se clasifican por el código de Meta en `reintentable: true` (ritmo, servicio no disponible, 5xx, sin red, sin respuesta) o `false` (token, parámetros, plantilla, número sin WhatsApp, políticas). El código queda como `META_<código>`.
+- **`obtenerEstadoEntrega`:** devuelve el último estado conocido; el webhook de EQ-115 lo actualizará.
+
+Ver `docs/decisiones/HU1-envio-whatsapp.md`.
+
 ## 4. Verificación
 
 ```sh

@@ -82,17 +82,32 @@ Clave de enrutamiento: `disparo.envio.solicitado.whatsapp` o `disparo.envio.soli
 
 `eventId` es el id del envío. Un consumidor que reciba el mismo evento dos veces debe descartar el repetido por ese id.
 
-## Consumidor simulado (temporal)
+## Envío por WhatsApp y resultados (EQ-85)
 
-`infraestructura/consumidor-envio-simulado.js` atiende `disparo.envio.solicitado.whatsapp` y hace lo mismo que hacía antes el endpoint:
-- agrega el mensaje a la conversación;
+La cola de envío (`aplicacion/cola-envio-whatsapp.js`) consume `disparo.envio.solicitado.whatsapp` y manda la plantilla por el puerto de BASE-10, con ritmo controlado, reintentos, límite de 24 h y horario de HU9. Las reglas y qué pasa con los pendientes están en `docs/decisiones/HU1-envio-whatsapp.md`.
+
+El evento solicitado incluye `parametros` (valores de `{{1}}`, `{{2}}`… de la plantilla de Meta, en orden: nombre y carrera). Se guardan en `disparo.envio.parametros` (migración 08).
+
+Por cada envío publica, con clave `<tipo>.whatsapp`:
+
+| Evento | Cuándo | Datos además de `loteId`, `envioId`, `colaboradorId`, `aspiranteId`, `canal` |
+|---|---|---|
+| `disparo.envio.enviado` | Meta aceptó la plantilla | `whatsappMessageId`, `estadoEntrega` (`PENDIENTE` con Cloud API), `intentos`, `texto`, `enviadoEn` |
+| `disparo.envio.fallido` | Error permanente, reintentos agotados o pendiente caducado | `codigo`, `motivo`, `codigoProveedor`, `intentos` |
+| `disparo.envio.diferido` | Se pospuso por `LIMITE_24H` o `FUERA_DE_HORARIO` (una vez por motivo) | `codigo`, `motivo`, `reanudaEn` |
+
+`eventId` = `<envioId>:<tipo>` (en diferido, con `:<codigo>` al final), para descartar repetidos.
+
+## Consumidor provisional (hasta EQ-87)
+
+`infraestructura/consumidor-envio-simulado.js` atiende `disparo.envio.enviado.whatsapp`:
+- agrega el mensaje a la conversación, con su `whatsappMessageId`;
 - registra «Mensaje automático de reactivación» en el historial;
 - actualiza `vecesNotificado` y `fechaUltimaActividad`.
 
-El correo no hace nada, porque no hay SMTP. `crearServidor({ simularEnvios: false })` lo desactiva.
+Así, en el Chat solo aparecen los mensajes que WhatsApp aceptó. `crearServidor({ simularEnvios: false })` lo desactiva.
 
-- **EQ-85** debe sustituir el canal WhatsApp de este consumidor por el puerto de `src/modulos/whatsapp/`.
-- **EQ-87** decide qué resultados actualizan la última actividad. EQ-77 §6.3 dice que el mensaje saliente no debería actualizarla.
+**EQ-87** debe sustituirlo y decidir qué resultados actualizan la última actividad. EQ-77 §6.3 dice que el mensaje saliente no debería actualizarla.
 
 ## Pendiente
 

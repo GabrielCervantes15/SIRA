@@ -12,7 +12,7 @@ const COLUMNAS_LOTE = `
 
 const COLUMNAS_ENVIO = `
   id, lote_id AS "loteId", aspirante_id AS "aspiranteId", canal, estado, mensaje_id AS "mensajeId",
-  destino, texto, motivo, codigo_motivo AS "codigoMotivo", faltantes, publicado_en AS "publicadoEn",
+  destino, texto, motivo, codigo_motivo AS "codigoMotivo", faltantes, parametros, publicado_en AS "publicadoEn",
   reclamado_hasta AS "reclamadoHasta"`;
 
 const iso = (valor) => (valor == null ? null : new Date(valor).toISOString());
@@ -28,7 +28,7 @@ function aLote(fila) {
 }
 
 const aEnvio = (fila) => ({
-  ...fila, faltantes: [...(fila.faltantes ?? [])], publicadoEn: iso(fila.publicadoEn), reclamadoHasta: iso(fila.reclamadoHasta),
+  ...fila, faltantes: [...(fila.faltantes ?? [])], parametros: [...(fila.parametros ?? [])], publicadoEn: iso(fila.publicadoEn), reclamadoHasta: iso(fila.reclamadoHasta),
 });
 
 export class RepositorioLotesPostgres {
@@ -101,10 +101,10 @@ export class RepositorioLotesPostgres {
     for (const e of envios) {
       await this.db.query(
         `INSERT INTO disparo.envio (id, lote_id, aspirante_id, canal, estado, mensaje_id, destino, texto,
-           motivo, codigo_motivo, faltantes, publicado_en)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+           motivo, codigo_motivo, faltantes, parametros, publicado_en)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
         [e.id, e.loteId, e.aspiranteId, e.canal, e.estado, e.mensajeId, e.destino, e.texto,
-          e.motivo, e.codigoMotivo, e.faltantes ?? [], e.publicadoEn],
+          e.motivo, e.codigoMotivo, e.faltantes ?? [], e.parametros ?? [], e.publicadoEn],
       );
     }
   }

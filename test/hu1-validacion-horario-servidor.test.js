@@ -267,6 +267,8 @@ test("[EQ-82 / HU1-6] HTTP vista-previa permite consultar fuera de horario (200)
 
     assert.equal(resEnviarDentro.status, 200);
     assert.ok(resEnviarDentro.body.totalEnviados > 0);
+    // EQ-85: el envío por WhatsApp lo hace la cola después de responder; se espera a que termine.
+    await servidor.colaEnvioWhatsApp.esperarInactiva();
     assert.equal(
       historialMonitoreo.length,
       resEnviarDentro.body.totalEnviados
@@ -357,6 +359,8 @@ test("[EQ-82 / HU1-6] Integración viva con HU9: cambio de jornada por Administr
     );
     assert.equal(intentoSabadoHabilitado.status, 200);
     assert.ok(intentoSabadoHabilitado.body.totalEnviados > 0);
+    // EQ-85: el envío por WhatsApp lo hace la cola después de responder; se espera a que termine.
+    await servidor.colaEnvioWhatsApp.esperarInactiva();
     assert.equal(
       historialMonitoreo.length,
       intentoSabadoHabilitado.body.totalEnviados

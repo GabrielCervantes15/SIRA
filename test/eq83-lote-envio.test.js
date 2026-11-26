@@ -299,8 +299,11 @@ async function conServidor(opciones, fn) {
   const moduloMonitoreo = crearModuloMonitoreo();
   const bus = crearBusEnMemoria();
   const eventos = [];
-  bus.suscribir("disparo.#", (evento, routingKey) => { eventos.push({ routingKey, evento }); });
-  const servidor = crearServidor({ port: 0, reloj: () => AHORA.getTime(), duracionSesionMs: 86_400_000, moduloMonitoreo, bus, ...opciones });
+  bus.suscribir("disparo.envio.solicitado.#", (evento, routingKey) => { eventos.push({ routingKey, evento }); });
+  const servidor = crearServidor({
+    port: 0, reloj: () => AHORA.getTime(), duracionSesionMs: 86_400_000, moduloMonitoreo, bus,
+    colaEnvioWhatsApp: { mensajesPorSegundo: 10_000 }, ...opciones,
+  });
   await new Promise((resolve) => servidor.listen(0, "127.0.0.1", resolve));
   const base = `http://127.0.0.1:${servidor.address().port}`;
   const login = async (identificador, password) => {
@@ -315,7 +318,8 @@ async function conServidor(opciones, fn) {
     body: JSON.stringify(cuerpo),
   });
   try {
-    await fn({ base, login, enviar, eventos, repositorio: moduloMonitoreo.repositorio });
+    const enviados = () => servidor.colaEnvioWhatsApp.esperarInactiva();
+    await fn({ base, login, enviar, eventos, repositorio: moduloMonitoreo.repositorio, enviados });
   } finally {
     await new Promise((resolve) => servidor.close(resolve));
   }
@@ -333,11 +337,12 @@ test("[EQ-83] HTTP: solo el rol Colaborador puede enviar", async () => {
 });
 
 test("[EQ-83] HTTP: crea el lote, publica por aspirante y canal y el consumidor simulado registra el mensaje", async () => {
-  await conServidor({}, async ({ login, enviar, eventos, repositorio }) => {
+  await conServidor({}, async ({ login, enviar, eventos, repositorio, enviados }) => {
     const cookie = await login("00000252115", "Password123!");
     const antes = repositorio.conversaciones.length;
     const r = await enviar(cookie, { ...CUERPO, enviarPorCorreo: true }, "lote-http-00000001");
     const cuerpo = await r.json();
+    await enviados();
 
     assert.equal(r.status, 200);
     assert.equal(cuerpo.repetido, false);
@@ -353,11 +358,12 @@ test("[EQ-83] HTTP: crea el lote, publica por aspirante y canal y el consumidor 
 });
 
 test("[EQ-83] HTTP: doble clic con la misma clave crea un solo lote y un solo mensaje por aspirante", async () => {
-  await conServidor({}, async ({ login, enviar, eventos, repositorio }) => {
+  await conServidor({}, async ({ login, enviar, eventos, repositorio, enviados }) => {
     const cookie = await login("00000252115", "Password123!");
     const antes = repositorio.conversaciones.length;
     const [r1, r2] = await Promise.all([enviar(cookie, CUERPO, "doble-clic-000001"), enviar(cookie, CUERPO, "doble-clic-000001")]);
     const [c1, c2] = [await r1.json(), await r2.json()];
+    await enviados();
 
     assert.deepEqual([r1.status, r2.status], [200, 200]);
     assert.equal(c1.loteId, c2.loteId);
@@ -374,9 +380,10 @@ test("[EQ-83] HTTP: doble clic con la misma clave crea un solo lote y un solo me
 });
 
 test("[EQ-83] HTTP: un lote nuevo recalcula (tras enviar ya no quedan aplicables) y la clave inválida se rechaza", async () => {
-  await conServidor({}, async ({ login, enviar }) => {
+  await conServidor({}, async ({ login, enviar, enviados }) => {
     const cookie = await login("00000252115", "Password123!");
     assert.equal((await enviar(cookie, CUERPO, "primer-lote-000001")).status, 200);
+    await enviados();
 
     const otro = await enviar(cookie, CUERPO, "segundo-lote-00002");
     assert.equal(otro.status, 400);
@@ -392,10 +399,11 @@ test("[EQ-83] HTTP: un lote nuevo recalcula (tras enviar ya no quedan aplicables
 });
 
 test("[EQ-83] HTTP: sin consumidor simulado, solo se publican los eventos", async () => {
-  await conServidor({ simularEnvios: false }, async ({ login, enviar, eventos, repositorio }) => {
+  await conServidor({ simularEnvios: false }, async ({ login, enviar, eventos, repositorio, enviados }) => {
     const cookie = await login("00000252115", "Password123!");
     const antes = repositorio.conversaciones.length;
     const cuerpo = await (await enviar(cookie, CUERPO, "sin-consumidor-001")).json();
+    await enviados();
     assert.equal(eventos.length, cuerpo.envios.whatsapp);
     assert.equal(repositorio.conversaciones.length, antes);
   });

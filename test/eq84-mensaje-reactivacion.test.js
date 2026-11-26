@@ -102,7 +102,8 @@ async function conServidor(opciones, fn) {
   const moduloMonitoreo = crearModuloMonitoreo();
   const historialMonitoreo = [];
   const servidor = crearServidor({
-    port: 0, reloj: () => LUNES_10AM, duracionSesionMs: 86_400_000, moduloMonitoreo, historialMonitoreo, ...opciones,
+    port: 0, reloj: () => LUNES_10AM, duracionSesionMs: 86_400_000, moduloMonitoreo, historialMonitoreo,
+    colaEnvioWhatsApp: { mensajesPorSegundo: 10_000 }, ...opciones,
   });
   await new Promise((resolve) => servidor.listen(0, "127.0.0.1", resolve));
   const base = `http://127.0.0.1:${servidor.address().port}`;
@@ -116,7 +117,8 @@ async function conServidor(opciones, fn) {
     const enviar = () => fetch(`${base}/api/v1/disparo-mensajes/enviar`, {
       method: "POST", headers: { Cookie: cookie, "Content-Type": "application/json" }, body: JSON.stringify(CUERPO),
     });
-    await fn({ repositorio: moduloMonitoreo.repositorio, historialMonitoreo, previa, enviar });
+    const enviados = () => servidor.colaEnvioWhatsApp.esperarInactiva();
+    await fn({ repositorio: moduloMonitoreo.repositorio, historialMonitoreo, previa, enviar, enviados });
   } finally {
     await new Promise((resolve) => servidor.close(resolve));
   }
@@ -136,7 +138,7 @@ test("[EQ-84] HTTP: la vista previa muestra el mensaje de reactivación personal
 });
 
 test("[EQ-84] HTTP: envía el texto personalizado y, si falta el nombre, no envía y registra el fallo", async () => {
-  await conServidor({}, async ({ repositorio, historialMonitoreo, previa, enviar }) => {
+  await conServidor({}, async ({ repositorio, historialMonitoreo, previa, enviar, enviados }) => {
     const antes = await previa();
     const { aspirantes } = await repositorio.listarAspirantes({ colaboradorId: "00000252115", mostrarAceptados: true, limit: 1000 });
     const elegibles = aspirantes.filter((a) => ["ROJO", "NARANJA"].includes(a.semaforo) && !["ACEPTADA", "RECHAZADA"].includes(a.estadoSolicitud)
@@ -152,6 +154,7 @@ test("[EQ-84] HTTP: envía el texto personalizado y, si falta el nombre, no env�
     const mensajesAntes = repositorio.conversaciones.length;
     const res = await enviar();
     const cuerpo = await res.json();
+    await enviados();
     assert.equal(res.status, 200);
     assert.equal(cuerpo.totalEnviados, antes.total - 1);
     assert.equal(cuerpo.noEnviados.total, 1);

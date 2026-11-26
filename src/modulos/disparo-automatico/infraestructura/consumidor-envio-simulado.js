@@ -1,20 +1,16 @@
 /**
- * HU1-7 (EQ-83) · Consumidor SIMULADO de `disparo.envio.solicitado`.
+ * HU1 · Consumidor PROVISIONAL de `disparo.envio.enviado.whatsapp` (EQ-83 / EQ-85).
  *
- * Mientras no exista el envío real (EQ-85 conectará WhatsApp Cloud API con el puerto
- * de `src/modulos/whatsapp/`), este consumidor hace lo mismo que hacía antes el
- * endpoint de envío, para que la aplicación siga funcionando igual:
- *
- *   WHATSAPP → agrega el mensaje a la conversación del aspirante (canal simulado de HU3),
- *              registra «Mensaje automático de reactivación» en su historial y
- *              actualiza vecesNotificado y fechaUltimaActividad.
- *   CORREO   → no hace nada (no hay SMTP; BASE-9 no se construyó).
+ * Cuando la cola de envío (EQ-85) confirma que WhatsApp aceptó la plantilla, deja el
+ * mensaje en la conversación del aspirante (HU3), registra «Mensaje automático de
+ * reactivación» en su historial y actualiza vecesNotificado y fechaUltimaActividad,
+ * como hacía antes el endpoint de envío, para que la aplicación siga igual.
  *
  * Descarta eventos repetidos por `eventId`.
- * EQ-85 debe reemplazar el canal WHATSAPP de este consumidor; EQ-87 decide qué
- * resultados actualizan la última actividad (EQ-77 §6.3 dice que el saliente no debería).
+ * EQ-87 debe sustituirlo: decide qué resultados actualizan el conteo de notificados,
+ * la última actividad (EQ-77 §6.3 dice que el saliente no debería) y el historial.
  */
-import { TIPO_ENVIO_SOLICITADO } from "../eventos.js";
+import { TIPO_ENVIO_ENVIADO } from "../eventos.js";
 
 /**
  * @param {Object} d
@@ -26,17 +22,18 @@ import { TIPO_ENVIO_SOLICITADO } from "../eventos.js";
 export function conectarConsumidorEnvioSimulado({ bus, repositorioMonitoreo, historialMonitoreo = null }) {
   const procesados = new Set();
 
-  return bus.suscribir(`${TIPO_ENVIO_SOLICITADO}.whatsapp`, async (evento) => {
+  return bus.suscribir(`${TIPO_ENVIO_ENVIADO}.whatsapp`, async (evento) => {
     if (procesados.has(evento.eventId)) return;
     procesados.add(evento.eventId);
 
-    const { aspiranteId, envioId, texto } = evento.datos;
-    const fecha = evento.publicadoEn;
+    const { aspiranteId, envioId, texto, whatsappMessageId, estadoEntrega, enviadoEn } = evento.datos;
+    const fecha = enviadoEn || evento.publicadoEn;
 
     repositorioMonitoreo.conversaciones?.push({
       id: `mia-${envioId}`, aspiranteId, direccion: "SALIENTE",
       remitenteTipo: "BOT_IA", remitenteId: "disparo-automatico", contenido: texto,
-      tipoContenido: "TEXTO", estadoEntrega: "ENVIADO", whatsappMessageId: null, fechaEnvio: fecha,
+      tipoContenido: "TEXTO", estadoEntrega: estadoEntrega === "PENDIENTE" ? "ENVIADO" : estadoEntrega,
+      whatsappMessageId: whatsappMessageId ?? null, fechaEnvio: fecha,
     });
 
     const actividad = {
