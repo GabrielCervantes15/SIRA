@@ -141,6 +141,8 @@ así que paginar no repite ni pierde aspirantes, y los valores vacíos van al fi
 | `contarPorColaborador()` | `{ [idInstitucional]: totalAspirantes }` |
 | `previsualizarAsignacion({ campus, carreras })` | `[{ aspiranteId, carrera, colaboradorActual }]` sin modificar nada. |
 | `asignarCarreras({ colaboradorId, campus, carreras })` | `{ aspirantesIds, transferencias, deshacer() }` |
+| `obtenerAspirantePorId(id)` | Expediente actual por ID o folio |
+| `transferirAspiranteManual({ aspiranteId, colaboradorDestino })` | Cambio individual de responsable y `deshacer()` para compensación |
 
 ---
 

@@ -1,6 +1,7 @@
 /**
  * Repositorio de Colaboradores en memoria (Sprint 1).
- * Replica el esquema `usuarios` de BASE-5 / EQ-53 (usuario + colaborador_carrera).
+ * Replica el esquema `usuarios` de BASE-5 / EQ-53 (usuario + colaborador_carrera),
+ * incluyendo la autorización `casosEspeciales` de HU6-11 / EQ-70.
  *
  * `transaccion(fn)` toma una instantánea antes de ejecutar `fn` y la restaura si
  * `fn` falla, para que la confirmación del registro (EQ-59) sea todo o nada igual
@@ -29,6 +30,7 @@ export class RepositorioColaboradoresMemoria {
         estado: c.estado ?? (c.activo === false ? "inactivo" : "activo"),
         campus: c.campus ?? null,
         carreras: [...(c.carreras ?? [])],
+        casosEspeciales: c.casosEspeciales === true,
         fechaRegistro: c.fechaRegistro ?? new Date(0).toISOString(),
         registradoPor: c.registradoPor ?? null,
       });
@@ -64,8 +66,23 @@ export class RepositorioColaboradoresMemoria {
       throw new ErrorColaboradores(409, "YA_REGISTRADO", "Este colaborador ya está registrado.");
     }
     const registro = copiar({ ...colaborador, idInstitucional: id });
+    registro.casosEspeciales = registro.casosEspeciales === true;
     this.colaboradores.set(id, registro);
     return copiar(registro);
+  }
+
+  /**
+   * Activa o desactiva la recepción de expedientes de otros campus (HU6-11 / EQ-70).
+   * @param {string} idInstitucional
+   * @param {boolean} habilitado
+   * @returns {Promise<import('../dominio/repositorio-colaboradores.js').Colaborador|null>}
+   */
+  async actualizarCasosEspeciales(idInstitucional, habilitado) {
+    const id = String(idInstitucional ?? "").trim();
+    const colaborador = this.colaboradores.get(id);
+    if (!colaborador || colaborador.rol !== "colaborador") return null;
+    colaborador.casosEspeciales = habilitado === true;
+    return copiar(colaborador);
   }
 
   /**
@@ -79,6 +96,15 @@ export class RepositorioColaboradoresMemoria {
       }
       this.bitacoraTransferencias.push({ realizadoEn: ahora, ...r });
     }
+  }
+
+  /**
+   * Registra una transferencia manual individual (EQ-70).
+   * Mantiene intacto el método masivo utilizado por EQ-59.
+   * @param {import('../dominio/repositorio-colaboradores.js').RegistroTransferencia} registro
+   */
+  async registrarTransferenciaManual(registro) {
+    await this.registrarTransferencias([registro]);
   }
 
   /**

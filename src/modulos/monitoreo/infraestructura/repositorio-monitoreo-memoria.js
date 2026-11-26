@@ -418,6 +418,48 @@ export class RepositorioMonitoreoMemoria {
   }
 
   /**
+   * Transfiere un expediente individual a un colaborador autorizado para casos especiales.
+   * Devuelve una compensación para restaurar al responsable anterior si falla la bitácora.
+   * @param {{ aspiranteId: string, colaboradorDestino: string }} params
+   */
+  async transferirAspiranteManual({ aspiranteId, colaboradorDestino }) {
+    const id = String(aspiranteId ?? "").trim();
+    const destino = String(colaboradorDestino ?? "").trim();
+    const aspirante = this.aspirantes.find((a) => String(a.id) === id);
+    if (!aspirante) return null;
+
+    const colaboradorAnteriorOriginal = aspirante.colaboradorId ?? null;
+    const colaboradorAnterior = this.idInstitucionalDe(colaboradorAnteriorOriginal);
+    if (colaboradorAnterior === destino) {
+      return {
+        aspiranteId: aspirante.id,
+        campus: aspirante.campus,
+        nombreCompleto: aspirante.nombreCompleto ?? null,
+        colaboradorAnterior,
+        colaboradorDestino: destino,
+        transferido: false,
+        deshacer: async () => {},
+      };
+    }
+
+    aspirante.colaboradorId = destino;
+    let deshecho = false;
+    return {
+      aspiranteId: aspirante.id,
+      campus: aspirante.campus,
+      nombreCompleto: aspirante.nombreCompleto ?? null,
+      colaboradorAnterior,
+      colaboradorDestino: destino,
+      transferido: true,
+      deshacer: async () => {
+        if (deshecho) return;
+        aspirante.colaboradorId = colaboradorAnteriorOriginal;
+        deshecho = true;
+      },
+    };
+  }
+
+  /**
    * Registra un evento en el historial del aspirante (p. ej. al enviar un mensaje) (EQ-43).
    * @param {Partial<import('../dominio/repositorio-monitoreo.js').EventoHistorial>} evento
    * @returns {Promise<import('../dominio/repositorio-monitoreo.js').EventoHistorial>}

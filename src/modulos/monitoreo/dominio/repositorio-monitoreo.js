@@ -73,6 +73,7 @@
  * - contarAspirantesPorColaborador() → Promise<Record<string, number>>
  * - previsualizarAsignacion({ campus, carreras }) → Promise<Array<{ aspiranteId, carrera, colaboradorActual }>>
  * - reasignarAspirantes({ colaboradorId, campus, carreras }) → Promise<{ aspirantesIds, transferencias, deshacer() }>
+ * - transferirAspiranteManual({ aspiranteId, colaboradorDestino }) → Promise<{ transferencia, deshacer() }|null>
  */
 export const METODOS_REPOSITORIO_MONITOREO = Object.freeze([
   "obtenerFiltrosColaborador",
@@ -85,5 +86,6 @@ export const METODOS_REPOSITORIO_MONITOREO = Object.freeze([
   "contarAspirantesPorColaborador",
   "previsualizarAsignacion",
   "reasignarAspirantes",
+  "transferirAspiranteManual",
 ]);
 

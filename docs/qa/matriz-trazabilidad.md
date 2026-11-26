@@ -52,7 +52,9 @@ Los criterios 4 y 5 de HU 6 se construyen y se prueban en el Sprint 2, junto con
 |---|---|---|---|---|
 | **C4.** Marcar inactivo reasigna equitativamente la cartera a los activos del mismo campus | CP-HU6-16 Inactivar con respaldo reasigna y notifica | U, I, E2E | HU6-20, HU6-22 (ampliar) | Sprint 2 |
 | | CP-HU6-17 Si es el único activo del campus, se bloquea y pide registrar a otro antes | U, E2E | HU6-20, HU6-22 (ampliar) | Sprint 2 |
-| **C5.** Con la casilla de casos especiales se pueden transferir expedientes de otros campus | CP-HU6-18 La transferencia manual solo es posible hacia perfiles con la casilla activa | I, E2E | HU6-22 (ampliar) | Sprint 2 |
+| **C5.** Con la casilla de casos especiales se pueden transferir expedientes de otros campus | CP-HU6-18 La transferencia manual solo es posible hacia perfiles con la casilla activa | U, I, E2E | EQ-70 · `test/eq70-transferencia-manual.test.js` | Implementado en backend |
+| | CP-HU6-19 La transferencia solo acepta expedientes de un campus distinto al del colaborador destino | U | EQ-70 · `test/eq70-transferencia-manual.test.js` | Implementado en backend |
+| | CP-HU6-20 Si falla la bitácora, se restaura el responsable anterior | U | EQ-70 · `test/eq70-transferencia-manual.test.js` | Implementado en backend |
 
 ## HU 2: Monitoreo y filtrado de aspirantes
 

@@ -78,6 +78,8 @@ export function crearModuloMonitoreo(opciones = {}) {
     contarPorColaborador: () => repositorio.contarAspirantesPorColaborador(),
     previsualizarAsignacion: (params) => repositorio.previsualizarAsignacion(params),
     asignarCarreras: (params) => repositorio.reasignarAspirantes(params),
+    obtenerAspirantePorId: (id) => repositorio.obtenerAspirantePorId(id),
+    transferirAspiranteManual: (params) => repositorio.transferirAspiranteManual(params),
   });
 
   return {

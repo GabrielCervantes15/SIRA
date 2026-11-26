@@ -9,6 +9,7 @@ Módulo `src/modulos/colaboradores/` (esquema `usuarios`). Arquitectura hexagona
 | EQ-64 | HU6-17 | Paso 3: vista previa de la distribución (backend + frontend) |
 | EQ-59 | HU6-9 | Confirmar el registro en una transacción |
 | EQ-61 | HU6-14 | Consumir el evento del bus y enviar el correo (módulo `notificaciones`) |
+| EQ-70 | HU6-11 | Casos especiales: habilitar recepción y transferir expedientes de otros campus con bitácora |
 
 ```
 ColaboradoresControlador ─► casos de uso ─► IRepositorioColaboradores ─► Memoria | PostgreSQL (EQ-53)
@@ -54,7 +55,8 @@ Paso 1 del registro. Devuelve los datos de solo lectura del directorio, **nunca*
     "idInstitucional": "00000252115", "nombreCompleto": "Sebastián Bórquez Huerta",
     "correoInstitucional": "…", "telefono": "…", "fotoUrl": "…",
     "campus": "Campus Obregón Náinari", "carreras": ["Ingeniería en Software", "Licenciatura en Administración"],
-    "activo": true, "fechaRegistro": "2026-08-03T16:00:00.000Z", "totalAspirantes": 40
+    "activo": true, "casosEspeciales": false,
+    "fechaRegistro": "2026-08-03T16:00:00.000Z", "totalAspirantes": 40
   }],
   "total": 1,
   "campus": ["Campus Guaymas", "Campus Navojoa", "Campus Obregón Centro", "Campus Obregón Náinari"]
@@ -65,6 +67,67 @@ Paso 1 del registro. Devuelve los datos de solo lectura del directorio, **nunca*
 * `totalAspirantes` es la cartera completa del colaborador (todas sus carreras y campus), según Monitoreo.
 * Si el directorio no responde, el listado sale igual con `nombreCompleto`, `correoInstitucional`, `telefono` y `fotoUrl` en `null`.
 * `campus` es el catálogo completo, para los botones de filtro.
+* `casosEspeciales` indica si el colaborador puede recibir expedientes procedentes de otros campus. Por defecto es `false`.
+
+## `PATCH /api/v1/colaboradores/:id/casos-especiales` (EQ-70)
+
+Solo administrador. Activa o desactiva la casilla del perfil del colaborador.
+
+Cuerpo:
+
+```json
+{ "casosEspeciales": true }
+```
+
+Respuesta 200:
+
+```json
+{ "actualizado": true, "colaborador": { "idInstitucional": "00000252115", "casosEspeciales": true } }
+```
+
+* `casosEspeciales` debe ser booleano; no se aceptan cadenas como `"true"`.
+* La casilla inicia desactivada para todos los colaboradores existentes y nuevos.
+* Códigos: 400 `ID_INVALIDO` o `CASOS_ESPECIALES_INVALIDO`; 401 sin sesión; 403 si no es administrador; 404 `COLABORADOR_NO_ENCONTRADO`.
+
+## `POST /api/v1/colaboradores/transferencias-manuales` (EQ-70)
+
+Solo administrador. Transfiere un expediente de un campus diferente al campus base del colaborador destino.
+
+Cuerpo:
+
+```json
+{ "aspiranteId": "asp-003", "colaboradorDestino": "00000252115" }
+```
+
+Respuesta 200:
+
+```json
+{
+  "transferido": true,
+  "transferencia": {
+    "aspiranteId": "asp-003",
+    "nombreCompleto": "…",
+    "campusOrigen": "Campus Obregón Centro",
+    "colaboradorOrigen": "00000233231",
+    "colaboradorDestino": "00000252115",
+    "campusDestino": "Campus Obregón Náinari",
+    "motivo": "manual",
+    "realizadoPor": "00000100001",
+    "fechaTransferencia": "2026-11-25T18:00:00.000Z"
+  }
+}
+```
+
+Reglas:
+
+* El colaborador destino debe existir, estar `activo` y tener `casosEspeciales: true`.
+* El campus del expediente debe ser distinto al campus base del colaborador destino.
+* El identificador del expediente es el ID interno (`aspiranteId`), no el folio.
+* Se actualiza únicamente `aspirantes.aspirantes.colaborador_id`; el historial y la conversación siguen ligados al mismo aspirante y no se pierden.
+* Se registra una fila en `usuarios.bitacora_transferencia` con motivo `manual`, responsable anterior, responsable destino y administrador que ejecutó la acción.
+* Si la escritura de la bitácora falla, se intenta restaurar el responsable anterior. Si la bitácora no confirma todas las filas en PostgreSQL, la operación se considera fallida y se ejecuta la compensación.
+
+Códigos: 400 `ASPIRANTE_ID_INVALIDO` o `ID_INVALIDO`; 401 sin sesión; 403 si no es administrador; 404 `ASPIRANTE_NO_ENCONTRADO` o `COLABORADOR_DESTINO_NO_ENCONTRADO`; 409 `COLABORADOR_DESTINO_INACTIVO`, `COLABORADOR_SIN_CASOS_ESPECIALES` o `YA_ASIGNADO`; 422 `MISMO_CAMPUS`.
 
 ## `POST /api/v1/colaboradores/registro/vista-previa` (EQ-64)
 
@@ -133,6 +196,12 @@ Respuesta 201 (sin cambios respecto a la versión anterior en `servidor.js`, par
 
 En memoria, `transaccion` serializa las llamadas y restaura una instantánea si `fn` falla.
 En PostgreSQL usa un cliente del pool con `BEGIN` / `COMMIT` / `ROLLBACK`.
+
+### EQ-70: consistencia de la transferencia manual
+
+La transferencia manual modifica la cartera a través de la interfaz pública de Monitoreo y después registra el motivo `manual` en `usuarios.bitacora_transferencia`. Como los adaptadores pueden estar en esquemas/repositorios distintos, la aplicación conserva una función `deshacer()` para compensar el cambio de `colaborador_id` si falla la bitácora. En PostgreSQL el INSERT de bitácora usa `RETURNING` y valida que se haya insertado una fila por cada transferencia.
+
+La tabla `usuarios.usuario` requiere la columna `casos_especiales BOOLEAN NOT NULL DEFAULT FALSE`. Ejecutar `docker/postgres/migrations/06_casos_especiales_transferencias.sql` después de que exista la tabla `usuarios.usuario` creada por EQ-53. El administrador que ejecuta la transferencia y el colaborador destino deben existir en `usuarios.usuario`, como requiere la bitácora de EQ-53.
 
 ---
 

@@ -184,6 +184,63 @@ export class RepositorioMonitoreoPostgres {
   }
 
   /**
+   * Transfiere un expediente individual a un colaborador autorizado para casos especiales.
+   * La actualización y lectura del responsable anterior ocurren en una sola sentencia.
+   * @param {{ aspiranteId: string, colaboradorDestino: string }} params
+   */
+  async transferirAspiranteManual({ aspiranteId, colaboradorDestino }) {
+    const id = String(aspiranteId ?? "").trim();
+    const destino = String(colaboradorDestino ?? "").trim();
+    const { rows } = await this.db.query(
+      `WITH previo AS MATERIALIZED (
+         SELECT id, campus, nombre_completo, colaborador_id
+         FROM aspirantes.aspirantes
+         WHERE id = $1
+         FOR UPDATE
+       ), actualizado AS (
+         UPDATE aspirantes.aspirantes AS a
+         SET colaborador_id = $2, actualizado_en = CURRENT_TIMESTAMP
+         FROM previo AS p
+         WHERE a.id = p.id
+           AND a.colaborador_id IS DISTINCT FROM $2
+         RETURNING a.id
+       )
+       SELECT
+         p.id AS "aspiranteId",
+         p.campus,
+         p.nombre_completo AS "nombreCompleto",
+         p.colaborador_id AS "colaboradorAnterior",
+         EXISTS (SELECT 1 FROM actualizado) AS transferido
+       FROM previo AS p;`,
+      [id, destino]
+    );
+    if (!rows[0]) return null;
+
+    const fila = rows[0];
+    const resultado = {
+      aspiranteId: fila.aspiranteId,
+      campus: fila.campus,
+      nombreCompleto: fila.nombreCompleto ?? null,
+      colaboradorAnterior: this.idInstitucionalDe(fila.colaboradorAnterior),
+      colaboradorDestino: destino,
+      transferido: fila.transferido === true,
+    };
+
+    return {
+      ...resultado,
+      deshacer: async () => {
+        if (!resultado.transferido) return;
+        await this.db.query(
+          `UPDATE aspirantes.aspirantes
+           SET colaborador_id = $2, actualizado_en = CURRENT_TIMESTAMP
+           WHERE id = $1 AND colaborador_id = $3;`,
+          [id, fila.colaboradorAnterior, destino]
+        );
+      },
+    };
+  }
+
+  /**
    * Inserta un evento en aspirantes.historial_eventos (EQ-43). El id lo genera la BD.
    *
    * @param {Object} evento

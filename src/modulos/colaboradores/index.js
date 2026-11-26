@@ -6,6 +6,7 @@
  *   EQ-71 · HU6-12 listado de colaboradores por campus
  *   EQ-64 · HU6-17 vista previa de la distribución (paso 3)
  *   EQ-59 · HU6-9  confirmar el registro en una transacción
+ *   EQ-70 · HU6-11 transferir expedientes entre campus con autorización y bitácora
  */
 import { RepositorioColaboradoresMemoria } from "./infraestructura/repositorio-colaboradores-memoria.js";
 import { RepositorioColaboradoresPostgres } from "./infraestructura/repositorio-colaboradores-postgres.js";
@@ -13,6 +14,8 @@ import { ConsultarColaboradorCasoUso } from "./aplicacion/consultar-colaborador.
 import { ListarColaboradoresCasoUso } from "./aplicacion/listar-colaboradores.caso-uso.js";
 import { PrevisualizarDistribucionCasoUso } from "./aplicacion/previsualizar-distribucion.caso-uso.js";
 import { ConfirmarRegistroCasoUso, EVENTO_REGISTRO_CONFIRMADO } from "./aplicacion/confirmar-registro.caso-uso.js";
+import { ActualizarCasosEspecialesCasoUso } from "./aplicacion/actualizar-casos-especiales.caso-uso.js";
+import { TransferirAspiranteManualCasoUso } from "./aplicacion/transferir-aspirante-manual.caso-uso.js";
 import { ColaboradoresControlador } from "./infraestructura/controlador-colaboradores.js";
 import { crearEnrutadorColaboradores } from "./rutas.js";
 
@@ -64,12 +67,22 @@ export function crearModuloColaboradores({
     borradores,
     reloj,
   });
+  const actualizarCasosEspeciales = new ActualizarCasosEspecialesCasoUso({
+    repositorioColaboradores,
+  });
+  const transferirAspiranteManual = new TransferirAspiranteManualCasoUso({
+    repositorioColaboradores,
+    cartera,
+    reloj,
+  });
 
   const controlador = new ColaboradoresControlador({
     consultarColaborador,
     listarColaboradores,
     previsualizarDistribucion,
     confirmarRegistro,
+    actualizarCasosEspeciales,
+    transferirAspiranteManual,
   });
 
   return {
@@ -78,6 +91,8 @@ export function crearModuloColaboradores({
     listarColaboradores,
     previsualizarDistribucion,
     confirmarRegistro,
+    actualizarCasosEspeciales,
+    transferirAspiranteManual,
     controlador,
     enrutador: crearEnrutadorColaboradores({ controlador }),
   };
@@ -90,6 +105,8 @@ export {
   ListarColaboradoresCasoUso,
   PrevisualizarDistribucionCasoUso,
   ConfirmarRegistroCasoUso,
+  ActualizarCasosEspecialesCasoUso,
+  TransferirAspiranteManualCasoUso,
   EVENTO_REGISTRO_CONFIRMADO,
   ColaboradoresControlador,
   crearEnrutadorColaboradores,

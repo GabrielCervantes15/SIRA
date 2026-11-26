@@ -71,11 +71,15 @@ export class ColaboradoresControlador {
     listarColaboradores,
     previsualizarDistribucion,
     confirmarRegistro,
+    actualizarCasosEspeciales,
+    transferirAspiranteManual,
   }) {
     this.consultarColaborador = consultarColaborador;
     this.listarColaboradores = listarColaboradores;
     this.previsualizarDistribucion = previsualizarDistribucion;
     this.confirmarRegistro = confirmarRegistro;
+    this.actualizarCasosEspecialesCasoUso = actualizarCasosEspeciales;
+    this.transferirAspiranteManual = transferirAspiranteManual;
   }
 
   // EQ-55: consulta de perfil.
@@ -171,6 +175,36 @@ export class ColaboradoresControlador {
         error,
         "No se pudo confirmar el registro."
       );
+    }
+  }
+
+  // EQ-70: activar o desactivar la recepción de casos especiales.
+  async actualizarCasosEspeciales(req, res, _contexto, idCrudo) {
+    try {
+      let id;
+      try {
+        id = decodeURIComponent(idCrudo);
+      } catch {
+        return responder(res, 400, { codigo: "ID_INVALIDO", mensaje: "El ID no es válido." });
+      }
+      const cuerpo = await leerCuerpoJson(req);
+      const resultado = await this.actualizarCasosEspecialesCasoUso.ejecutar(id, cuerpo.casosEspeciales);
+      return responder(res, 200, resultado);
+    } catch (error) {
+      return responderError(res, error, "No se pudo actualizar la autorización de casos especiales.");
+    }
+  }
+
+  // EQ-70: transferencia manual de un expediente entre campus.
+  async transferirManual(req, res, contexto = {}) {
+    try {
+      const cuerpo = await leerCuerpoJson(req);
+      const resultado = await this.transferirAspiranteManual.ejecutar(cuerpo, {
+        administradorId: contexto.usuario?.idInstitucional ?? null,
+      });
+      return responder(res, 200, resultado);
+    } catch (error) {
+      return responderError(res, error, "No se pudo completar la transferencia manual del expediente.");
     }
   }
 }

@@ -72,6 +72,7 @@ export class ListarColaboradoresCasoUso {
           campus: c.campus,
           carreras: [...c.carreras],
           activo: c.estado === "activo",
+          casosEspeciales: c.casosEspeciales === true,
           fechaRegistro: c.fechaRegistro,
           totalAspirantes: conteo[c.idInstitucional] ?? 0,
         };

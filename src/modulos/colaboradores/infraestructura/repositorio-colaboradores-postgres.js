@@ -1,6 +1,6 @@
 /**
  * Repositorio de Colaboradores en PostgreSQL (esquema `usuarios`, tablas de EQ-53):
- *   usuarios.usuario (id, id_directorio, rol, estado, campus_id, created_at)
+ *   usuarios.usuario (id, id_directorio, rol, estado, campus_id, casos_especiales, created_at)
  *   usuarios.colaborador_carrera (usuario_id, carrera_id)
  *
  * Campus y carrera se guardan como ids de catálogo (SMALLINT). Como el catálogo
@@ -26,6 +26,7 @@ const SELECT_COLABORADOR = `
     u.rol,
     u.estado,
     u.campus_id AS "campusId",
+    u.casos_especiales AS "casosEspeciales",
     u.created_at AS "fechaRegistro",
     COALESCE(array_agg(cc.carrera_id ORDER BY cc.carrera_id) FILTER (WHERE cc.carrera_id IS NOT NULL), '{}') AS "carrerasIds"
   FROM usuarios.usuario u
@@ -56,6 +57,7 @@ export class RepositorioColaboradoresPostgres {
       estado: fila.estado,
       campus: fila.campusId == null ? null : await this.catalogoIds.nombreCampus(fila.campusId),
       carreras: await Promise.all((fila.carrerasIds ?? []).map((id) => this.catalogoIds.nombreCarrera(id))),
+      casosEspeciales: fila.casosEspeciales === true,
       fechaRegistro: new Date(fila.fechaRegistro).toISOString(),
     };
   }
@@ -90,6 +92,24 @@ export class RepositorioColaboradoresPostgres {
       [String(idInstitucional ?? "").trim()]
     );
     return rows.length > 0;
+  }
+
+  /**
+   * Activa o desactiva la recepción de expedientes de otros campus (HU6-11 / EQ-70).
+   * La columna casos_especiales se agrega con la migración 06_casos_especiales_transferencias.sql.
+   * @param {string} idInstitucional
+   * @param {boolean} habilitado
+   */
+  async actualizarCasosEspeciales(idInstitucional, habilitado) {
+    const id = String(idInstitucional ?? "").trim();
+    const { rows } = await this.db.query(
+      `UPDATE usuarios.usuario
+       SET casos_especiales = $2, updated_at = now()
+       WHERE id_directorio = $1 AND rol = 'colaborador'
+       RETURNING id_directorio AS "idInstitucional";`,
+      [id, habilitado === true]
+    );
+    return rows[0] ? this.obtenerPorId(id) : null;
   }
 
   async guardar(colaborador) {
@@ -158,6 +178,41 @@ export class RepositorioColaboradoresPostgres {
         registros.map((r) => r.realizadoPor),
       ]
     );
+  }
+
+  /**
+   * Registra una transferencia manual individual y verifica que la bitácora
+   * haya insertado exactamente una fila. Este método es exclusivo de EQ-70:
+   * no modifica el contrato usado por EQ-59 al confirmar altas.
+   *
+   * @param {import('../dominio/repositorio-colaboradores.js').RegistroTransferencia} registro
+   */
+  async registrarTransferenciaManual(registro) {
+    const { rows } = await this.db.query(
+      `INSERT INTO usuarios.bitacora_transferencia
+         (aspirante_id, colaborador_origen, colaborador_destino, motivo, realizado_por)
+       SELECT v.aspirante_id, origen.id, destino.id, v.motivo::usuarios.motivo_transferencia, autor.id
+       FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::text[])
+            AS v(aspirante_id, origen, destino, motivo, autor)
+       LEFT JOIN usuarios.usuario origen ON origen.id_directorio = v.origen
+       JOIN usuarios.usuario destino ON destino.id_directorio = v.destino
+       JOIN usuarios.usuario autor ON autor.id_directorio = v.autor
+       RETURNING aspirante_id;`,
+      [
+        [registro.aspiranteId],
+        [registro.colaboradorOrigen],
+        [registro.colaboradorDestino],
+        [registro.motivo],
+        [registro.realizadoPor],
+      ]
+    );
+    if (rows.length !== 1) {
+      throw new ErrorColaboradores(
+        500,
+        "BITACORA_INCOMPLETA",
+        "No se pudo registrar la bitácora de la transferencia manual. Verifica que el colaborador destino y el administrador existan en usuarios.usuario."
+      );
+    }
   }
 
   /**

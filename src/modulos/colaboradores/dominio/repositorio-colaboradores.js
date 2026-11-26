@@ -13,6 +13,7 @@
  * @property {"activo"|"inactivo"} estado
  * @property {string|null} campus
  * @property {string[]} carreras                 usuarios.colaborador_carrera
+ * @property {boolean} casosEspeciales            Autoriza recibir expedientes de otros campus (HU6-11).
  * @property {string} fechaRegistro              ISO 8601
  * @property {string|null} [registradoPor]       ID institucional del administrador
  */
@@ -28,7 +29,9 @@
  * - obtenerPorId(idInstitucional) → Promise<Colaborador|null>
  * - existe(idInstitucional) → Promise<boolean>   (activo o inactivo: ambos cuentan como registrado)
  * - guardar(colaborador) → Promise<Colaborador>  (lanza YA_REGISTRADO si el ID ya existe)
- * - registrarTransferencias(registros) → Promise<void>  (usuarios.bitacora_transferencia)
+ * - actualizarCasosEspeciales(idInstitucional, habilitado) → Promise<Colaborador|null>
+ * - registrarTransferencias(registros) → Promise<void>  (bitácora de asignaciones por alta/inactivación; EQ-59)
+ * - registrarTransferenciaManual(registro) → Promise<void> (bitácora estricta de transferencia manual; EQ-70)
  * - transaccion(fn) → Promise<T>                 (todo lo que haga fn se confirma o se revierte junto)
  */
 
@@ -46,6 +49,8 @@ export const METODOS_REPOSITORIO_COLABORADORES = Object.freeze([
   "obtenerPorId",
   "existe",
   "guardar",
+  "actualizarCasosEspeciales",
   "registrarTransferencias",
+  "registrarTransferenciaManual",
   "transaccion",
 ]);

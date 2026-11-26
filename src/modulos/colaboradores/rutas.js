@@ -33,6 +33,19 @@ export function crearEnrutadorColaboradores({ controlador }) {
       return true;
     }
 
+    // EQ-70: activar o desactivar la casilla de casos especiales del colaborador.
+    const casosEspeciales = ruta.match(/^\/([^/]+)\/casos-especiales$/);
+    if (casosEspeciales && req.method === "PATCH") {
+      await controlador.actualizarCasosEspeciales(req, res, contexto, casosEspeciales[1]);
+      return true;
+    }
+
+    // EQ-70: transferir manualmente un expediente de otro campus.
+    if (ruta === "/transferencias-manuales" && req.method === "POST") {
+      await controlador.transferirManual(req, res, contexto);
+      return true;
+    }
+
     // EQ-64: vista previa de distribución.
     if (ruta === "/registro/vista-previa" && req.method === "POST") {
       await controlador.vistaPrevia(req, res, contexto);
