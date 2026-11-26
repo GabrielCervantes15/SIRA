@@ -31,7 +31,9 @@ Requiere sesión (sin sesión, 401). La cartera siempre es la del usuario de la 
   "dentroDeHorario": false,
   "estadoHorario": { "permitido": false, "...": "..." },
   "mensajeHorario": "Fuera del horario…",
-  "mensajesEjemplo": ["¡Saludos Ana! …"]
+  "mensajesEjemplo": ["Hola, Ana. Tu proceso de ingreso a Ingeniería en Software todavía puede continuar. …"],
+  "sinDatosParaMensaje": 0,
+  "mensajeReactivacionDisponible": true
 }
 ```
 
@@ -56,9 +58,40 @@ Un aspirante aplica si cumple todo:
 - `SEMANAS`: se restan bloques exactos de 7 × 24 h.
 - `MESES`: se restan meses de calendario en UTC. Si el día no existe en el mes destino, se usa su último día (31 mar − 1 mes = 28 feb, o 29 en año bisiesto).
 
+## Mensaje (EQ-84)
+
+El texto sale del mensaje `reactivacion_hu1` del catálogo de HU8 (código: `src/modulos/disparo-automatico/mensaje-reactivacion.js`, pruebas: `test/eq84-mensaje-reactivacion.test.js`), con:
+
+- `{aspirante}`: campo `nombre` del aspirante o, si no lo tiene, la primera palabra de `nombreCompleto`.
+- `{carrera}`: `carreraSolicitada`.
+
+En la vista previa:
+
+- `mensajesEjemplo`: hasta 5 textos ya personalizados, sin repetir.
+- `sinDatosParaMensaje`: cuántos aplican al lote pero no recibirían mensaje por falta de una variable. Siguen contando en `total`.
+- `mensajeReactivacionDisponible`: `false` si el catálogo no tiene el mensaje de reactivación.
+
 ## Envío
 
-`POST /api/v1/disparo-mensajes/enviar` usa el mismo servicio, así que envía exactamente a quienes cuenta la vista previa. Con filtros inválidos responde 400 `FILTROS_INVALIDOS`.
+`POST /api/v1/disparo-mensajes/enviar` usa el mismo servicio, así que trabaja exactamente con quienes cuenta la vista previa. Con filtros inválidos responde 400 `FILTROS_INVALIDOS`.
+
+Antes de enviar arma el mensaje de cada aspirante (EQ-84):
+
+- Si el catálogo no tiene `reactivacion_hu1`, responde 409 `MENSAJE_REACTIVACION_NO_DISPONIBLE` y no envía nada.
+- Si a un aspirante le falta una variable, **no se le envía por ningún canal**. Se registra en su historial un evento `NOTA_SEGUIMIENTO` con el título «Mensaje automático no enviado» y el motivo, y se devuelve en `noEnviados`. El fallo no cambia su última actividad.
+
+```json
+{
+  "totalEnviados": 18,
+  "noEnviados": {
+    "total": 1,
+    "detalles": [
+      { "aspiranteId": "asp-016", "nombre": "asp-016", "codigo": "VARIABLE_FALTANTE", "faltantes": ["aspirante"], "motivo": "Falta «aspirante» del aspirante; el mensaje no se envió." }
+    ]
+  },
+  "correo": { "exitosos": 0, "fallidos": 0, "detalles": [] }
+}
+```
 
 ## Pendiente (fuera de EQ-81)
 
