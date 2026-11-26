@@ -18,10 +18,8 @@ import { crearModuloNotificaciones } from './modulos/notificaciones/index.js';
 import { crearBusEnMemoria } from './compartido/eventos/bus-en-memoria.js';
 import { crearRepositorioConfiguracionEnvio, validarConfiguracion } from './modulos/configuracion-envio/configuracion-envio.js';
 import { crearModuloCatalogoMensajes } from './modulos/mensajes-ia/index.js';
-import {
-  generarMensajePersonalizado,
-  intentarEnvioCorreo,
-} from './modulos/disparo-automatico/disparo-automatico.js';
+import { intentarEnvioCorreo } from './modulos/disparo-automatico/disparo-automatico.js';
+import { crearGeneradorMensajeReactivacion, ErrorMensajeReactivacion, TITULO_FALLO } from './modulos/disparo-automatico/mensaje-reactivacion.js';
 import { crearServicioVistaPreviaLote } from './modulos/disparo-automatico/vista-previa-lote.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -195,6 +193,10 @@ export function crearServidor(opciones = {}) {
     repositorioMonitoreo: moduloMonitoreo.repositorio,
     interfazLecturaConfiguracion: moduloMensajes.interfazLectura,
     reloj: obtenerFechaReloj,
+  });
+  // EQ-84 (HU1-8): texto del lote desde el mensaje de reactivación del catálogo de HU8.
+  const generadorMensajeReactivacion = opciones.generadorMensajeReactivacion || crearGeneradorMensajeReactivacion({
+    repositorioCatalogo: moduloCatalogoMensajes.repositorio,
   });
   const repositorioConfiguracionEnvio = opciones.repositorioConfiguracionEnvio || crearRepositorioConfiguracionEnvio();
   const historialMonitoreo = Array.isArray(opciones.historialMonitoreo) ? opciones.historialMonitoreo : null;
@@ -606,6 +608,21 @@ export function crearServidor(opciones = {}) {
         });
         const estadoHorario = validadorHorarioEnvio.obtenerEstadoHorario();
 
+        // EQ-84: ejemplos con el mensaje de reactivación ya personalizado; cuenta a quienes les falta un dato.
+        let mensajesEjemplo = [];
+        let sinDatosParaMensaje = 0;
+        let mensajeReactivacionDisponible = true;
+        if (vista.valido && vista.elegibles.length > 0) {
+          try {
+            const personalizados = await generadorMensajeReactivacion.personalizarLote(vista.elegibles);
+            mensajesEjemplo = [...new Set(personalizados.filter((p) => p.enviable).map((p) => p.texto))].slice(0, 5);
+            sinDatosParaMensaje = personalizados.filter((p) => !p.enviable).length;
+          } catch (error) {
+            if (!(error instanceof ErrorMensajeReactivacion)) throw error;
+            mensajeReactivacionDisponible = false;
+          }
+        }
+
         // Con filtros inválidos responde 200 y valido:false: el modal usa las opciones para pintarse.
         return responderJson(res, 200, {
           valido: vista.valido,
@@ -619,7 +636,9 @@ export function crearServidor(opciones = {}) {
           mensajeHorario: estadoHorario.mensaje,
           total: vista.total,
           excluidos: vista.excluidos,
-          mensajesEjemplo: [...new Set(vista.elegibles.map(generarMensajePersonalizado))].slice(0, 5),
+          mensajesEjemplo,
+          sinDatosParaMensaje,
+          mensajeReactivacionDisponible,
         });
       }
 
@@ -660,18 +679,48 @@ export function crearServidor(opciones = {}) {
 
         const instanteServidor = obtenerFechaReloj();
         const elegibles = vista.elegibles;
+
+        // EQ-84: arma el mensaje de cada aspirante antes de enviar nada.
+        let personalizados;
+        try {
+          personalizados = await generadorMensajeReactivacion.personalizarLote(elegibles);
+        } catch (error) {
+          if (error instanceof ErrorMensajeReactivacion) {
+            return responderJson(res, error.status, { codigo: error.codigo, mensaje: error.message });
+          }
+          throw error;
+        }
         if (elegibles.length === 0) {
           return responderJson(res, 400, { codigo: 'SIN_ASPIRANTES', mensaje: 'No hay aspirantes que cumplan las condiciones de ese lote.' });
         }
 
         const resultado = {
           totalEnviados: 0,
+          noEnviados: { total: 0, detalles: [] },
           correo: { exitosos: 0, fallidos: 0, detalles: [] },
           estadoHorario,
         };
         const ahoraIso = instanteServidor.toISOString();
-        for (const aspirante of elegibles) {
-          const mensaje = generarMensajePersonalizado(aspirante);
+        for (const personalizado of personalizados) {
+          const { aspirante } = personalizado;
+
+          // EQ-84: si falta una variable, no se envía por ningún canal y se registra el fallo.
+          if (!personalizado.enviable) {
+            const fallo = {
+              id: `h-mia-fallo-${aspirante.id}-${instanteServidor.getTime()}`, aspiranteId: aspirante.id, tipoEvento: 'NOTA_SEGUIMIENTO',
+              titulo: TITULO_FALLO, detalle: personalizado.motivo, motivoRechazo: null,
+              autorTipo: 'SISTEMA', fechaEvento: ahoraIso,
+            };
+            await moduloMonitoreo.repositorio.registrarActividad?.(fallo);
+            if (historialMonitoreo) historialMonitoreo.push(fallo);
+            resultado.noEnviados.total += 1;
+            resultado.noEnviados.detalles.push({
+              aspiranteId: aspirante.id, nombre: aspirante.nombreCompleto || aspirante.id,
+              codigo: personalizado.codigo, faltantes: personalizado.faltantes, motivo: personalizado.motivo,
+            });
+            continue;
+          }
+          const mensaje = personalizado.texto;
 
           // Canal principal (simulado, igual que el resto del chat): se registra en conversaciones e historial.
           moduloMonitoreo.repositorio.conversaciones.push({

@@ -21,6 +21,15 @@
       "mensaje": "Hola {aspirante}. Tu proceso va muy bien. Quedan 2 semanas para el cierre del periodo; revisa que todos tus datos estén completos en el portal." },
     { "id": "env-010", "categoria": "ENVIO", "llaves": [{ "tipo": "Estatus", "valor": "Sin contacto previo" }],
       "mensaje": "¡Hola {aspirante}! Somos ITSON. Queremos darte la bienvenida a tu proceso de admisión y resolver cualquier duda que tengas desde el inicio." },
+    { "id": "reactivacion_hu1", "categoria": "ENVIO", "nombre": "Reactivación de HU1", "disparador": "LOTE_HU1",
+      "requierePlantillaMeta": true, "plantillaMeta": { "referencia": "reactivacion_hu1", "estado": "PENDIENTE" },
+      "llaves": [{ "tipo": "Lote", "valor": "Reactivación HU1" }],
+      "reglas": [
+        "Texto aprobado por el PO el 18/11/2026 (EQ-93, docs/decisiones/HU8-catalogo-mensajes.md §4.4); es el mismo de la plantilla de Meta (EQ-79).",
+        "Lo envía el lote de reactivación de HU1 a los aspirantes que cumplen las reglas de EQ-77.",
+        "Si falta el nombre o la carrera del aspirante, no se envía y se registra el fallo (EQ-84)."
+      ],
+      "mensaje": "Hola, {aspirante}. Tu proceso de ingreso a {carrera} todavía puede continuar. ¿Necesitas ayuda para completar tus siguientes pasos?\n\nResponde a este mensaje y con gusto te orientaremos." },
 
     { "id": "res-001", "categoria": "RESPUESTA", "llaves": [{ "tipo": "FAQ", "valor": "¿Dónde entrego mi certificado?" }],
       "mensaje": "El certificado de preparatoria debe entregarse en el módulo de Registro Escolar. En Ciudad Obregón, Registro Escolar se ubica en Campus Náinari, justo en frente de la explanada." },

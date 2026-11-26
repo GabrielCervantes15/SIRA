@@ -4,8 +4,11 @@ Módulo `src/modulos/mensajes-ia/` (esquema `mensajes`).
 
 **Fuente de datos:** `datos-semilla/mensajes-ia.json`, el catálogo de Gabriel (EQ-98/99): el mismo que
 muestra la pantalla de Mensajes y que usa el envío de HU 1. Por decisión del equipo se conserva este
-catálogo y la pantalla de Gabriel; el catálogo de EQ-93 (`docs/decisiones/HU8-catalogo-mensajes.md`)
-**no** está cargado. Si el PO pide que se use el de EQ-93, basta con reemplazar el JSON y regenerar la semilla SQL.
+catálogo y la pantalla de Gabriel; del catálogo de EQ-93 (`docs/decisiones/HU8-catalogo-mensajes.md`)
+solo se cargó el mensaje de **reactivación de HU1** (`reactivacion_hu1`, §4.4, texto aprobado por el PO),
+porque lo usa el lote de HU1 (EQ-84) y es el texto de la plantilla de Meta (EQ-79). En total son 21 mensajes:
+11 de envío y 10 de respuesta. Tras editar el JSON hay que regenerar la semilla SQL
+(`node scripts/generar-semilla-catalogo-mensajes.js`).
 
 | Tarea | Historia | Qué cubre |
 |---|---|---|
@@ -37,8 +40,9 @@ Cada mensaje de `mensajes-ia.json` trae `{ id, categoria, llaves, mensaje }` (id
 
 Si un mensaje sí trae `nombre`, `reglas`, etc., se respetan.
 
-**Variables:** `{aspirante}` (nombre del aspirante), `{valor}` y `{magnitud}` (tiempo sin actividad,
-p. ej. «3 días»). También se acepta la forma `{{variable}}`.
+**Variables:** `{aspirante}` (nombre del aspirante), `{carrera}` (carrera solicitada), `{valor}` y
+`{magnitud}` (tiempo sin actividad, p. ej. «3 días»). También se acepta la forma `{{variable}}`.
+`{aspirante}` equivale a `{{nombre}}` del texto aprobado en EQ-93.
 
 ---
 
@@ -55,10 +59,10 @@ p. ej. «3 días»). También se acepta la forma `{{variable}}`.
 ```json
 {
   "categoria": "ENVIO",
-  "totalGeneral": 20,
-  "totalCategoria": 10,
+  "totalGeneral": 21,
+  "totalCategoria": 11,
   "categorias": {
-    "ENVIO": 10,
+    "ENVIO": 11,
     "RESPUESTA": 10
   },
   "pagina": 1,
@@ -92,10 +96,10 @@ p. ej. «3 días»). También se acepta la forma `{{variable}}`.
 `totalGeneral`, `totalCategoria`, `pagina`, `tamano`, `datos[].llaves` y `datos[].mensaje` son los
 campos que usa la pantalla de Mensajes (EQ-98/99); se conservan. Orden: el del archivo, dentro de la categoría.
 
-## `GET /api/v1/mensajes-ia/:id?aspirante=&valor=&magnitud=` (EQ-97)
+## `GET /api/v1/mensajes-ia/:id?aspirante=&carrera=&valor=&magnitud=` (EQ-97)
 
-Detalle de un mensaje. `aspirante`, `valor` y `magnitud` son opcionales y solo cambian la **vista previa**
-(máximo 80 caracteres; sin ellos se usan los ejemplos «Ana», «3» y «días»).
+Detalle de un mensaje. `aspirante`, `carrera`, `valor` y `magnitud` son opcionales y solo cambian la **vista previa**
+(máximo 80 caracteres; sin ellos se usan los ejemplos «Ana», «Ingeniería en Software», «3» y «días»).
 
 ```json
 {
@@ -142,6 +146,7 @@ Detalle de un mensaje. `aspirante`, `valor` y `magnitud` son opcionales y solo c
       "texto": "¡Hola Ana! Han pasado 3 días desde la última vez que te cont …",
       "valores": {
         "aspirante": "Ana",
+        "carrera": "Ingeniería en Software",
         "valor": "3",
         "magnitud": "días"
       }
@@ -154,7 +159,7 @@ Detalle de un mensaje. `aspirante`, `valor` y `magnitud` son opcionales y solo c
 | Código | `codigo` | Cuándo |
 |---|---|---|
 | 400 | `ID_INVALIDO` | El id no es de minúsculas, números, `_` y `-` (3 a 60). |
-| 400 | `VALOR_DEMASIADO_LARGO` | `aspirante`, `valor` o `magnitud` de más de 80 caracteres. |
+| 400 | `VALOR_DEMASIADO_LARGO` | `aspirante`, `carrera`, `valor` o `magnitud` de más de 80 caracteres. |
 | 404 | `NO_ENCONTRADO` | No existe el mensaje. |
 
 La vista previa nunca deja `{{variable}}` sin sustituir: si faltara un valor, `renderizarPlantilla`
@@ -169,7 +174,7 @@ lanza `VARIABLE_FALTANTE` (lo reutilizará EQ-84 para personalizar los envíos d
 | Tabla | Contenido |
 |---|---|
 | `mensajes.catalogo_mensaje` | id, categoría, nombre, orden, grupo, pregunta, disparador, canal, plantilla de Meta, texto, activo |
-| `mensajes.catalogo_variable` | variables del texto (`aspirante`, `valor`, `magnitud`) |
+| `mensajes.catalogo_variable` | variables del texto (`aspirante`, `carrera`, `valor`, `magnitud`) |
 | `mensajes.catalogo_llave` | llaves que se muestran en la lista |
 | `mensajes.catalogo_regla` | reglas de negocio, en orden |
 
@@ -192,3 +197,18 @@ agregar las demás es una decisión del equipo.
 
 `RepositorioCatalogoPostgres` implementa el mismo puerto que el de memoria; el servidor sigue usando
 el de memoria en este sprint.
+
+## Mensaje de reactivación de HU1 (EQ-84)
+
+| Campo | Valor |
+|---|---|
+| `id` | `reactivacion_hu1` |
+| `disparador` | `LOTE_HU1` |
+| `requierePlantillaMeta` | `true`; `plantillaMeta`: `{ "referencia": "reactivacion_hu1", "estado": "PENDIENTE" }` (EQ-79 lo cambia al aprobarse) |
+| Variables | `{aspirante}`, `{carrera}` |
+
+El lote de HU1 lo lee con `obtenerPorId("reactivacion_hu1")`. Si no está en el catálogo, el envío responde
+409 `MENSAJE_REACTIVACION_NO_DISPONIBLE` y no envía nada. Ver `docs/contratos/hu1-vista-previa-lote.md`.
+
+> La migración 05 acepta `carrera` en `mensajes.catalogo_variable`. Si alguien ya la había aplicado en su
+> base local, debe volver a crearla (o ajustar el `CHECK` de `nombre`) antes de cargar la semilla nueva.

@@ -6,7 +6,8 @@
  * no trae (nombre, pregunta, disparador y reglas a partir de las llaves).
  *
  * El catálogo es de SOLO LECTURA para Administrador y Colaborador.
- * Variables: {aspirante}, {valor} y {magnitud} (también se acepta la forma {{variable}}).
+ * Variables: {aspirante}, {carrera}, {valor} y {magnitud} (también se acepta la forma {{variable}}).
+ * {aspirante} equivale a {{nombre}} del texto aprobado de reactivación (EQ-93 §4.4).
  */
 
 export const CATEGORIAS = Object.freeze(["ENVIO", "RESPUESTA"]);
@@ -16,12 +17,13 @@ export const ESTADOS_PLANTILLA_META = Object.freeze(["PENDIENTE", "ENVIADA", "AP
 /** Descripción de cada variable permitida en los textos. */
 export const VARIABLES = Object.freeze({
   aspirante: "Nombre del aspirante",
+  carrera: "Carrera solicitada por el aspirante",
   valor: "Cantidad de tiempo sin actividad",
   magnitud: "Unidad de ese tiempo (días, semanas…)",
 });
 
 /** Valores de ejemplo para la vista previa cuando no se indica otro. */
-export const VALORES_EJEMPLO = Object.freeze({ aspirante: "Ana", valor: "3", magnitud: "días" });
+export const VALORES_EJEMPLO = Object.freeze({ aspirante: "Ana", carrera: "Ingeniería en Software", valor: "3", magnitud: "días" });
 
 /** Acepta {variable} y {{variable}}. */
 const PATRON_VARIABLE = /\{\{?\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}?/g;

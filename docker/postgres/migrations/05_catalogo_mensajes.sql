@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS mensajes.catalogo_mensaje (
 
 CREATE TABLE IF NOT EXISTS mensajes.catalogo_variable (
   mensaje_id  VARCHAR(60) NOT NULL REFERENCES mensajes.catalogo_mensaje(id) ON DELETE CASCADE,
-  nombre      VARCHAR(30) NOT NULL CHECK (nombre IN ('aspirante', 'valor', 'magnitud')),
+  nombre      VARCHAR(30) NOT NULL CHECK (nombre IN ('aspirante', 'carrera', 'valor', 'magnitud')),
   orden       SMALLINT    NOT NULL,
   PRIMARY KEY (mensaje_id, nombre)
 );

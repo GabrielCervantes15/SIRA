@@ -73,11 +73,18 @@ test('[EQ-95] la semilla de mensajes-ia.json es válida y el adaptador no altera
     const original = CRUDA.find((x) => x.id === m.id);
     assert.equal(m.texto, original.mensaje, `${m.id}: el texto no se altera`);
     assert.deepEqual(m.llaves, original.llaves, `${m.id}: las llaves no se alteran`);
-    assert.ok(m.nombre && m.reglas.length === m.llaves.length, `${m.id}: nombre y una regla por llave`);
+    // Sin reglas propias, el adaptador genera una regla por llave.
+    assert.ok(m.nombre && m.reglas.length === (original.reglas?.length ?? m.llaves.length), `${m.id}: nombre y reglas`);
   }
   assert.equal(porId['res-001'].pregunta, CRUDA.find((x) => x.id === 'res-001').llaves[0].valor);
   assert.equal(porId['res-001'].disparador, 'RESPUESTA');
   assert.equal(porId['env-004'].variables.join(), 'aspirante,valor,magnitud');
+  // EQ-84: el mensaje de reactivación aprobado (EQ-93 §4.4) usa nombre y carrera.
+  const reactivacion = porId['reactivacion_hu1'];
+  assert.equal(reactivacion.variables.join(), 'aspirante,carrera');
+  assert.equal(reactivacion.disparador, 'LOTE_HU1');
+  assert.deepEqual(reactivacion.plantillaMeta, { referencia: 'reactivacion_hu1', estado: 'PENDIENTE' });
+  assert.match(reactivacion.texto, /^Hola, \{aspirante\}\. Tu proceso de ingreso a \{carrera\} todavía puede continuar\./);
   assert.deepEqual(SEMILLA.filter((m) => m.categoria === 'ENVIO').map((m) => m.orden), ids('ENVIO').map((_, i) => i + 1));
 });
 

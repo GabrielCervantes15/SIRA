@@ -8,7 +8,7 @@
 
 BEGIN;
 
-DELETE FROM mensajes.catalogo_mensaje WHERE id IN ('env-001', 'env-002', 'env-003', 'env-004', 'env-005', 'env-006', 'env-007', 'env-008', 'env-009', 'env-010', 'res-001', 'res-002', 'res-003', 'res-004', 'res-005', 'res-006', 'res-007', 'res-008', 'res-009', 'res-010');
+DELETE FROM mensajes.catalogo_mensaje WHERE id IN ('env-001', 'env-002', 'env-003', 'env-004', 'env-005', 'env-006', 'env-007', 'env-008', 'env-009', 'env-010', 'reactivacion_hu1', 'res-001', 'res-002', 'res-003', 'res-004', 'res-005', 'res-006', 'res-007', 'res-008', 'res-009', 'res-010');
 
 INSERT INTO mensajes.catalogo_mensaje (id, categoria, nombre, orden, grupo, pregunta, disparador, canal, requiere_plantilla_meta, plantilla_meta_referencia, plantilla_meta_estado, texto)
 VALUES ('env-001', 'ENVIO', 'Rojo · Sin documentos entregados', 1, NULL, NULL, 'AUTOMATICO', 'WHATSAPP', FALSE, NULL, NULL, '¡Saludos {aspirante}! Estamos muy contentos de que desees formar parte de esta universidad. Te recordamos que debes entregar tu kardex oficial de calificaciones y tu certificado de preparatoria para completar tu proceso de admisión.');
@@ -87,6 +87,17 @@ VALUES ('env-010', 'ENVIO', 'Sin contacto previo', 10, NULL, NULL, 'AUTOMATICO',
 INSERT INTO mensajes.catalogo_variable (mensaje_id, nombre, orden) VALUES ('env-010', 'aspirante', 1);
 INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('env-010', 1, 'Estatus', 'Sin contacto previo');
 INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('env-010', 1, 'Aplica cuando estatus es «Sin contacto previo».');
+
+INSERT INTO mensajes.catalogo_mensaje (id, categoria, nombre, orden, grupo, pregunta, disparador, canal, requiere_plantilla_meta, plantilla_meta_referencia, plantilla_meta_estado, texto)
+VALUES ('reactivacion_hu1', 'ENVIO', 'Reactivación de HU1', 11, NULL, NULL, 'LOTE_HU1', 'WHATSAPP', TRUE, 'reactivacion_hu1', 'PENDIENTE', 'Hola, {aspirante}. Tu proceso de ingreso a {carrera} todavía puede continuar. ¿Necesitas ayuda para completar tus siguientes pasos?
+
+Responde a este mensaje y con gusto te orientaremos.');
+INSERT INTO mensajes.catalogo_variable (mensaje_id, nombre, orden) VALUES ('reactivacion_hu1', 'aspirante', 1);
+INSERT INTO mensajes.catalogo_variable (mensaje_id, nombre, orden) VALUES ('reactivacion_hu1', 'carrera', 2);
+INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('reactivacion_hu1', 1, 'Lote', 'Reactivación HU1');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('reactivacion_hu1', 1, 'Texto aprobado por el PO el 18/11/2026 (EQ-93, docs/decisiones/HU8-catalogo-mensajes.md §4.4); es el mismo de la plantilla de Meta (EQ-79).');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('reactivacion_hu1', 2, 'Lo envía el lote de reactivación de HU1 a los aspirantes que cumplen las reglas de EQ-77.');
+INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('reactivacion_hu1', 3, 'Si falta el nombre o la carrera del aspirante, no se envía y se registra el fallo (EQ-84).');
 
 INSERT INTO mensajes.catalogo_mensaje (id, categoria, nombre, orden, grupo, pregunta, disparador, canal, requiere_plantilla_meta, plantilla_meta_referencia, plantilla_meta_estado, texto)
 VALUES ('res-001', 'RESPUESTA', '¿Dónde entrego mi certificado?', 1, NULL, '¿Dónde entrego mi certificado?', 'RESPUESTA', 'WHATSAPP', FALSE, NULL, NULL, 'El certificado de preparatoria debe entregarse en el módulo de Registro Escolar. En Ciudad Obregón, Registro Escolar se ubica en Campus Náinari, justo en frente de la explanada.');

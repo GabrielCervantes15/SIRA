@@ -519,6 +519,12 @@ async function enviarDisparo() {
     resumen.hidden = false;
     resumen.classList.toggle("con-errores", r.correo.fallidos > 0);
     let texto = `Se notificó a ${r.totalEnviados} aspirante(s).`;
+    // EQ-84: a quien le falta nombre o carrera no se le envía; se avisa aquí.
+    if (r.noEnviados?.total > 0) {
+      resumen.classList.add("con-errores");
+      texto += ` No se envió a ${r.noEnviados.total} por datos faltantes: `
+        + r.noEnviados.detalles.map((d) => `${d.nombre} (${d.faltantes.join(", ")})`).join("; ") + ".";
+    }
     if (filtros.enviarPorCorreo) {
       texto += ` Correo: ${r.correo.exitosos} enviados, ${r.correo.fallidos} fallidos.`;
       if (r.correo.detalles.length) texto += " " + r.correo.detalles.map((d) => `${d.nombre} (${d.motivo})`).join("; ") + ".";
