@@ -429,7 +429,13 @@ async function cargarMensajesIA() {
 
 // ---------- HU 1 (EQ-86, EQ-88, EQ-89): disparo de mensajes automáticos ----------
 
-const estadoDisparo = { carreras: new Set(), inactividadUnidad: "DIAS" };
+const estadoDisparo = { carreras: new Set(), inactividadUnidad: "DIAS", claveIdempotencia: null };
+
+// EQ-83: una clave por intento de envío. Se conserva si la petición falla (el reintento
+// no crea otro lote) y se descarta cuando cambian los filtros o el envío termina.
+function nuevaClaveDisparo() {
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
+}
 
 function semaforosSeleccionados() {
   return [...document.querySelectorAll(".disparo-semaforo:checked")].map((c) => c.value);
@@ -470,6 +476,7 @@ function pintarCarrerasDisparo(carreras) {
 }
 
 async function actualizarVistaPreviaDisparo() {
+  estadoDisparo.claveIdempotencia = null;
   const filtros = filtrosDisparoActuales();
   try {
     const r = await api.disparoMensajes.vistaPrevia(filtros);
@@ -512,13 +519,16 @@ async function enviarDisparo() {
   if (!window.confirm(`¿Confirmas enviar el mensaje automático a ${$("disparo-conteo").textContent}?`)) return;
 
   $("disparo-enviar").disabled = true;
+  estadoDisparo.claveIdempotencia ??= nuevaClaveDisparo();
   try {
-    const r = await api.disparoMensajes.enviar(filtros);
+    const r = await api.disparoMensajes.enviar(filtros, estadoDisparo.claveIdempotencia);
+    estadoDisparo.claveIdempotencia = null;
     $("disparo-cuerpo").hidden = true;
     const resumen = $("disparo-resultado");
     resumen.hidden = false;
     resumen.classList.toggle("con-errores", r.correo.fallidos > 0);
     let texto = `Se notificó a ${r.totalEnviados} aspirante(s).`;
+    if (r.repetido) texto = `Este lote ya se había enviado: se notificó a ${r.totalEnviados} aspirante(s).`;
     // EQ-84: a quien le falta nombre o carrera no se le envía; se avisa aquí.
     if (r.noEnviados?.total > 0) {
       resumen.classList.add("con-errores");
@@ -557,6 +567,7 @@ function configurarEventos() {
   }
   $("disparo-inactividad-valor").addEventListener("input", actualizarVistaPreviaDisparo);
   $("disparo-inactividad-unidad").addEventListener("change", actualizarVistaPreviaDisparo);
+  $("disparo-enviar-correo").addEventListener("change", () => { estadoDisparo.claveIdempotencia = null; });
 
   for (const boton of document.querySelectorAll(".orden")) {
     boton.addEventListener("click", () => {

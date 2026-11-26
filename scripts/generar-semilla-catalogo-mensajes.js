@@ -16,7 +16,15 @@ if (errores.length) {
   process.exit(1);
 }
 
-const lit = (v) => (v == null ? 'NULL' : `'${String(v).replaceAll("'", "''")}'`);
+// Los textos con saltos de línea van como E'…\n…': así la semilla no lleva saltos dentro de
+// las comillas y no cambia si Git convierte el archivo a CRLF en Windows.
+const lit = (v) => {
+  if (v == null) return 'NULL';
+  const texto = String(v);
+  if (!/[\r\n]/.test(texto)) return `'${texto.replaceAll("'", "''")}'`;
+  const escapado = texto.replaceAll('\\', '\\\\').replaceAll("'", "''").replaceAll('\r', '\\r').replaceAll('\n', '\\n');
+  return `E'${escapado}'`;
+};
 const lineas = [
   '-- =========================================================================',
   '-- HU 8 · EQ-95: semilla del catálogo de mensajes (EQ-98/99).',

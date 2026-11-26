@@ -18,7 +18,10 @@ import { crearModuloNotificaciones } from './modulos/notificaciones/index.js';
 import { crearBusEnMemoria } from './compartido/eventos/bus-en-memoria.js';
 import { crearRepositorioConfiguracionEnvio, validarConfiguracion } from './modulos/configuracion-envio/configuracion-envio.js';
 import { crearModuloCatalogoMensajes } from './modulos/mensajes-ia/index.js';
-import { intentarEnvioCorreo } from './modulos/disparo-automatico/disparo-automatico.js';
+import { CrearLoteEnvioCasoUso } from './modulos/disparo-automatico/aplicacion/crear-lote-envio.caso-uso.js';
+import { ErrorLoteEnvio } from './modulos/disparo-automatico/dominio/lote-envio.js';
+import { RepositorioLotesMemoria } from './modulos/disparo-automatico/infraestructura/repositorio-lotes-memoria.js';
+import { conectarConsumidorEnvioSimulado } from './modulos/disparo-automatico/infraestructura/consumidor-envio-simulado.js';
 import { crearGeneradorMensajeReactivacion, ErrorMensajeReactivacion, TITULO_FALLO } from './modulos/disparo-automatico/mensaje-reactivacion.js';
 import { crearServicioVistaPreviaLote } from './modulos/disparo-automatico/vista-previa-lote.js';
 
@@ -200,6 +203,36 @@ export function crearServidor(opciones = {}) {
   });
   const repositorioConfiguracionEnvio = opciones.repositorioConfiguracionEnvio || crearRepositorioConfiguracionEnvio();
   const historialMonitoreo = Array.isArray(opciones.historialMonitoreo) ? opciones.historialMonitoreo : null;
+
+  // EQ-83 (HU1-7): lote de envío. Los eventos los atiende, por ahora, el consumidor simulado
+  // (mismo comportamiento que antes); EQ-85 conecta WhatsApp real en su lugar.
+  const repositorioLotes = opciones.repositorioLotes || new RepositorioLotesMemoria();
+  const crearLoteEnvio = new CrearLoteEnvioCasoUso({
+    repositorioLotes,
+    servicioVistaPreviaLote,
+    generadorMensaje: generadorMensajeReactivacion,
+    validadorHorario: validadorHorarioEnvio,
+    bus: busEventos,
+    reloj: obtenerFechaReloj,
+    obtenerNombreAspirante: async (id) => (await moduloMonitoreo.repositorio.obtenerAspirantePorId?.(id))?.nombreCompleto ?? null,
+    // EQ-84: a quien le falta un dato del mensaje se le deja nota en su historial.
+    alRegistrarNoEnviables: async (envios, lote) => {
+      const vistos = new Set();
+      for (const envio of envios) {
+        if (envio.codigoMotivo !== 'VARIABLE_FALTANTE' || vistos.has(envio.aspiranteId)) continue;
+        vistos.add(envio.aspiranteId);
+        const fallo = {
+          id: `h-mia-fallo-${lote.id}-${envio.aspiranteId}`, aspiranteId: envio.aspiranteId, tipoEvento: 'NOTA_SEGUIMIENTO',
+          titulo: TITULO_FALLO, detalle: envio.motivo, motivoRechazo: null, autorTipo: 'SISTEMA', fechaEvento: lote.creadoEn,
+        };
+        await moduloMonitoreo.repositorio.registrarActividad?.(fallo);
+        if (historialMonitoreo) historialMonitoreo.push(fallo);
+      }
+    },
+  });
+  if (opciones.simularEnvios !== false) {
+    conectarConsumidorEnvioSimulado({ bus: busEventos, repositorioMonitoreo: moduloMonitoreo.repositorio, historialMonitoreo });
+  }
 
   function obtenerSesion(req) {
     const token = cookiesDe(req)[COOKIE_NAME];
@@ -651,106 +684,24 @@ export function crearServidor(opciones = {}) {
 
         const cuerpo = await leerCuerpo(req);
 
-        // EQ-82 (HU1-6): Validar horario vigente en el servidor mediante HU9-4
-        // usando exclusivamente el reloj del servidor (ignorando fechas/horas del cliente).
-        let estadoHorario;
+        // EQ-83 (HU1-7): crea el lote en una transacción y publica un evento por aspirante y canal.
+        // El horario (EQ-82) se valida con el reloj del servidor; nunca con fechas del cliente.
         try {
-          estadoHorario = validadorHorarioEnvio.validarEnvioPermitido();
-        } catch (errorHorario) {
-          if (errorHorario instanceof ErrorFueraDeHorarioPermitido || errorHorario?.codigo === 'FUERA_DE_HORARIO_PERMITIDO') {
-            return responderJson(res, errorHorario.status || 409, {
-              codigo: errorHorario.codigo,
-              mensaje: errorHorario.message,
-              detalle: errorHorario.detalle,
-            });
-          }
-          throw errorHorario;
-        }
-
-        // EQ-81: mismas reglas que la vista previa (cartera de la sesión, sin verde,
-        // sin aceptadas/rechazadas y fuera del tiempo de espera por contacto previo).
-        const vista = await servicioVistaPreviaLote.calcular(sesion.usuario.idInstitucional, {
-          semaforos: Array.isArray(cuerpo.semaforos) ? cuerpo.semaforos : [],
-          carreras: Array.isArray(cuerpo.carreras) ? cuerpo.carreras : [],
-          inactividadValor: cuerpo.inactividadValor,
-          inactividadUnidad: cuerpo.inactividadUnidad,
-        });
-        if (!vista.valido) return responderJson(res, 400, { codigo: 'FILTROS_INVALIDOS', mensaje: 'Revisa los filtros del lote.', errores: vista.errores });
-
-        const instanteServidor = obtenerFechaReloj();
-        const elegibles = vista.elegibles;
-
-        // EQ-84: arma el mensaje de cada aspirante antes de enviar nada.
-        let personalizados;
-        try {
-          personalizados = await generadorMensajeReactivacion.personalizarLote(elegibles);
+          const r = await crearLoteEnvio.ejecutar({
+            colaboradorId: sesion.usuario.idInstitucional,
+            claveIdempotencia: req.headers['idempotency-key'],
+            cuerpo,
+          });
+          return responderJson(res, 200, { ...r.resumen, repetido: r.repetido, estadoHorario: r.estadoHorario });
         } catch (error) {
-          if (error instanceof ErrorMensajeReactivacion) {
-            return responderJson(res, error.status, { codigo: error.codigo, mensaje: error.message });
+          if (error instanceof ErrorFueraDeHorarioPermitido || error?.codigo === 'FUERA_DE_HORARIO_PERMITIDO') {
+            return responderJson(res, error.status || 409, { codigo: error.codigo, mensaje: error.message, detalle: error.detalle });
+          }
+          if (error instanceof ErrorLoteEnvio || error instanceof ErrorMensajeReactivacion) {
+            return responderJson(res, error.status, { codigo: error.codigo, mensaje: error.message, ...(error.errores ? { errores: error.errores } : {}) });
           }
           throw error;
         }
-        if (elegibles.length === 0) {
-          return responderJson(res, 400, { codigo: 'SIN_ASPIRANTES', mensaje: 'No hay aspirantes que cumplan las condiciones de ese lote.' });
-        }
-
-        const resultado = {
-          totalEnviados: 0,
-          noEnviados: { total: 0, detalles: [] },
-          correo: { exitosos: 0, fallidos: 0, detalles: [] },
-          estadoHorario,
-        };
-        const ahoraIso = instanteServidor.toISOString();
-        for (const personalizado of personalizados) {
-          const { aspirante } = personalizado;
-
-          // EQ-84: si falta una variable, no se envía por ningún canal y se registra el fallo.
-          if (!personalizado.enviable) {
-            const fallo = {
-              id: `h-mia-fallo-${aspirante.id}-${instanteServidor.getTime()}`, aspiranteId: aspirante.id, tipoEvento: 'NOTA_SEGUIMIENTO',
-              titulo: TITULO_FALLO, detalle: personalizado.motivo, motivoRechazo: null,
-              autorTipo: 'SISTEMA', fechaEvento: ahoraIso,
-            };
-            await moduloMonitoreo.repositorio.registrarActividad?.(fallo);
-            if (historialMonitoreo) historialMonitoreo.push(fallo);
-            resultado.noEnviados.total += 1;
-            resultado.noEnviados.detalles.push({
-              aspiranteId: aspirante.id, nombre: aspirante.nombreCompleto || aspirante.id,
-              codigo: personalizado.codigo, faltantes: personalizado.faltantes, motivo: personalizado.motivo,
-            });
-            continue;
-          }
-          const mensaje = personalizado.texto;
-
-          // Canal principal (simulado, igual que el resto del chat): se registra en conversaciones e historial.
-          moduloMonitoreo.repositorio.conversaciones.push({
-            id: `mia-${aspirante.id}-${instanteServidor.getTime()}`, aspiranteId: aspirante.id, direccion: 'SALIENTE',
-            remitenteTipo: 'BOT_IA', remitenteId: 'disparo-automatico', contenido: mensaje,
-            tipoContenido: 'TEXTO', estadoEntrega: 'ENVIADO', whatsappMessageId: null, fechaEnvio: ahoraIso,
-          });
-          const actividad = {
-            id: `h-mia-${aspirante.id}-${instanteServidor.getTime()}`, aspiranteId: aspirante.id, tipoEvento: 'MENSAJE_ENVIADO',
-            titulo: 'Mensaje automático de reactivación', detalle: mensaje, motivoRechazo: null,
-            autorTipo: 'SISTEMA', fechaEvento: ahoraIso,
-          };
-          // EQ-43: el historial vive en el módulo Monitoreo.
-          await moduloMonitoreo.repositorio.registrarActividad?.(actividad);
-          if (historialMonitoreo) historialMonitoreo.push(actividad);
-
-          const registro = moduloMonitoreo.repositorio.aspirantes.find((a) => a.id === aspirante.id);
-          if (registro) {
-            registro.fechaUltimaActividad = ahoraIso;
-            registro.vecesNotificado = (registro.vecesNotificado || 0) + 1;
-          }
-          resultado.totalEnviados += 1;
-
-          if (cuerpo.enviarPorCorreo) {
-            const correo = intentarEnvioCorreo(aspirante);
-            if (correo.exito) resultado.correo.exitosos += 1;
-            else { resultado.correo.fallidos += 1; resultado.correo.detalles.push({ aspiranteId: aspirante.id, nombre: aspirante.nombreCompleto, motivo: correo.motivo }); }
-          }
-        }
-        return responderJson(res, 200, resultado);
       }
 
       // HU 8 (EQ-96, EQ-97): catálogo de mensajes predefinidos, solo lectura para ambos roles.

@@ -14,7 +14,10 @@ async function pedir(ruta, parametros = {}, opciones = {}) {
   }
   const respuesta = await fetch(url, {
     method: opciones.method || "GET",
-    headers: sinCuerpo ? { Accept: "application/json" } : { Accept: "application/json", "Content-Type": "application/json" },
+    headers: {
+      ...(sinCuerpo ? { Accept: "application/json" } : { Accept: "application/json", "Content-Type": "application/json" }),
+      ...(opciones.headers || {}),
+    },
     credentials: "same-origin",
     cache: "no-store",
     body: opciones.body ? JSON.stringify(opciones.body) : undefined,
@@ -96,7 +99,10 @@ export const api = {
       semaforos: filtros.semaforos.join(","), carreras: filtros.carreras.join(","),
       inactividadValor: filtros.inactividadValor, inactividadUnidad: filtros.inactividadUnidad,
     }),
-    enviar: (filtros) => pedir("/api/v1/disparo-mensajes/enviar", {}, { method: "POST", body: filtros }),
+    // EQ-83: la misma clave en un reintento devuelve el mismo lote en vez de crear otro.
+    enviar: (filtros, claveIdempotencia) => pedir("/api/v1/disparo-mensajes/enviar", {}, {
+      method: "POST", body: filtros, headers: claveIdempotencia ? { "Idempotency-Key": claveIdempotencia } : {},
+    }),
   },
   configuracionEnvio: {
     // HU9: el panel usa el módulo Mensajes y sus permisos administrativos.
