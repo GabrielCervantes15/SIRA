@@ -418,6 +418,68 @@ export class RepositorioMonitoreoMemoria {
   }
 
   /**
+   * Cartera de un colaborador agrupada por (campus, carrera) (HU6-18).
+   * @param {string} colaboradorId
+   * @returns {Promise<Array<{ campus: string, carrera: string, aspirantes: number }>>}
+   */
+  async carteraPorCarrera(colaboradorId) {
+    const ids = this._obtenerIdsColaborador(colaboradorId);
+    const grupos = new Map();
+    for (const a of this.aspirantes) {
+      if (!ids.has(a.colaboradorId)) continue;
+      const k = `${a.campus}\u0000${a.carreraSolicitada}`;
+      const g = grupos.get(k) ?? { campus: a.campus, carrera: a.carreraSolicitada, aspirantes: 0 };
+      g.aspirantes += 1;
+      grupos.set(k, g);
+    }
+    return [...grupos.values()];
+  }
+
+  /**
+   * Pasa la cartera de `desde` a otros colaboradores, por (campus, carrera) (HU6-18).
+   * Mueve también la lista de carreras asignadas. `deshacer()` revierte exactamente esto.
+   * @param {{ desde: string, movimientos: Array<{ campus: string, carrera: string, hacia: string }> }} params
+   */
+  async reasignarCartera({ desde, movimientos }) {
+    const ids = this._obtenerIdsColaborador(desde);
+    const destinoDe = new Map(movimientos.map((m) => [`${m.campus}\u0000${m.carrera}`, String(m.hacia).trim()]));
+    const anteriores = [];
+    for (const a of this.aspirantes) {
+      if (!ids.has(a.colaboradorId)) continue;
+      const hacia = destinoDe.get(`${a.campus}\u0000${a.carreraSolicitada}`);
+      if (!hacia) continue;
+      anteriores.push({ aspirante: a, colaboradorId: a.colaboradorId, hacia });
+      a.colaboradorId = hacia;
+    }
+
+    const carrerasPrevias = structuredClone(this.carrerasPorColaborador);
+    const aliasPrevio = structuredClone(this.aliasColaborador);
+    for (const id of ids) delete this.carrerasPorColaborador[id];
+    for (const m of movimientos) {
+      const hacia = String(m.hacia).trim();
+      if (!this.aliasColaborador[hacia]) this.aliasColaborador[hacia] = [hacia];
+      for (const id of this._obtenerIdsColaborador(hacia)) {
+        this.carrerasPorColaborador[id] = [...new Set([...(this.carrerasPorColaborador[id] ?? []), m.carrera])];
+      }
+    }
+
+    const origen = this.idInstitucionalDe(desde);
+    return {
+      aspirantesIds: anteriores.map(({ aspirante }) => aspirante.id),
+      transferencias: anteriores.map(({ aspirante, hacia }) => ({
+        aspiranteId: aspirante.id,
+        colaboradorAnterior: origen,
+        colaboradorDestino: hacia,
+      })),
+      deshacer: async () => {
+        for (const { aspirante, colaboradorId: previo } of anteriores) aspirante.colaboradorId = previo;
+        this.carrerasPorColaborador = carrerasPrevias;
+        this.aliasColaborador = aliasPrevio;
+      },
+    };
+  }
+
+  /**
    * Transfiere un expediente individual a un colaborador autorizado para casos especiales.
    * Devuelve una compensación para restaurar al responsable anterior si falla la bitácora.
    * @param {{ aspiranteId: string, colaboradorDestino: string }} params

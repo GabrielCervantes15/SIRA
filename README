@@ -42,3 +42,11 @@ También se pueden configurar `SIRA_ADMIN_IDS` y `SIRA_DENIED_IDS` como listas d
 El enlace de recuperación muestra una indicación de soporte; no implementa todavía un flujo de restablecimiento de contraseña institucional.
 
 > Alcance: el adaptador sigue siendo simulado. Las sesiones se almacenan en memoria del proceso y se pierden al reiniciar el servidor. No es todavía autenticación real con Active Directory ni almacenamiento de sesiones distribuido para producción.
+
+
+## Baja de colaboradores y reasignación (HU6-18 / HU7)
+
+- `POST /api/v1/colaboradores/:id/baja/vista-previa`: calcula a quién se reasigna cada carrera (no modifica nada).
+- `POST /api/v1/colaboradores/:id/baja` con `{ "tipo": "indefinido" }` o `{ "tipo": "periodo", "inicio": "YYYY-MM-DD", "fin": "YYYY-MM-DD" }`: recalcula el plan, reasigna la cartera, inactiva al colaborador y publica `colaboradores.baja.confirmada`.
+- Algoritmo: `src/modulos/distribucion-carreras/reasignacion-baja.js` (carreras completas, solo a activos del mismo campus, menor carga primero). Sin otro colaborador activo en el campus → `409 SIN_COLABORADOR_RELEVO`.
+- Postgres: aplicar `docker/postgres/migrations/10_baja_colaboradores.sql` (columnas `baja_desde`, `baja_hasta`).

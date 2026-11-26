@@ -6,6 +6,7 @@
  *   EQ-71 · HU6-12 listado de colaboradores por campus
  *   EQ-64 · HU6-17 vista previa de la distribución (paso 3)
  *   EQ-59 · HU6-9  confirmar el registro en una transacción
+ *   HU6-18 · HU7   vista previa y confirmación de la baja (reasignación por campus)
  *   EQ-70 · HU6-11 transferir expedientes entre campus con autorización y bitácora
  */
 import { RepositorioColaboradoresMemoria } from "./infraestructura/repositorio-colaboradores-memoria.js";
@@ -16,6 +17,8 @@ import { PrevisualizarDistribucionCasoUso } from "./aplicacion/previsualizar-dis
 import { ConfirmarRegistroCasoUso, EVENTO_REGISTRO_CONFIRMADO } from "./aplicacion/confirmar-registro.caso-uso.js";
 import { ActualizarCasosEspecialesCasoUso } from "./aplicacion/actualizar-casos-especiales.caso-uso.js";
 import { TransferirAspiranteManualCasoUso } from "./aplicacion/transferir-aspirante-manual.caso-uso.js";
+import { PrevisualizarBajaCasoUso } from "./aplicacion/previsualizar-baja.caso-uso.js";
+import { ConfirmarBajaCasoUso, EVENTO_BAJA_CONFIRMADA } from "./aplicacion/confirmar-baja.caso-uso.js";
 import { ColaboradoresControlador } from "./infraestructura/controlador-colaboradores.js";
 import { crearEnrutadorColaboradores } from "./rutas.js";
 
@@ -76,6 +79,19 @@ export function crearModuloColaboradores({
     reloj,
   });
 
+  const previsualizarBaja = new PrevisualizarBajaCasoUso({
+    repositorioColaboradores,
+    cartera,
+    proveedorAutenticacion,
+  });
+  const confirmarBaja = new ConfirmarBajaCasoUso({
+    repositorioColaboradores,
+    cartera,
+    proveedorAutenticacion,
+    bus,
+    reloj,
+  });
+
   const controlador = new ColaboradoresControlador({
     consultarColaborador,
     listarColaboradores,
@@ -83,6 +99,8 @@ export function crearModuloColaboradores({
     confirmarRegistro,
     actualizarCasosEspeciales,
     transferirAspiranteManual,
+    previsualizarBaja,
+    confirmarBaja,
   });
 
   return {
@@ -93,6 +111,8 @@ export function crearModuloColaboradores({
     confirmarRegistro,
     actualizarCasosEspeciales,
     transferirAspiranteManual,
+    previsualizarBaja,
+    confirmarBaja,
     controlador,
     enrutador: crearEnrutadorColaboradores({ controlador }),
   };
@@ -108,6 +128,9 @@ export {
   ActualizarCasosEspecialesCasoUso,
   TransferirAspiranteManualCasoUso,
   EVENTO_REGISTRO_CONFIRMADO,
+  PrevisualizarBajaCasoUso,
+  ConfirmarBajaCasoUso,
+  EVENTO_BAJA_CONFIRMADA,
   ColaboradoresControlador,
   crearEnrutadorColaboradores,
 };

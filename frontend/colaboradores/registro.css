@@ -162,3 +162,36 @@ a.correo-ficticio { text-decoration: underline; }
   .fila-claves { gap: 8px; }
   .resumen-carreras { grid-template-columns: 1fr; }
 }
+/* HU6-18 · HU7: modal de baja */
+.modal-baja { width: min(100%, 640px); }
+.panel-baja { overflow-y: auto; padding: 4px 16px 6px; scrollbar-width: thin; }
+.baja-seccion { font-size: 12px; font-weight: 700; margin: 12px 0 6px; padding: 0; }
+.baja-info { display: flex; flex-wrap: wrap; gap: 6px 28px; margin: 0; font-size: 11px; }
+.baja-info div { display: flex; gap: 6px; }
+.baja-info dt { color: #5d6771; }
+.baja-info dd { margin: 0; font-weight: 650; }
+.baja-duracion { border: 0; border-top: 1px solid #e4e4e4; margin: 10px 0 0; padding: 0; }
+.baja-duracion legend { padding: 0; float: left; width: 100%; }
+.baja-duracion .texto-instruccion { clear: both; }
+.baja-tipos { display: flex; gap: 20px; font-size: 11px; margin-bottom: 8px; }
+.baja-tipos label { display: inline-flex; gap: 5px; align-items: center; cursor: pointer; }
+.baja-tipos input { accent-color: #0b5da8; margin: 0; }
+.baja-fechas { display: flex; gap: 16px; flex-wrap: wrap; font-size: 11px; }
+.baja-fechas input { font: inherit; font-size: 11px; border: 1px solid #d7dbe0; border-radius: 4px; padding: 4px 6px; background: #fff; }
+.baja-fechas input:disabled { background: #e9ebee; color: #7b838c; }
+.baja-distribucion { display: grid; gap: 8px; max-height: 280px; overflow-y: auto; padding: 8px; border: 1px solid #dce0e5; border-radius: 4px; background: #f2f3f5; scrollbar-width: thin; }
+.baja-receptor { display: grid; grid-template-columns: 52px minmax(120px, 1fr) minmax(160px, 1.3fr); gap: 12px; align-items: center; background: #fff; border: 1px solid #dddfe3; border-radius: 4px; padding: 10px; }
+.baja-avatar { width: 52px; height: 52px; border-radius: 3px; background: linear-gradient(145deg,#345f81,#d6e2ef); color: #fff; display: grid; place-items: center; font-weight: 750; font-size: 18px; }
+.baja-receptor-datos { display: grid; gap: 3px; font-size: 11px; min-width: 0; }
+.baja-receptor-datos strong { font-size: 12.5px; line-height: 1.25; }
+.baja-receptor-datos small { color: #66707c; font-size: 10px; }
+.baja-receptor-carreras { list-style: none; margin: 0; padding: 8px; border: 1px solid #dddfe3; border-radius: 4px; display: grid; gap: 5px; font-size: 11px; }
+.baja-receptor-carreras li { display: flex; justify-content: space-between; gap: 10px; }
+.baja-receptor-carreras li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.baja-receptor-carreras li b { font-variant-numeric: tabular-nums; }
+.acciones-baja { margin: 0; justify-content: flex-start; }
+.btn-baja { background: #1d1f22; color: #fff; }
+@media(max-width: 570px) {
+  .baja-receptor { grid-template-columns: 44px 1fr; }
+  .baja-receptor-carreras { grid-column: 1 / -1; }
+}

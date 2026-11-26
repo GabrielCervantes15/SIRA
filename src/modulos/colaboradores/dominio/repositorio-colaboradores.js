@@ -30,6 +30,7 @@
  * - existe(idInstitucional) → Promise<boolean>   (activo o inactivo: ambos cuentan como registrado)
  * - guardar(colaborador) → Promise<Colaborador>  (lanza YA_REGISTRADO si el ID ya existe)
  * - actualizarCasosEspeciales(idInstitucional, habilitado) → Promise<Colaborador|null>
+ * - aplicarBaja({ idInstitucional, desde, hasta, carrerasPorReceptor }) → Promise<boolean>  (HU6-18; usar dentro de transaccion)
  * - registrarTransferencias(registros) → Promise<void>  (bitácora de asignaciones por alta/inactivación; EQ-59)
  * - registrarTransferenciaManual(registro) → Promise<void> (bitácora estricta de transferencia manual; EQ-70)
  * - transaccion(fn) → Promise<T>                 (todo lo que haga fn se confirma o se revierte junto)
@@ -50,6 +51,7 @@ export const METODOS_REPOSITORIO_COLABORADORES = Object.freeze([
   "existe",
   "guardar",
   "actualizarCasosEspeciales",
+  "aplicarBaja",
   "registrarTransferencias",
   "registrarTransferenciaManual",
   "transaccion",

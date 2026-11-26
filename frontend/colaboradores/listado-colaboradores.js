@@ -7,13 +7,14 @@
  *
  * Los elementos de administrador son opcionales: si no existen en la página, se ignoran.
  */
-import { etiquetaCampus, paginar } from './validaciones.js';
+import { etiquetaCampus, paginar, describirPeriodoBaja } from './validaciones.js';
 
 const $ = (id) => document.getElementById(id);
 const tonos = ['#345f81', '#64859c', '#5a6590', '#7d648a', '#8a9c71', '#a36a70', '#6c8298', '#86745c', '#41788b'];
 
 const listado = {
   datos: [], campus: [], filtroCampus: '', pagina: 0, tamano: 9, solicitud: 0, esAdministrador: false,
+  alInactivar: null, alReactivar: null,
 };
 
 async function pedirJson(ruta) {
@@ -77,7 +78,8 @@ function tarjeta(c, indice) {
   const campus = crearElemento('p', '');
   campus.append(crearElemento('span', '', 'Campus: '), crearElemento('strong', '', etiquetaCampus(c.campus) || '—'));
   const carga = crearElemento('p', '');
-  carga.append(crearElemento('span', '', 'Núm. aspirantes: '), crearElemento('strong', '', String(c.totalAspirantes ?? 0)));
+  if (c.activo) carga.append(crearElemento('span', '', 'Núm. aspirantes: '), crearElemento('strong', '', String(c.totalAspirantes ?? 0)));
+  else carga.append(crearElemento('span', '', 'Periodo Baja: '), crearElemento('strong', '', describirPeriodoBaja(c.periodoBaja)));
   const carreras = crearElemento('p', 'carreras-tarjeta', c.carreras.join(' · ') || 'Sin carreras');
   carreras.title = c.carreras.join(', ');
   datos.append(titulo, campus, carga, carreras);
@@ -95,16 +97,20 @@ function tarjeta(c, indice) {
   }
   inferior.append(contacto);
 
-  // Solo administrador (Figma «Vista de administrador 1»): botón para inactivar.
-  // La inactivación y la redistribución de su cartera no están implementadas todavía.
-  if (listado.esAdministrador && c.activo) {
-    const inactivar = crearElemento('button', 'boton-inactivar');
-    inactivar.type = 'button';
-    inactivar.disabled = true;
-    inactivar.title = 'Inactivar colaborador (pendiente)';
-    inactivar.setAttribute('aria-label', `Inactivar a ${nombre} (pendiente)`);
-    inactivar.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="9" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M17 8l5 5M22 8l-5 5" stroke="currentColor" stroke-width="2"/></svg>';
-    inferior.append(inactivar);
+  // Solo administrador: activo → icono de perfil con X (dar de baja, HU6-18);
+  // inactivo → icono de perfil con + (reactivar; el flujo lo conecta `alReactivar`).
+  if (listado.esAdministrador) {
+    const boton = crearElemento('button', 'boton-inactivar');
+    boton.type = 'button';
+    const marca = c.activo ? '<path d="M17 8l5 5M22 8l-5 5" stroke="currentColor" stroke-width="2"/>' : '<path d="M19.5 7v8M15.5 11h8" stroke="currentColor" stroke-width="2"/>';
+    boton.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="9" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6" fill="none" stroke="currentColor" stroke-width="2"/>${marca}</svg>`;
+    const accion = c.activo ? listado.alInactivar : listado.alReactivar;
+    const verbo = c.activo ? 'Dar de baja' : 'Reactivar';
+    boton.disabled = typeof accion !== 'function';
+    boton.title = boton.disabled ? `${verbo} (no disponible)` : `${verbo} a ${nombre}`;
+    boton.setAttribute('aria-label', boton.title);
+    if (!boton.disabled) boton.addEventListener('click', () => accion(c));
+    inferior.append(boton);
   }
 
   el.append(superior, inferior);
@@ -159,10 +165,12 @@ export async function recargarListado() {
 
 /**
  * Conecta los controles del listado y hace la primera carga.
- * @param {{ esAdministrador?: boolean }} [opciones]
+ * @param {{ esAdministrador?: boolean, alInactivar?: (c: Object) => void, alReactivar?: (c: Object) => void }} [opciones]
  */
-export function iniciarListadoColaboradores({ esAdministrador = false } = {}) {
+export function iniciarListadoColaboradores({ esAdministrador = false, alInactivar = null, alReactivar = null } = {}) {
   listado.esAdministrador = esAdministrador;
+  listado.alInactivar = alInactivar;
+  listado.alReactivar = alReactivar;
   let espera = null;
   $('buscar-muestra').addEventListener('input', () => {
     clearTimeout(espera);

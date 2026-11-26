@@ -164,6 +164,45 @@
       </section>
     </section>
   </div>
+  <!-- HU6-18 · Baja de colaborador (Figma «Baja de …») -->
+  <div class="capa-modal" id="capa-baja" hidden>
+    <section class="modal-registro modal-baja" role="dialog" aria-modal="true" aria-labelledby="baja-titulo">
+      <div class="modal-cabecera"><h2 id="baja-titulo">Baja de colaborador</h2><button type="button" id="cerrar-baja" aria-label="Cerrar">×</button></div>
+      <div class="panel-baja">
+        <p id="baja-estado" class="registro-mensaje" role="status" hidden></p>
+        <section aria-labelledby="baja-info-titulo">
+          <h3 class="baja-seccion" id="baja-info-titulo">Información actual:</h3>
+          <dl class="baja-info">
+            <div><dt>Campus:</dt><dd id="baja-campus">—</dd></div>
+            <div><dt>Aspirantes:</dt><dd id="baja-aspirantes">—</dd></div>
+            <div><dt>Carreras:</dt><dd id="baja-carreras">—</dd></div>
+          </dl>
+        </section>
+        <fieldset class="baja-duracion">
+          <legend class="baja-seccion">Duración</legend>
+          <p class="texto-instruccion">Ingresa el tiempo de baja del colaborador:</p>
+          <div class="baja-tipos">
+            <label><input type="radio" name="baja-tipo" value="indefinido" checked> Indefinido</label>
+            <label><input type="radio" name="baja-tipo" value="periodo"> Período</label>
+          </div>
+          <div class="baja-fechas">
+            <label>Inicio: <input type="date" id="baja-inicio" disabled></label>
+            <label>Fin: <input type="date" id="baja-fin" disabled></label>
+          </div>
+          <p id="baja-error-duracion" class="texto-error" role="alert" hidden></p>
+        </fieldset>
+        <section aria-labelledby="baja-dist-titulo">
+          <h3 class="baja-seccion" id="baja-dist-titulo">Distribución de carreras:</h3>
+          <p class="texto-instruccion">Cada carrera se reasigna completa a un colaborador activo de su mismo campus, buscando que la carga quede equilibrada. Los colaboradores que reciben aspirantes serán notificados por correo.</p>
+          <div id="baja-distribucion" class="baja-distribucion" aria-live="polite"></div>
+        </section>
+      </div>
+      <div class="acciones-modal acciones-baja">
+        <button type="button" class="btn-volver" id="baja-cancelar">Cancelar</button>
+        <button type="button" class="btn-baja" id="baja-confirmar" disabled>Dar de baja</button>
+      </div>
+    </section>
+  </div>
   <script type="module" src="/app/colaboradores/registro.js"></script>
 </body>
 </html>

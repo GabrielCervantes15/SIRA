@@ -76,6 +76,8 @@
  * - previsualizarAsignacion({ campus, carreras }) → Promise<Array<{ aspiranteId, carrera, colaboradorActual }>>
  * - reasignarAspirantes({ colaboradorId, campus, carreras }) → Promise<{ aspirantesIds, transferencias, deshacer() }>
  * - transferirAspiranteManual({ aspiranteId, colaboradorDestino }) → Promise<{ transferencia, deshacer() }|null>
+ * - carteraPorCarrera(colaboradorId) → Promise<Array<{ campus, carrera, aspirantes }>>   (HU6-18)
+ * - reasignarCartera({ desde, movimientos:[{ campus, carrera, hacia }] }) → Promise<{ aspirantesIds, transferencias, deshacer() }>   (HU6-18)
  */
 export const METODOS_REPOSITORIO_MONITOREO = Object.freeze([
   "obtenerFiltrosColaborador",
@@ -89,5 +91,7 @@ export const METODOS_REPOSITORIO_MONITOREO = Object.freeze([
   "previsualizarAsignacion",
   "reasignarAspirantes",
   "transferirAspiranteManual",
+  "carteraPorCarrera",
+  "reasignarCartera",
 ]);
 

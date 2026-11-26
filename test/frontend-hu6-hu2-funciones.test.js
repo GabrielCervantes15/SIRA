@@ -68,3 +68,33 @@ test('[EQ-71] iniciales del encabezado compartido', async () => {
   assert.equal(inicialesUsuario('Mtra. Alma Leticia Chávez Quintero'), 'AL', 'ignora el título');
   assert.equal(inicialesUsuario(''), '?');
 });
+
+// ---------- HU6-18 · HU7: baja de colaborador ----------
+import {
+  describirPeriodoBaja, errorDuracionBaja, puedeDarDeBaja, formatearFecha,
+} from '../frontend/colaboradores/validaciones.js';
+
+test('[HU6-18] describe el periodo de baja para la tarjeta', () => {
+  assert.equal(describirPeriodoBaja(null), 'Indefinido');
+  assert.equal(describirPeriodoBaja({ indefinido: true }), 'Indefinido');
+  assert.equal(describirPeriodoBaja({ indefinido: false, desde: '2026-11-26', hasta: '2027-01-15' }), '26/11/2026 – 15/01/2027');
+  assert.equal(formatearFecha('basura'), '');
+});
+
+test('[HU6-18] valida la duración de la baja', () => {
+  const hoy = '2026-11-26';
+  assert.equal(errorDuracionBaja({ tipo: 'indefinido' }, hoy), null);
+  assert.match(errorDuracionBaja({ tipo: 'periodo', inicio: '2026-12-01' }, hoy), /inicio y la de fin/);
+  assert.match(errorDuracionBaja({ tipo: 'periodo', inicio: '2026-12-05', fin: '2026-12-01' }, hoy), /anterior/);
+  assert.match(errorDuracionBaja({ tipo: 'periodo', inicio: '2026-01-01', fin: '2026-02-01' }, hoy), /ya terminó/);
+  assert.equal(errorDuracionBaja({ tipo: 'periodo', inicio: '2026-11-26', fin: '2027-01-15' }, hoy), null);
+});
+
+test('[HU6-18] solo se da de baja con vista previa cargada y duración válida', () => {
+  const vistaPrevia = { colaborador: { idInstitucional: '00000252115' } };
+  const base = { vistaPrevia, duracion: { tipo: 'indefinido' }, hoy: '2026-11-26' };
+  assert.equal(puedeDarDeBaja(base), true);
+  assert.equal(puedeDarDeBaja({ ...base, vistaPrevia: null }), false, 'baja bloqueada (p. ej. sin relevo)');
+  assert.equal(puedeDarDeBaja({ ...base, enviando: true }), false);
+  assert.equal(puedeDarDeBaja({ ...base, duracion: { tipo: 'periodo', inicio: '', fin: '' } }), false);
+});

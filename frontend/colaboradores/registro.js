@@ -9,6 +9,7 @@ import {
 } from './validaciones.js';
 import { inicialesUsuario } from '../js/usuario.js';
 import { iniciarListadoColaboradores, recargarListado } from './listado-colaboradores.js';
+import { iniciarBaja } from './baja.js';
 
 const $ = (id) => document.getElementById(id);
 const estado = {
@@ -418,7 +419,8 @@ async function iniciar() {
     mostrarMensaje($('mensaje-busqueda'),error.message);
     return;
   }
-  iniciarListadoColaboradores({ esAdministrador: true });
+  const baja = iniciarBaja({ solicitar, alConfirmar: recargarListado });
+  iniciarListadoColaboradores({ esAdministrador: true, alInactivar: baja.abrir });
   $('abrir-registro').addEventListener('click', abrirModal);
   $('cerrar-registro').addEventListener('click', cerrarModal);
   document.querySelectorAll('[data-cancelar]').forEach((b) => b.addEventListener('click', cerrarModal));

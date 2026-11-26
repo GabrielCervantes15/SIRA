@@ -27,6 +27,8 @@ const SELECT_COLABORADOR = `
     u.estado,
     u.campus_id AS "campusId",
     u.casos_especiales AS "casosEspeciales",
+    u.baja_desde AS "bajaDesde",
+    u.baja_hasta AS "bajaHasta",
     u.created_at AS "fechaRegistro",
     COALESCE(array_agg(cc.carrera_id ORDER BY cc.carrera_id) FILTER (WHERE cc.carrera_id IS NOT NULL), '{}') AS "carrerasIds"
   FROM usuarios.usuario u
@@ -58,6 +60,8 @@ export class RepositorioColaboradoresPostgres {
       campus: fila.campusId == null ? null : await this.catalogoIds.nombreCampus(fila.campusId),
       carreras: await Promise.all((fila.carrerasIds ?? []).map((id) => this.catalogoIds.nombreCarrera(id))),
       casosEspeciales: fila.casosEspeciales === true,
+      bajaDesde: fila.bajaDesde ? new Date(fila.bajaDesde).toISOString().slice(0, 10) : null,
+      bajaHasta: fila.bajaHasta ? new Date(fila.bajaHasta).toISOString().slice(0, 10) : null,
       fechaRegistro: new Date(fila.fechaRegistro).toISOString(),
     };
   }
@@ -147,6 +151,34 @@ export class RepositorioColaboradoresPostgres {
       );
     }
     return { ...colaborador, carreras: [...(colaborador.carreras ?? [])] };
+  }
+
+  /**
+   * Da de baja a un colaborador (HU6-18). Requiere la migración 10_baja_colaboradores.sql.
+   * Usar dentro de `transaccion`: marca inactivo, quita sus carreras y agrega las de los receptores.
+   * @returns {Promise<boolean>} false si ya no estaba activo.
+   */
+  async aplicarBaja({ idInstitucional, desde, hasta = null, carrerasPorReceptor = {} }) {
+    const { rows } = await this.db.query(
+      `UPDATE usuarios.usuario
+       SET estado = 'inactivo', baja_desde = $2::date, baja_hasta = $3::date, updated_at = now()
+       WHERE id_directorio = $1 AND rol = 'colaborador' AND estado = 'activo'
+       RETURNING id;`,
+      [String(idInstitucional ?? "").trim(), desde, hasta]
+    );
+    if (rows.length === 0) return false;
+    await this.db.query("DELETE FROM usuarios.colaborador_carrera WHERE usuario_id = $1;", [rows[0].id]);
+    for (const [id, carreras] of Object.entries(carrerasPorReceptor)) {
+      const carrerasIds = await Promise.all(carreras.map((c) => this.catalogoIds.idCarrera(c)));
+      if (carrerasIds.length === 0) continue;
+      await this.db.query(
+        `INSERT INTO usuarios.colaborador_carrera (usuario_id, carrera_id)
+         SELECT u.id, unnest($2::smallint[]) FROM usuarios.usuario u WHERE u.id_directorio = $1
+         ON CONFLICT DO NOTHING;`,
+        [id, carrerasIds]
+      );
+    }
+    return true;
   }
 
   /**

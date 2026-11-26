@@ -65,6 +65,14 @@ export function leerCuerpoJson(req, maxBytes = 16_384) {
   });
 }
 
+function decodificarId(idCrudo) {
+  try {
+    return decodeURIComponent(idCrudo);
+  } catch {
+    throw Object.assign(new Error("El ID no es válido."), { status: 400, codigo: "ID_INVALIDO" });
+  }
+}
+
 export class ColaboradoresControlador {
   constructor({
     consultarColaborador,
@@ -73,6 +81,8 @@ export class ColaboradoresControlador {
     confirmarRegistro,
     actualizarCasosEspeciales,
     transferirAspiranteManual,
+    previsualizarBaja,
+    confirmarBaja,
   }) {
     this.consultarColaborador = consultarColaborador;
     this.listarColaboradores = listarColaboradores;
@@ -80,6 +90,8 @@ export class ColaboradoresControlador {
     this.confirmarRegistro = confirmarRegistro;
     this.actualizarCasosEspecialesCasoUso = actualizarCasosEspeciales;
     this.transferirAspiranteManual = transferirAspiranteManual;
+    this.previsualizarBaja = previsualizarBaja;
+    this.confirmarBaja = confirmarBaja;
   }
 
   // EQ-55: consulta de perfil.
@@ -175,6 +187,29 @@ export class ColaboradoresControlador {
         error,
         "No se pudo confirmar el registro."
       );
+    }
+  }
+
+  // HU6-18: vista previa de la baja (no modifica nada).
+  async vistaPreviaBaja(req, res, _contexto, idCrudo) {
+    try {
+      return responder(res, 200, await this.previsualizarBaja.ejecutar({ idInstitucional: decodificarId(idCrudo) }));
+    } catch (error) {
+      return responderError(res, error, "No se pudo calcular la reasignación de la baja.");
+    }
+  }
+
+  // HU6-18: confirmar la baja y reasignar la cartera.
+  async darDeBaja(req, res, contexto = {}, idCrudo) {
+    try {
+      const cuerpo = await leerCuerpoJson(req);
+      const resultado = await this.confirmarBaja.ejecutar(
+        { ...cuerpo, idInstitucional: decodificarId(idCrudo) },
+        { administradorId: contexto.usuario?.idInstitucional ?? null }
+      );
+      return responder(res, 200, resultado);
+    } catch (error) {
+      return responderError(res, error, "No se pudo dar de baja al colaborador.");
     }
   }
 

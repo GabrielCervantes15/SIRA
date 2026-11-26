@@ -73,6 +73,12 @@ export class ListarColaboradoresCasoUso {
           carreras: [...c.carreras],
           activo: c.estado === "activo",
           casosEspeciales: c.casosEspeciales === true,
+          bajaDesde: c.bajaDesde ?? null,
+          bajaHasta: c.bajaHasta ?? null,
+          periodoBaja:
+            c.estado === "activo"
+              ? null
+              : { indefinido: !c.bajaHasta, desde: c.bajaDesde ?? null, hasta: c.bajaHasta ?? null },
           fechaRegistro: c.fechaRegistro,
           totalAspirantes: conteo[c.idInstitucional] ?? 0,
         };

@@ -40,6 +40,18 @@ export function crearEnrutadorColaboradores({ controlador }) {
       return true;
     }
 
+    // HU6-18: baja del colaborador (vista previa y confirmación).
+    const vistaBaja = ruta.match(/^\/([^/]+)\/baja\/vista-previa$/);
+    if (vistaBaja && req.method === "POST") {
+      await controlador.vistaPreviaBaja(req, res, contexto, vistaBaja[1]);
+      return true;
+    }
+    const baja = ruta.match(/^\/([^/]+)\/baja$/);
+    if (baja && req.method === "POST") {
+      await controlador.darDeBaja(req, res, contexto, baja[1]);
+      return true;
+    }
+
     // EQ-70: transferir manualmente un expediente de otro campus.
     if (ruta === "/transferencias-manuales" && req.method === "POST") {
       await controlador.transferirManual(req, res, contexto);

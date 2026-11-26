@@ -54,3 +54,38 @@ export function paginar(lista = [], pagina = 0, tamano = 9) {
   const inicio = actual * tamano;
   return { visibles: lista.slice(inicio, inicio + tamano), pagina: actual, paginas, inicio };
 }
+
+// ---------- HU6-18 · HU7: baja de colaborador ----------
+
+/** "2026-11-26" → "26/11/2026". */
+export function formatearFecha(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso ?? ''));
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : '';
+}
+
+/** Texto de "Periodo Baja" para la tarjeta de un colaborador inactivo. */
+export function describirPeriodoBaja(periodo) {
+  if (!periodo || periodo.indefinido) return 'Indefinido';
+  const desde = formatearFecha(periodo.desde);
+  const hasta = formatearFecha(periodo.hasta);
+  return desde && hasta ? `${desde} – ${hasta}` : (hasta || desde || 'Indefinido');
+}
+
+/**
+ * Mensaje de error de la duración elegida, o null si es válida (el servidor vuelve a validar).
+ * @param {{ tipo: 'indefinido'|'periodo', inicio?: string, fin?: string }} duracion
+ * @param {string} hoy YYYY-MM-DD
+ */
+export function errorDuracionBaja({ tipo, inicio = '', fin = '' } = {}, hoy = '') {
+  if (tipo === 'indefinido') return null;
+  if (tipo !== 'periodo') return 'Indica si la baja es indefinida o por un periodo.';
+  if (!inicio || !fin) return 'Indica la fecha de inicio y la de fin del periodo.';
+  if (fin < inicio) return 'La fecha de fin no puede ser anterior a la de inicio.';
+  if (hoy && fin < hoy) return 'El periodo de baja ya terminó; elige una fecha de fin igual o posterior a hoy.';
+  return null;
+}
+
+/** Solo se da de baja con una vista previa cargada, duración válida y sin envío en curso. */
+export function puedeDarDeBaja({ vistaPrevia, duracion, hoy, enviando = false } = {}) {
+  return Boolean(vistaPrevia?.colaborador?.idInstitucional) && !enviando && errorDuracionBaja(duracion, hoy) === null;
+}

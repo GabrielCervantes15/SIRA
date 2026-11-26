@@ -186,6 +186,63 @@ export class RepositorioMonitoreoPostgres {
   }
 
   /**
+   * Cartera de un colaborador agrupada por (campus, carrera) (HU6-18).
+   * @param {string} colaboradorId
+   */
+  async carteraPorCarrera(colaboradorId) {
+    const { rows } = await this.db.query(
+      `
+      SELECT campus, carrera_solicitada AS carrera, COUNT(*)::int AS aspirantes
+      FROM aspirantes.aspirantes
+      WHERE colaborador_id = $1
+      GROUP BY campus, carrera_solicitada
+      ORDER BY campus, carrera_solicitada;
+    `,
+      [String(colaboradorId).trim()]
+    );
+    return rows.map((r) => ({ campus: r.campus, carrera: r.carrera, aspirantes: Number(r.aspirantes) }));
+  }
+
+  /**
+   * Pasa la cartera de `desde` a otros colaboradores por (campus, carrera) (HU6-18).
+   * @param {{ desde: string, movimientos: Array<{ campus: string, carrera: string, hacia: string }> }} params
+   */
+  async reasignarCartera({ desde, movimientos }) {
+    const origen = String(desde).trim();
+    const { rows } = await this.db.query(
+      `
+      WITH mov AS (
+        SELECT * FROM unnest($2::text[], $3::text[], $4::text[]) AS m(campus, carrera, hacia)
+      ),
+      previos AS (
+        SELECT a.id, m.hacia
+        FROM aspirantes.aspirantes a
+        JOIN mov m ON a.campus = m.campus AND a.carrera_solicitada = m.carrera
+        WHERE a.colaborador_id = $1
+        FOR UPDATE OF a
+      )
+      UPDATE aspirantes.aspirantes a
+      SET colaborador_id = p.hacia
+      FROM previos p
+      WHERE a.id = p.id
+      RETURNING a.id AS "aspiranteId", p.hacia AS "colaboradorDestino";
+    `,
+      [origen, movimientos.map((m) => m.campus), movimientos.map((m) => m.carrera), movimientos.map((m) => String(m.hacia).trim())]
+    );
+    return {
+      aspirantesIds: rows.map((r) => r.aspiranteId),
+      transferencias: rows.map((r) => ({ aspiranteId: r.aspiranteId, colaboradorAnterior: origen, colaboradorDestino: r.colaboradorDestino })),
+      deshacer: async () => {
+        if (rows.length === 0) return;
+        await this.db.query(
+          'UPDATE aspirantes.aspirantes SET colaborador_id = $1 WHERE id = ANY($2::text[]);',
+          [origen, rows.map((r) => r.aspiranteId)]
+        );
+      },
+    };
+  }
+
+  /**
    * Transfiere un expediente individual a un colaborador autorizado para casos especiales.
    * La actualización y lectura del responsable anterior ocurren en una sola sentencia.
    * @param {{ aspiranteId: string, colaboradorDestino: string }} params

@@ -31,6 +31,8 @@ export class RepositorioColaboradoresMemoria {
         campus: c.campus ?? null,
         carreras: [...(c.carreras ?? [])],
         casosEspeciales: c.casosEspeciales === true,
+        bajaDesde: c.bajaDesde ?? null,
+        bajaHasta: c.bajaHasta ?? null,
         fechaRegistro: c.fechaRegistro ?? new Date(0).toISOString(),
         registradoPor: c.registradoPor ?? null,
       });
@@ -83,6 +85,29 @@ export class RepositorioColaboradoresMemoria {
     if (!colaborador || colaborador.rol !== "colaborador") return null;
     colaborador.casosEspeciales = habilitado === true;
     return copiar(colaborador);
+  }
+
+  /**
+   * Da de baja a un colaborador (HU6-18): lo marca inactivo con su periodo, le quita las
+   * carreras y se las agrega a quienes reciben su cartera. Todo o nada (usar dentro de `transaccion`).
+   * @param {{ idInstitucional: string, desde: string, hasta: string|null, carrerasPorReceptor: Record<string, string[]> }} params
+   * @returns {Promise<boolean>} false si ya no estaba activo.
+   */
+  async aplicarBaja({ idInstitucional, desde, hasta = null, carrerasPorReceptor = {} }) {
+    const saliente = this.colaboradores.get(String(idInstitucional ?? "").trim());
+    if (!saliente || saliente.rol !== "colaborador" || saliente.estado !== "activo") return false;
+    for (const id of Object.keys(carrerasPorReceptor)) {
+      if (!this.colaboradores.has(id)) throw new Error(`El receptor ${id} no existe.`);
+    }
+    saliente.estado = "inactivo";
+    saliente.bajaDesde = desde;
+    saliente.bajaHasta = hasta;
+    saliente.carreras = [];
+    for (const [id, carreras] of Object.entries(carrerasPorReceptor)) {
+      const receptor = this.colaboradores.get(id);
+      receptor.carreras = [...new Set([...receptor.carreras, ...carreras])];
+    }
+    return true;
   }
 
   /**
