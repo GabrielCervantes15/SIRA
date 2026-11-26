@@ -10,6 +10,10 @@ import { aspiranteDesdeUrl, urlConAspirante } from "./expediente-url.js";
 import { inicialesUsuario } from "./usuario.js";
 import { inicializarConfiguracionMensajes } from "./configuracion-mensajes.js";
 import { inicializarEnvioMensajes } from "./envio-mensajes.js";
+import {
+  botonEnviarDeshabilitado, debeRemarcarse, filtrosDesdeFormulario, resumenEnvio,
+  TEXTO_ERROR_VISTA_PREVIA, TEXTO_FUERA_DE_HORARIO, textoConfirmacion, textoConteo,
+} from "./disparo-logica.js";
 
 const TAMANO = 13;
 const ETIQUETA_SEMAFORO = { ROJO: "Rojo", NARANJA: "Naranja", VERDE: "Verde" };
@@ -443,17 +447,17 @@ function semaforosSeleccionados() {
 }
 
 function filtrosDisparoActuales() {
-  return {
+  return filtrosDesdeFormulario({
     semaforos: semaforosSeleccionados(),
-    carreras: [...estadoDisparo.carreras],
-    inactividadValor: Number($("disparo-inactividad-valor").value) || 1,
+    carreras: estadoDisparo.carreras,
+    inactividadValor: $("disparo-inactividad-valor").value,
     inactividadUnidad: $("disparo-inactividad-unidad").value,
-  };
+  });
 }
 
 /** HU1-12: no permite dejar un grupo de filtros sin ninguna opción marcada. */
 function bloquearSiQuedaVacio(casilla, grupoSelectorMarcadas) {
-  if (!casilla.checked && document.querySelectorAll(grupoSelectorMarcadas).length === 0) {
+  if (debeRemarcarse(casilla.checked, document.querySelectorAll(grupoSelectorMarcadas).length)) {
     casilla.checked = true;
   }
 }
@@ -489,18 +493,16 @@ async function actualizarVistaPreviaDisparo() {
     }
 
     $("disparo-fuera-horario").hidden = r.dentroDeHorario;
-    $("disparo-fuera-horario").textContent = "Fuera del horario matutino permitido. Podrás enviar dentro del horario configurado en HU 9.";
+    $("disparo-fuera-horario").textContent = TEXTO_FUERA_DE_HORARIO;
 
-    $("disparo-conteo").textContent = r.total === 0
-      ? "No hay aspirantes que cumplan las condiciones de ese lote."
-      : `${r.total} alumnos serán notificados`;
+    $("disparo-conteo").textContent = textoConteo(r);
 
     $("disparo-mensajes-ejemplo").replaceChildren(...(r.mensajesEjemplo || []).map((m) =>
       elemento("div", { class: "burbuja-ejemplo", text: m })));
 
-    $("disparo-enviar").disabled = r.total === 0 || !r.dentroDeHorario;
+    $("disparo-enviar").disabled = botonEnviarDeshabilitado(r);
   } catch {
-    $("disparo-conteo").textContent = "No se pudo calcular el lote. Inténtalo de nuevo.";
+    $("disparo-conteo").textContent = TEXTO_ERROR_VISTA_PREVIA;
     $("disparo-enviar").disabled = true;
   }
 }
@@ -517,7 +519,7 @@ function cerrarDisparo() { $("disparo-overlay").hidden = true; }
 
 async function enviarDisparo() {
   const filtros = { ...filtrosDisparoActuales(), enviarPorCorreo: $("disparo-enviar-correo").checked };
-  if (!window.confirm(`¿Confirmas enviar el mensaje automático a ${$("disparo-conteo").textContent}?`)) return;
+  if (!window.confirm(textoConfirmacion($("disparo-conteo").textContent))) return;
 
   $("disparo-enviar").disabled = true;
   estadoDisparo.claveIdempotencia ??= nuevaClaveDisparo();
@@ -527,19 +529,8 @@ async function enviarDisparo() {
     $("disparo-cuerpo").hidden = true;
     const resumen = $("disparo-resultado");
     resumen.hidden = false;
-    resumen.classList.toggle("con-errores", r.correo.fallidos > 0);
-    let texto = `Se notificó a ${r.totalEnviados} aspirante(s).`;
-    if (r.repetido) texto = `Este lote ya se había enviado: se notificó a ${r.totalEnviados} aspirante(s).`;
-    // EQ-84: a quien le falta nombre o carrera no se le envía; se avisa aquí.
-    if (r.noEnviados?.total > 0) {
-      resumen.classList.add("con-errores");
-      texto += ` No se envió a ${r.noEnviados.total} por datos faltantes: `
-        + r.noEnviados.detalles.map((d) => `${d.nombre} (${d.faltantes.join(", ")})`).join("; ") + ".";
-    }
-    if (filtros.enviarPorCorreo) {
-      texto += ` Correo: ${r.correo.exitosos} enviados, ${r.correo.fallidos} fallidos.`;
-      if (r.correo.detalles.length) texto += " " + r.correo.detalles.map((d) => `${d.nombre} (${d.motivo})`).join("; ") + ".";
-    }
+    const { texto, conErrores } = resumenEnvio(r, filtros.enviarPorCorreo);
+    resumen.classList.toggle("con-errores", conErrores);
     resumen.textContent = texto;
     $("nav-aspirantes").click(); // refresca la tabla con las fechas/actividad actualizadas
   } catch (error) {
