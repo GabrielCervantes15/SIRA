@@ -72,7 +72,7 @@ Variables en `.env.example`, sección 6:
 - **Cola en memoria:** si el servidor se reinicia, lo pendiente se pierde (el lote sí queda guardado). Con RabbitMQ la cola será durable.
 - **Cuenta local de contactos:** solo conoce lo que envió este servidor. Si el número se usa también desde otro sistema, hay que bajar `WHATSAPP_LIMITE_CONTACTOS_24H`.
 - **Estado de entrega:** un 200 de Meta solo significa «aceptado» (`PENDIENTE`). Enviado, entregado, leído o fallido llegan por el webhook de **EQ-115**.
-- **Correo:** el canal de correo sigue sin consumidor (no hay SMTP).
+- **Correo:** lo envía su propia cola con el SMTP simulado de EQ-61 (ver `docs/contratos/hu1-lote-envio.md`).
 
 ## 7. Fuentes
 

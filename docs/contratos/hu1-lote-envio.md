@@ -21,7 +21,7 @@ Pruebas: `test/eq83-lote-envio.test.js`
 | Lote creado | 200, `repetido: false` |
 | Repetición de un lote ya creado | 200, `repetido: true`, el mismo `loteId` |
 
-**Cuerpo:** `{ semaforos, carreras, inactividadValor, inactividadUnidad, enviarPorCorreo }`, igual que la vista previa (EQ-81).
+**Cuerpo:** `{ semaforos, carreras, inactividadValor, inactividadUnidad, enviarPorCorreo }`, con los mismos filtros que la vista previa (EQ-81). En el cuerpo, `semaforos` y `carreras` son **listas de textos** y `enviarPorCorreo` es verdadero o falso; otro tipo responde 400 `FILTROS_INVALIDOS` (EQ-92).
 
 **Cabecera opcional:** `Idempotency-Key`, de 8 a 100 letras, números, `-` o `_`. El modal de HU1 manda un UUID por intento y lo reutiliza si la petición falla.
 
@@ -97,6 +97,17 @@ Por cada envío publica, con clave `<tipo>.whatsapp`:
 | `disparo.envio.diferido` | Se pospuso por `LIMITE_24H` o `FUERA_DE_HORARIO` (una vez por motivo) | `codigo`, `motivo`, `reanudaEn` |
 
 `eventId` = `<envioId>:<tipo>` (en diferido, con `:<codigo>` al final), para descartar repetidos.
+
+## Envío por correo
+
+`aplicacion/cola-envio-correo.js` consume `disparo.envio.solicitado.correo` y lo manda con el servicio de correo del módulo de notificaciones. Hoy es el SMTP simulado de EQ-61, porque el SMTP real depende de BASE-9. Asunto: «ITSON · Tu proceso de admisión puede continuar»; cuerpo: el mismo texto personalizado.
+
+- **Reintentos:** reintenta los errores temporales (`SMTP_NO_DISPONIBLE`) con la misma espera que WhatsApp.
+- **Resultados:** publica `disparo.envio.enviado.correo` o `disparo.envio.fallido.correo`.
+- **Sin límites de Meta:** no tiene límite de 24 h ni horario propio.
+- **Independiente de WhatsApp** (EQ-77 §8.3).
+
+`servidor.esperarEnviosHU1()` espera a que terminen las dos colas (útil en pruebas).
 
 ## Consumo de resultados (EQ-87)
 

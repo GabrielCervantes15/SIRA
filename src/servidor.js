@@ -24,6 +24,8 @@ import { RepositorioLotesMemoria } from './modulos/disparo-automatico/infraestru
 import { crearConsumidorResultadosEnvio, TIPO_EVENTO_HISTORIAL } from './modulos/disparo-automatico/aplicacion/consumir-resultados-envio.js';
 import { resumenResultados } from './modulos/disparo-automatico/dominio/lote-envio.js';
 import { crearColaEnvioWhatsApp } from './modulos/disparo-automatico/aplicacion/cola-envio-whatsapp.js';
+import { crearColaEnvioCorreo } from './modulos/disparo-automatico/aplicacion/cola-envio-correo.js';
+import { crearServicioCorreoSimulado } from './modulos/notificaciones/servicio-correo-simulado.js';
 import { TIPO_ENVIO_SOLICITADO } from './modulos/disparo-automatico/eventos.js';
 import { crearProveedorWhatsAppCloudApi, crearProveedorWhatsAppSimulado, leerConfiguracionCloudApi } from './modulos/whatsapp/index.js';
 import { crearGeneradorMensajeReactivacion, ErrorMensajeReactivacion, TITULO_FALLO } from './modulos/disparo-automatico/mensaje-reactivacion.js';
@@ -256,6 +258,14 @@ export function crearServidor(opciones = {}) {
     ...(opciones.colaEnvioWhatsApp || {}),
   });
   busEventos.suscribir(`${TIPO_ENVIO_SOLICITADO}.whatsapp`, (evento) => { colaEnvioWhatsApp.encolar(evento); });
+
+  // Canal de correo del lote (opcional, EQ-77 §8.2): SMTP simulado de EQ-61 hasta que exista BASE-9.
+  const servicioCorreoDisparo = opciones.servicioCorreoDisparo || crearServicioCorreoSimulado();
+  const colaEnvioCorreo = crearColaEnvioCorreo({
+    servicioCorreo: servicioCorreoDisparo, bus: busEventos, reloj: obtenerFechaReloj,
+    maxIntentos: numeroEntorno('WHATSAPP_MAX_INTENTOS'), ...(opciones.colaEnvioCorreo || {}),
+  });
+  busEventos.suscribir(`${TIPO_ENVIO_SOLICITADO}.correo`, (evento) => { colaEnvioCorreo.encolar(evento); });
 
   // EQ-87 (HU1-11): consume los resultados (enviado, fallido, diferido): conteo de notificados,
   // fecha de última notificación, historial y conversación. No toca la última actividad.
@@ -793,5 +803,11 @@ export function crearServidor(opciones = {}) {
   servidor.on('close', () => moduloNotificaciones.detener?.());
   // Para pruebas y diagnóstico: permite esperar a que la cola termine de enviar.
   servidor.colaEnvioWhatsApp = colaEnvioWhatsApp;
+  servidor.colaEnvioCorreo = colaEnvioCorreo;
+  servidor.servicioCorreoDisparo = servicioCorreoDisparo;
+  /** Espera a que las dos colas del lote (WhatsApp y correo) terminen. */
+  servidor.esperarEnviosHU1 = async () => {
+    await Promise.all([colaEnvioWhatsApp.esperarInactiva(), colaEnvioCorreo.esperarInactiva()]);
+  };
   return servidor;
 }
