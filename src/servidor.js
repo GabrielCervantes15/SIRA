@@ -22,6 +22,9 @@ import { CrearLoteEnvioCasoUso } from './modulos/disparo-automatico/aplicacion/c
 import { ErrorLoteEnvio } from './modulos/disparo-automatico/dominio/lote-envio.js';
 import { RepositorioLotesMemoria } from './modulos/disparo-automatico/infraestructura/repositorio-lotes-memoria.js';
 import { conectarConsumidorEnvioSimulado } from './modulos/disparo-automatico/infraestructura/consumidor-envio-simulado.js';
+import { crearColaEnvioWhatsApp } from './modulos/disparo-automatico/aplicacion/cola-envio-whatsapp.js';
+import { TIPO_ENVIO_SOLICITADO } from './modulos/disparo-automatico/eventos.js';
+import { crearProveedorWhatsAppCloudApi, crearProveedorWhatsAppSimulado, leerConfiguracionCloudApi } from './modulos/whatsapp/index.js';
 import { crearGeneradorMensajeReactivacion, ErrorMensajeReactivacion, TITULO_FALLO } from './modulos/disparo-automatico/mensaje-reactivacion.js';
 import { crearServicioVistaPreviaLote } from './modulos/disparo-automatico/vista-previa-lote.js';
 
@@ -230,6 +233,29 @@ export function crearServidor(opciones = {}) {
       }
     },
   });
+  // EQ-85 (HU1-9): la cola envía por WhatsApp (Cloud API si está configurada; si no, el
+  // simulador de BASE-10) con ritmo, reintentos, límite de 24 h y horario de HU9.
+  const configuracionCloudApi = opciones.proveedorWhatsApp ? null : leerConfiguracionCloudApi(process.env);
+  const proveedorWhatsApp = opciones.proveedorWhatsApp
+    || (configuracionCloudApi ? crearProveedorWhatsAppCloudApi(configuracionCloudApi) : crearProveedorWhatsAppSimulado());
+  const numeroEntorno = (nombre) => (process.env[nombre] ? Number(process.env[nombre]) : undefined);
+  const colaEnvioWhatsApp = opciones.colaEnvioWhatsApp?.encolar ? opciones.colaEnvioWhatsApp : crearColaEnvioWhatsApp({
+    proveedor: proveedorWhatsApp,
+    bus: busEventos,
+    validadorHorario: validadorHorarioEnvio,
+    reloj: obtenerFechaReloj,
+    plantilla: {
+      nombre: process.env.WHATSAPP_PLANTILLA_REACTIVACION || 'reactivacion_hu1',
+      idioma: process.env.WHATSAPP_IDIOMA_PLANTILLA || 'es_MX',
+    },
+    mensajesPorSegundo: numeroEntorno('WHATSAPP_MENSAJES_POR_SEGUNDO'),
+    limiteContactos24h: numeroEntorno('WHATSAPP_LIMITE_CONTACTOS_24H'),
+    maxIntentos: numeroEntorno('WHATSAPP_MAX_INTENTOS'),
+    ...(opciones.colaEnvioWhatsApp || {}),
+  });
+  busEventos.suscribir(`${TIPO_ENVIO_SOLICITADO}.whatsapp`, (evento) => { colaEnvioWhatsApp.encolar(evento); });
+
+  // Provisional hasta EQ-87: registra en Chat y Actividades lo que la cola confirmó como enviado.
   if (opciones.simularEnvios !== false) {
     conectarConsumidorEnvioSimulado({ bus: busEventos, repositorioMonitoreo: moduloMonitoreo.repositorio, historialMonitoreo });
   }
@@ -744,5 +770,7 @@ export function crearServidor(opciones = {}) {
     bus: busEventos,
   };
   servidor.on('close', () => moduloNotificaciones.detener?.());
+  // Para pruebas y diagnóstico: permite esperar a que la cola termine de enviar.
+  servidor.colaEnvioWhatsApp = colaEnvioWhatsApp;
   return servidor;
 }

@@ -36,11 +36,14 @@ export function valoresDelAspirante(aspirante = {}) {
 
 /**
  * Personaliza un texto del catálogo para un aspirante.
- * @returns {{ enviable: true, texto: string } | { enviable: false, codigo: string, faltantes: string[], motivo: string }}
+ * `parametros` son los valores en el orden en que aparecen las variables en el texto:
+ * así se llenan las variables {{1}}, {{2}}… de la plantilla de Meta (EQ-79, EQ-85).
+ * @returns {{ enviable: true, texto: string, parametros: string[] } | { enviable: false, codigo: string, faltantes: string[], motivo: string }}
  */
 export function personalizarTexto(texto, aspirante) {
   const valores = valoresDelAspirante(aspirante);
-  const faltantes = variablesDeTexto(texto).filter((v) => !valores[v]);
+  const variables = variablesDeTexto(texto);
+  const faltantes = variables.filter((v) => !valores[v]);
   if (faltantes.length > 0) {
     return {
       enviable: false,
@@ -49,7 +52,7 @@ export function personalizarTexto(texto, aspirante) {
       motivo: `Falta ${faltantes.map((v) => `«${v}»`).join(" y ")} del aspirante; el mensaje no se envió.`,
     };
   }
-  return { enviable: true, texto: renderizarPlantilla(texto, valores) };
+  return { enviable: true, texto: renderizarPlantilla(texto, valores), parametros: variables.map((v) => valores[v]) };
 }
 
 /**

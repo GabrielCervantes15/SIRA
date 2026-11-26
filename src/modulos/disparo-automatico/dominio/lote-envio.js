@@ -95,7 +95,7 @@ export function construirLote({
     for (const canal of canales) {
       const base = {
         id: generarId(), loteId, aspiranteId: p.aspirante.id, canal,
-        mensajeId: p.mensajeId, destino: null, texto: null, motivo: null, codigoMotivo: null, faltantes: [], publicadoEn: null, reclamadoHasta: null,
+        mensajeId: p.mensajeId, destino: null, texto: null, motivo: null, codigoMotivo: null, faltantes: [], parametros: [], publicadoEn: null, reclamadoHasta: null,
       };
       if (!p.enviable) {
         envios.push({ ...base, estado: "NO_ENVIABLE", motivo: p.motivo, codigoMotivo: p.codigo, faltantes: [...(p.faltantes ?? [])] });
@@ -103,7 +103,7 @@ export function construirLote({
       }
       const { destino, motivo } = destinoDelCanal(canal, p.aspirante);
       envios.push(destino
-        ? { ...base, estado: "PENDIENTE", destino, texto: p.texto }
+        ? { ...base, estado: "PENDIENTE", destino, texto: p.texto, parametros: [...(p.parametros ?? [])] }
         : { ...base, estado: "NO_ENVIABLE", motivo, codigoMotivo: "CANAL_NO_DISPONIBLE" });
     }
   }

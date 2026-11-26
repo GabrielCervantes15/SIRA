@@ -8,3 +8,9 @@ export {
 } from "./interfaz.js";
 
 export { crearProveedorWhatsAppSimulado } from "./adaptador-simulado.js";
+export {
+  CODIGOS_META_REINTENTABLES,
+  crearProveedorWhatsAppCloudApi,
+  esCodigoMetaReintentable,
+  leerConfiguracionCloudApi,
+} from "./adaptador-cloud-api.js";
