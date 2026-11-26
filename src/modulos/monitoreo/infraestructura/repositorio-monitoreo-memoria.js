@@ -478,8 +478,40 @@ export class RepositorioMonitoreoMemoria {
       autorTipo: evento.autorTipo ?? "SISTEMA",
       autorId: evento.autorId ?? null,
       fechaEvento: evento.fechaEvento ?? new Date().toISOString(),
+      metadatos: evento.metadatos ? { ...evento.metadatos } : {},
     };
     this.historial.push(registro);
     return { ...registro };
+  }
+
+  /**
+   * Registra un envío exitoso al aspirante (EQ-87). Actualiza la fecha de última
+   * notificación (solo si es más reciente) y, si `contar`, suma una al conteo.
+   * No toca fechaUltimaActividad: un mensaje saliente no es actividad del aspirante (EQ-77 §6.3).
+   * @param {{ aspiranteId: string, fecha: string, contar?: boolean }} datos
+   * @returns {Promise<{ fechaUltimaNotificacion: string, vecesNotificado: number }|null>}
+   */
+  async registrarNotificacion({ aspiranteId, fecha, contar = true }) {
+    const aspirante = this.aspirantes.find((a) => a.id === String(aspiranteId).trim());
+    if (!aspirante) return null;
+    if (!aspirante.fechaUltimaNotificacion || Date.parse(fecha) > Date.parse(aspirante.fechaUltimaNotificacion)) {
+      aspirante.fechaUltimaNotificacion = fecha;
+    }
+    if (contar) aspirante.vecesNotificado = (aspirante.vecesNotificado || 0) + 1;
+    return { fechaUltimaNotificacion: aspirante.fechaUltimaNotificacion, vecesNotificado: aspirante.vecesNotificado || 0 };
+  }
+
+  /**
+   * Agrega un mensaje a la conversación del aspirante (HU3-5). Ignora un id repetido.
+   * @param {Object} mensaje  Misma forma que devuelve obtenerConversacionAspirante.
+   * @returns {Promise<boolean>} true si se agregó
+   */
+  async registrarMensajeConversacion(mensaje) {
+    if (!mensaje?.aspiranteId || !mensaje?.contenido) {
+      throw new Error("registrarMensajeConversacion requiere aspiranteId y contenido.");
+    }
+    if (mensaje.id && this.conversaciones.some((m) => m.id === mensaje.id)) return false;
+    this.conversaciones.push({ ...mensaje });
+    return true;
   }
 }

@@ -110,7 +110,7 @@ Historial de actividades del aspirante (tabla `aspirantes.historial_eventos`): m
 }
 ```
 * **Orden:** del más reciente al más antiguo; con la misma fecha, por `id` descendente.
-* `tipo`: `MENSAJE_ENVIADO`, `CONSTANCIA_ENTREGADA`, `CAMBIO_ESTADO`, `RECHAZO_SOLICITUD` o `NOTA_SEGUIMIENTO`.
+* `tipo`: `MENSAJE_ENVIADO`, `CONSTANCIA_ENTREGADA`, `CAMBIO_ESTADO`, `RECHAZO_SOLICITUD`, `NOTA_SEGUIMIENTO` o `MENSAJE_AUTOMATICO` (lote de HU1, EQ-87: «Mensaje automático enviado por WhatsApp — <mensaje>» o «Mensaje automático no enviado por WhatsApp — <motivo>»).
 * `texto`: `titulo — detalle` (o solo `titulo` si no hay detalle).
 * `fecha`: siempre ISO 8601 en UTC.
 * `total`: número de actividades devueltas (después de aplicar el rango).
@@ -126,6 +126,22 @@ Historial de actividades del aspirante (tabla `aspirantes.historial_eventos`): m
 El orden de validación es 401 → 404 → 403 → 400 (rango).
 
 Cuando el colaborador envía un mensaje (`POST /api/monitoreo/aspirantes/:id/conversacion`), se registra un evento `MENSAJE_ENVIADO` con `repositorio.registrarActividad(...)`, así que aparece de inmediato en este historial.
+
+### Notificaciones del lote de HU1 (EQ-87)
+
+El módulo de disparo pide a Monitoreo, por su repositorio y sin escribir en el esquema `aspirantes`:
+
+| Método | Qué hace |
+|---|---|
+| `registrarNotificacion({ aspiranteId, fecha, contar })` | Guarda la **fecha de última notificación** (se queda la más reciente) y, si `contar`, suma una a `vecesNotificado`. **No toca `fechaUltimaActividad`.** |
+| `registrarMensajeConversacion(mensaje)` | Agrega un mensaje a la conversación (HU3-5); un `id` repetido se ignora. |
+| `registrarActividad(evento)` | Acepta además `metadatos` (en el evento automático: canal, lote, envío, resultado y `whatsappMessageId`). |
+
+Campos nuevos del aspirante (migración 09):
+- `fechaUltimaNotificacion`: último mensaje saliente enviado correctamente; con ella empieza la espera de 48 h de HU9.
+- `vecesNotificado`: lotes en los que recibió al menos un mensaje.
+
+Por EQ-77 §6.3, un mensaje saliente **no** es actividad del aspirante: la columna «Última actividad» y el semáforo no cambian al enviarle un mensaje automático.
 
 ### Orden de la lista por semáforo (EQ-48)
 `ordenar_por=semaforo` ordena por **severidad** (`ROJO` > `NARANJA` > `AMARILLO` > `VERDE`), no alfabéticamente:

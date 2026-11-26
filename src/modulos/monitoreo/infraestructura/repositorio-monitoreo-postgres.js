@@ -37,7 +37,9 @@ export class RepositorioMonitoreoPostgres {
         estado_solicitud AS "estadoSolicitud",
         semaforo,
         colaborador_id AS "colaboradorId",
-        fecha_ultima_actividad AS "fechaUltimaActividad"
+        fecha_ultima_actividad AS "fechaUltimaActividad",
+        fecha_ultima_notificacion AS "fechaUltimaNotificacion",
+        veces_notificado AS "vecesNotificado"
       FROM aspirantes.aspirantes
       WHERE id = $1 OR folio_solicitud = $1
       LIMIT 1;
@@ -252,8 +254,8 @@ export class RepositorioMonitoreoPostgres {
     }
     const sql = `
       INSERT INTO aspirantes.historial_eventos
-        (aspirante_id, tipo_evento, titulo, detalle, motivo_rechazo, autor_tipo, autor_id, fecha_evento)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8::timestamptz, CURRENT_TIMESTAMP))
+        (aspirante_id, tipo_evento, titulo, detalle, motivo_rechazo, autor_tipo, autor_id, fecha_evento, metadatos)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8::timestamptz, CURRENT_TIMESTAMP), COALESCE($9::jsonb, '{}'::jsonb))
       RETURNING
         id,
         aspirante_id AS "aspiranteId",
@@ -263,7 +265,8 @@ export class RepositorioMonitoreoPostgres {
         motivo_rechazo AS "motivoRechazo",
         autor_tipo AS "autorTipo",
         autor_id AS "autorId",
-        fecha_evento AS "fechaEvento";
+        fecha_evento AS "fechaEvento",
+        metadatos;
     `;
     const { rows } = await this.db.query(sql, [
       String(evento.aspiranteId).trim(),
@@ -274,8 +277,48 @@ export class RepositorioMonitoreoPostgres {
       evento.autorTipo ?? "SISTEMA",
       evento.autorId ?? null,
       evento.fechaEvento ?? null,
+      evento.metadatos ? JSON.stringify(evento.metadatos) : null,
     ]);
     return rows[0];
+  }
+
+  /**
+   * Registra un envío exitoso (EQ-87): fecha de última notificación (la más reciente) y,
+   * si `contar`, una notificación más. No toca fecha_ultima_actividad (EQ-77 §6.3).
+   * @param {{ aspiranteId: string, fecha: string, contar?: boolean }} datos
+   */
+  async registrarNotificacion({ aspiranteId, fecha, contar = true }) {
+    const { rows } = await this.db.query(
+      `UPDATE aspirantes.aspirantes
+          SET fecha_ultima_notificacion = GREATEST(COALESCE(fecha_ultima_notificacion, $2::timestamptz), $2::timestamptz),
+              veces_notificado = veces_notificado + CASE WHEN $3 THEN 1 ELSE 0 END,
+              actualizado_en = CURRENT_TIMESTAMP
+        WHERE id = $1
+        RETURNING fecha_ultima_notificacion AS "fechaUltimaNotificacion", veces_notificado AS "vecesNotificado"`,
+      [String(aspiranteId).trim(), fecha, Boolean(contar)],
+    );
+    return rows[0] || null;
+  }
+
+  /**
+   * Agrega un mensaje a la conversación (HU3-5). El id debe ser UUID; un id repetido se ignora.
+   * @returns {Promise<boolean>} true si se agregó
+   */
+  async registrarMensajeConversacion(mensaje) {
+    if (!mensaje?.aspiranteId || !mensaje?.contenido) {
+      throw new Error("registrarMensajeConversacion requiere aspiranteId y contenido.");
+    }
+    const { rowCount } = await this.db.query(
+      `INSERT INTO aspirantes.conversaciones_mensajes
+         (id, aspirante_id, direccion, remitente_tipo, remitente_id, contenido, tipo_contenido, estado_entrega,
+          whatsapp_message_id, fecha_envio)
+       VALUES (COALESCE($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, COALESCE($10::timestamptz, CURRENT_TIMESTAMP))
+       ON CONFLICT (id) DO NOTHING`,
+      [mensaje.id ?? null, String(mensaje.aspiranteId).trim(), mensaje.direccion, mensaje.remitenteTipo,
+        mensaje.remitenteId ?? null, mensaje.contenido, mensaje.tipoContenido ?? "TEXTO", mensaje.estadoEntrega ?? "ENVIADO",
+        mensaje.whatsappMessageId ?? null, mensaje.fechaEnvio ?? null],
+    );
+    return rowCount > 0;
   }
 }
 

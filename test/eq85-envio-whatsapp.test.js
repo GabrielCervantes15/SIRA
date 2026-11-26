@@ -361,6 +361,6 @@ test("[EQ-85] HTTP: con Cloud API, cada aspirante recibe la plantilla con su nom
     assert.equal(fallidos.length, 1);
     assert.equal(fallidos[0].evento.datos.codigo, "META_131026");
     assert.equal(repositorio.conversaciones.length - antes, lote.envios.whatsapp - 1);
-    assert.ok(!repositorio.conversaciones.some((m) => m.aspiranteId === fallidos[0].evento.datos.aspiranteId && m.id.startsWith("mia-")));
+    assert.ok(!repositorio.conversaciones.some((m) => m.aspiranteId === fallidos[0].evento.datos.aspiranteId && m.remitenteId === "disparo-automatico"));
   });
 });

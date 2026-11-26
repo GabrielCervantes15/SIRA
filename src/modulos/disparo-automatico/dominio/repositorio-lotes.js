@@ -21,6 +21,11 @@
  *     Marca los envíos cuyo evento ya se publicó; los no marcados se vuelven a publicar
  *     al repetir la petición.
  * - obtenerLote(loteId) → Promise<{ lote, envios } | null>
+ * - registrarResultado({ envioId, resultado, codigo, motivo, whatsappMessageId, intentos, fecha })
+ *     → Promise<{ aplicado: boolean, envio?: Object, yaNotificadoEnLote?: boolean }>
+ *     EQ-87: guarda ENVIADO / FALLIDO / DIFERIDO de un envío (ver aceptaResultado).
+ *     `yaNotificadoEnLote` dice si el aspirante ya tenía otro canal ENVIADO en ese lote,
+ *     para contarlo una sola vez. Un resultado repetido devuelve `aplicado: false`.
  */
 export const METODOS_REPOSITORIO_LOTES = Object.freeze([
   "transaccion",
@@ -32,6 +37,7 @@ export const METODOS_REPOSITORIO_LOTES = Object.freeze([
   "liberarReclamo",
   "marcarPublicados",
   "obtenerLote",
+  "registrarResultado",
 ]);
 
 export function verificarRepositorioLotes(repositorio) {

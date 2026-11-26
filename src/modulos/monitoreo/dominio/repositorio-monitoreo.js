@@ -46,13 +46,15 @@
  * @typedef {Object} EventoHistorial
  * @property {string} id
  * @property {string} aspiranteId
- * @property {"MENSAJE_ENVIADO"|"CONSTANCIA_ENTREGADA"|"CAMBIO_ESTADO"|"RECHAZO_SOLICITUD"|"NOTA_SEGUIMIENTO"} tipoEvento
+ * @property {"MENSAJE_ENVIADO"|"CONSTANCIA_ENTREGADA"|"CAMBIO_ESTADO"|"RECHAZO_SOLICITUD"|"NOTA_SEGUIMIENTO"|"MENSAJE_AUTOMATICO"} tipoEvento
+ *   MENSAJE_AUTOMATICO: envío del lote de HU1, enviado o no enviado (EQ-87); `metadatos` lleva canal, lote y envío.
  * @property {string} titulo
  * @property {string|null} [detalle]
  * @property {string|null} [motivoRechazo]
  * @property {"SISTEMA"|"IA"|"COLABORADOR"|"REGISTRO_ESCOLAR"} [autorTipo]
  * @property {string|null} [autorId]
  * @property {string} fechaEvento
+ * @property {Object} [metadatos]
  */
 
 /**

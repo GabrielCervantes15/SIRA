@@ -169,7 +169,8 @@ test("[EQ-84] HTTP: envía el texto personalizado y, si falta el nombre, no env�
 
     // El fallo queda en el historial y no cuenta como actividad del aspirante.
     const fallo = historialMonitoreo.find((e) => e.aspiranteId === sinNombre.id);
-    assert.equal(fallo.tipoEvento, "NOTA_SEGUIMIENTO");
+    assert.equal(fallo.tipoEvento, "MENSAJE_AUTOMATICO"); // EQ-87: tipo nuevo de la línea de tiempo
+    assert.equal(fallo.metadatos.resultado, "NO_ENVIABLE");
     assert.equal(fallo.titulo, TITULO_FALLO);
     assert.match(fallo.detalle, /«aspirante»/);
     assert.equal(repositorio.historial.filter((e) => e.aspiranteId === sinNombre.id && e.titulo === TITULO_FALLO).length, 1);

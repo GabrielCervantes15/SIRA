@@ -5,6 +5,8 @@
  * `bloquearColaborador` toma pg_advisory_xact_lock para que dos peticiones del mismo
  * colaborador no creen dos lotes a la vez; el bloqueo se suelta al terminar la transacción.
  */
+import { aceptaResultado } from "../dominio/lote-envio.js";
+
 const COLUMNAS_LOTE = `
   id, colaborador_id AS "colaboradorId", clave_idempotencia AS "claveIdempotencia", huella,
   filtros, enviar_por_correo AS "enviarPorCorreo", estado, total_aspirantes AS "totalAspirantes",
@@ -13,7 +15,9 @@ const COLUMNAS_LOTE = `
 const COLUMNAS_ENVIO = `
   id, lote_id AS "loteId", aspirante_id AS "aspiranteId", canal, estado, mensaje_id AS "mensajeId",
   destino, texto, motivo, codigo_motivo AS "codigoMotivo", faltantes, parametros, publicado_en AS "publicadoEn",
-  reclamado_hasta AS "reclamadoHasta"`;
+  reclamado_hasta AS "reclamadoHasta", resultado, resultado_codigo AS "resultadoCodigo",
+  resultado_motivo AS "resultadoMotivo", whatsapp_message_id AS "whatsappMessageId", intentos,
+  resultado_en AS "resultadoEn"`;
 
 const iso = (valor) => (valor == null ? null : new Date(valor).toISOString());
 
@@ -29,6 +33,7 @@ function aLote(fila) {
 
 const aEnvio = (fila) => ({
   ...fila, faltantes: [...(fila.faltantes ?? [])], parametros: [...(fila.parametros ?? [])], publicadoEn: iso(fila.publicadoEn), reclamadoHasta: iso(fila.reclamadoHasta),
+  resultadoEn: iso(fila.resultadoEn), intentos: fila.intentos == null ? null : Number(fila.intentos),
 });
 
 export class RepositorioLotesPostgres {
@@ -134,6 +139,27 @@ export class RepositorioLotesPostgres {
       "UPDATE disparo.envio SET publicado_en = $2 WHERE id = ANY($1::uuid[]) AND publicado_en IS NULL",
       [envioIds, fechaIso],
     );
+  }
+
+  async registrarResultado({ envioId, resultado, codigo = null, motivo = null, whatsappMessageId = null, intentos = null, fecha }) {
+    return this.transaccion(async (tx) => {
+      const { rows } = await tx.db.query(`SELECT ${COLUMNAS_ENVIO} FROM disparo.envio WHERE id = $1 FOR UPDATE`, [envioId]);
+      const envio = rows[0] ? aEnvio(rows[0]) : null;
+      if (!aceptaResultado(envio, resultado)) return { aplicado: false };
+      const otros = await tx.db.query(
+        `SELECT 1 FROM disparo.envio WHERE lote_id = $1 AND aspirante_id = $2 AND id <> $3 AND resultado = 'ENVIADO' LIMIT 1`,
+        [envio.loteId, envio.aspiranteId, envioId],
+      );
+      const actualizado = await tx.db.query(
+        `UPDATE disparo.envio
+            SET resultado = $2, resultado_codigo = $3, resultado_motivo = $4,
+                whatsapp_message_id = COALESCE($5, whatsapp_message_id), intentos = $6, resultado_en = $7
+          WHERE id = $1
+          RETURNING ${COLUMNAS_ENVIO}`,
+        [envioId, resultado, codigo, motivo, whatsappMessageId, intentos, fecha],
+      );
+      return { aplicado: true, envio: aEnvio(actualizado.rows[0]), yaNotificadoEnLote: otros.rows.length > 0 };
+    });
   }
 
   async obtenerLote(loteId) {

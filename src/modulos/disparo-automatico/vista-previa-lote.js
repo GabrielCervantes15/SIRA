@@ -9,7 +9,8 @@
  *   3. Nunca solicitudes ACEPTADAS ni RECHAZADAS definitivamente.
  *   4. Última actividad igual o anterior a la fecha de corte.
  *   5. Fuera del tiempo de espera por contacto previo de HU9 (48 h por omisión):
- *      cuenta desde el último mensaje SALIENTE enviado correctamente.
+ *      cuenta desde el último mensaje SALIENTE enviado correctamente (el más reciente
+ *      entre la conversación y la fecha de última notificación de EQ-87).
  *
  * Las opciones de cada filtro se toman de HU2-7 (ObtenerFiltrosCasoUso) sin VERDE,
  * y se valida que el lote tenga al menos un semáforo y una carrera de esas opciones.
@@ -188,7 +189,11 @@ export function crearServicioVistaPreviaLote({ repositorioMonitoreo, interfazLec
     const limiteContacto = ahora.getTime() - horasEspera * MS_HORA;
     const elegibles = [];
     for (const a of candidatos) {
-      const contacto = ultimoContactoSaliente(await repositorioMonitoreo.obtenerConversacionAspirante(a.id));
+      const contactos = [
+        ultimoContactoSaliente(await repositorioMonitoreo.obtenerConversacionAspirante(a.id))?.getTime(),
+        Date.parse(a.fechaUltimaNotificacion),
+      ].filter(Number.isFinite);
+      const contacto = contactos.length ? new Date(Math.max(...contactos)) : null;
       if (contacto && contacto.getTime() > limiteContacto) { excluidos.contactoReciente += 1; continue; }
       elegibles.push(a);
     }
