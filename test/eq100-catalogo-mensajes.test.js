@@ -103,8 +103,16 @@ test('[EQ-95] la semilla SQL tiene los mismos mensajes y textos que mensajes-ia.
   assert.match(sql, /mensajes-ia\.json/, 'la semilla SQL sale de mensajes-ia.json');
   const insertados = [...sql.matchAll(/INSERT INTO mensajes\.catalogo_mensaje[^;]*?VALUES \('([a-z0-9_-]+)'/g)].map((m) => m[1]);
   assert.deepEqual(insertados, SEMILLA.map((m) => m.id));
+  // Ningún INSERT del catálogo lleva un salto de línea dentro de sus valores.
+  for (const insert of sql.match(/INSERT INTO mensajes\.catalogo_mensaje[^;]*;/g)) {
+    assert.doesNotMatch(insert.split('\n').slice(1).join('\n'), /\n/, 'texto con salto de línea sin escapar');
+  }
   for (const m of SEMILLA) {
-    assert.ok(sql.includes(m.texto.replaceAll("'", "''")), `${m.id}: texto distinto en SQL`);
+    // Igual que el generador: con saltos de línea el texto va escapado como E'…\n…'.
+    const literal = /[\r\n]/.test(m.texto)
+      ? `E'${m.texto.replaceAll('\\', '\\\\').replaceAll("'", "''").replaceAll('\r', '\\r').replaceAll('\n', '\\n')}'`
+      : `'${m.texto.replaceAll("'", "''")}'`;
+    assert.ok(sql.includes(literal), `${m.id}: texto distinto en SQL`);
     assert.equal((sql.match(new RegExp(`catalogo_regla \\(mensaje_id, orden, descripcion\\) VALUES \\('${m.id}'`, 'g')) ?? []).length, m.reglas.length, `${m.id}: reglas`);
   }
   const migracion = leer('docker/postgres/migrations/05_catalogo_mensajes.sql');

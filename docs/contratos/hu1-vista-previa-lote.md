@@ -73,28 +73,12 @@ En la vista previa:
 
 ## Envío
 
-`POST /api/v1/disparo-mensajes/enviar` usa el mismo servicio, así que trabaja exactamente con quienes cuenta la vista previa. Con filtros inválidos responde 400 `FILTROS_INVALIDOS`.
+`POST /api/v1/disparo-mensajes/enviar` recalcula con este mismo servicio al enviar, así que trabaja exactamente con quienes cuenta la vista previa. Crea el lote, publica los eventos y es idempotente: ver `docs/contratos/hu1-lote-envio.md` (EQ-83).
 
-Antes de enviar arma el mensaje de cada aspirante (EQ-84):
-
-- Si el catálogo no tiene `reactivacion_hu1`, responde 409 `MENSAJE_REACTIVACION_NO_DISPONIBLE` y no envía nada.
-- Si a un aspirante le falta una variable, **no se le envía por ningún canal**. Se registra en su historial un evento `NOTA_SEGUIMIENTO` con el título «Mensaje automático no enviado» y el motivo, y se devuelve en `noEnviados`. El fallo no cambia su última actividad.
-
-```json
-{
-  "totalEnviados": 18,
-  "noEnviados": {
-    "total": 1,
-    "detalles": [
-      { "aspiranteId": "asp-016", "nombre": "asp-016", "codigo": "VARIABLE_FALTANTE", "faltantes": ["aspirante"], "motivo": "Falta «aspirante» del aspirante; el mensaje no se envió." }
-    ]
-  },
-  "correo": { "exitosos": 0, "fallidos": 0, "detalles": [] }
-}
-```
+Si a un aspirante le falta una variable del mensaje (EQ-84), no se le envía por ningún canal. Se registra en su historial un evento `NOTA_SEGUIMIENTO` con el título «Mensaje automático no enviado» y el motivo, y se devuelve en `noEnviados`. El fallo no cambia su última actividad.
 
 ## Pendiente (fuera de EQ-81)
 
-- Criterio 6 de EQ-77: al menos un canal válido y consentimiento de WhatsApp. El modelo actual no tiene esos datos; lo aplicará el envío (EQ-83 / EQ-85).
+- Criterio 6 de EQ-77: el envío (EQ-83) ya exige teléfono o correo válido por canal; el consentimiento de WhatsApp sigue sin datos en el modelo.
 - AMARILLO: EQ-77 lo marca como elegible, pero HU2-7 hoy no lo ofrece como opción. En cuanto HU2-7 lo devuelva, la vista previa lo acepta sin cambios.
 - El modal de HU1 (EQ-88) inicia la inactividad en 1 día; EQ-77 pide 7.

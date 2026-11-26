@@ -89,9 +89,7 @@ INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('en
 INSERT INTO mensajes.catalogo_regla (mensaje_id, orden, descripcion) VALUES ('env-010', 1, 'Aplica cuando estatus es «Sin contacto previo».');
 
 INSERT INTO mensajes.catalogo_mensaje (id, categoria, nombre, orden, grupo, pregunta, disparador, canal, requiere_plantilla_meta, plantilla_meta_referencia, plantilla_meta_estado, texto)
-VALUES ('reactivacion_hu1', 'ENVIO', 'Reactivación de HU1', 11, NULL, NULL, 'LOTE_HU1', 'WHATSAPP', TRUE, 'reactivacion_hu1', 'PENDIENTE', 'Hola, {aspirante}. Tu proceso de ingreso a {carrera} todavía puede continuar. ¿Necesitas ayuda para completar tus siguientes pasos?
-
-Responde a este mensaje y con gusto te orientaremos.');
+VALUES ('reactivacion_hu1', 'ENVIO', 'Reactivación de HU1', 11, NULL, NULL, 'LOTE_HU1', 'WHATSAPP', TRUE, 'reactivacion_hu1', 'PENDIENTE', E'Hola, {aspirante}. Tu proceso de ingreso a {carrera} todavía puede continuar. ¿Necesitas ayuda para completar tus siguientes pasos?\n\nResponde a este mensaje y con gusto te orientaremos.');
 INSERT INTO mensajes.catalogo_variable (mensaje_id, nombre, orden) VALUES ('reactivacion_hu1', 'aspirante', 1);
 INSERT INTO mensajes.catalogo_variable (mensaje_id, nombre, orden) VALUES ('reactivacion_hu1', 'carrera', 2);
 INSERT INTO mensajes.catalogo_llave (mensaje_id, orden, tipo, valor) VALUES ('reactivacion_hu1', 1, 'Lote', 'Reactivación HU1');
