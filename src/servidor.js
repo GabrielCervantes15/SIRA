@@ -317,8 +317,9 @@ export function crearServidor(opciones = {}) {
             (usuario) => String(usuario.idInstitucional) === String(id)
           )
           : null;
+        const colaboradorRegistrado = await moduloColaboradores.repositorio?.obtenerPorId?.(id);
 
-        if (usuarioCrm?.activo === false) {
+        if (usuarioCrm?.activo === false || colaboradorRegistrado?.estado === 'inactivo') {
           return responderJson(res, 403, {
             codigo: 'USUARIO_SIN_ACCESO',
             mensaje: 'La cuenta está inactiva.'

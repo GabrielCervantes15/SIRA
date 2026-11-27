@@ -6,7 +6,7 @@
  *   EQ-71 · HU6-12 listado de colaboradores por campus
  *   EQ-64 · HU6-17 vista previa de la distribución (paso 3)
  *   EQ-59 · HU6-9  confirmar el registro en una transacción
- *   HU6-18 · HU7   vista previa y confirmación de la baja (reasignación por campus)
+ *   EQ-69 · HU6-10 / HU6-18 vista previa y confirmación de baja/inactivación con reasignación por campus
  *   EQ-70 · HU6-11 transferir expedientes entre campus con autorización y bitácora
  */
 import { RepositorioColaboradoresMemoria } from "./infraestructura/repositorio-colaboradores-memoria.js";
@@ -19,6 +19,12 @@ import { ActualizarCasosEspecialesCasoUso } from "./aplicacion/actualizar-casos-
 import { TransferirAspiranteManualCasoUso } from "./aplicacion/transferir-aspirante-manual.caso-uso.js";
 import { PrevisualizarBajaCasoUso } from "./aplicacion/previsualizar-baja.caso-uso.js";
 import { ConfirmarBajaCasoUso, EVENTO_BAJA_CONFIRMADA } from "./aplicacion/confirmar-baja.caso-uso.js";
+import {
+  EXCHANGE_EVENTOS,
+  VERSION_EVENTO,
+  crearEventoBajaConfirmada,
+  validarEventoBajaConfirmada,
+} from "./eventos.js";
 import { ColaboradoresControlador } from "./infraestructura/controlador-colaboradores.js";
 import { crearEnrutadorColaboradores } from "./rutas.js";
 
@@ -127,10 +133,14 @@ export {
   ConfirmarRegistroCasoUso,
   ActualizarCasosEspecialesCasoUso,
   TransferirAspiranteManualCasoUso,
+  EXCHANGE_EVENTOS,
   EVENTO_REGISTRO_CONFIRMADO,
   PrevisualizarBajaCasoUso,
   ConfirmarBajaCasoUso,
   EVENTO_BAJA_CONFIRMADA,
+  VERSION_EVENTO,
+  crearEventoBajaConfirmada,
+  validarEventoBajaConfirmada,
   ColaboradoresControlador,
   crearEnrutadorColaboradores,
 };

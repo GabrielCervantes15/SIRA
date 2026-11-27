@@ -8,12 +8,12 @@
  *   4. Si algo falla, se revierte `usuarios` y se compensa la cartera con `deshacer()`.
  *   5. Ya confirmado, publica `colaboradores.baja.confirmada` (correos a los receptores).
  */
-import { randomBytes } from "node:crypto";
 import { ErrorColaboradores } from "../dominio/errores.js";
 import { validarDuracionBaja } from "../dominio/validaciones-baja.js";
 import { construirPlanBaja } from "./plan-baja.js";
+import { EVENTO_BAJA_CONFIRMADA, crearEventoBajaConfirmada } from "../eventos.js";
 
-export const EVENTO_BAJA_CONFIRMADA = "colaboradores.baja.confirmada";
+export { EVENTO_BAJA_CONFIRMADA };
 
 export class ConfirmarBajaCasoUso {
   constructor({ repositorioColaboradores, cartera, proveedorAutenticacion, bus, reloj, registrarError }) {
@@ -93,9 +93,7 @@ export class ConfirmarBajaCasoUso {
       carrerasRecibidas: r.carreras,
     }));
 
-    const evento = {
-      eventId: `evt-baja-${randomBytes(6).toString("hex")}`,
-      tipo: EVENTO_BAJA_CONFIRMADA,
+    const evento = crearEventoBajaConfirmada({
       colaboradorId: id,
       nombreCompleto: perfiles.get(id)?.nombreCompleto ?? null,
       correoInstitucional: perfiles.get(id)?.correoInstitucional ?? null,
@@ -104,7 +102,7 @@ export class ConfirmarBajaCasoUso {
       receptores,
       realizadoPor: administradorId,
       fechaConfirmacion,
-    };
+    });
     try {
       await this.bus.publicar(EVENTO_BAJA_CONFIRMADA, evento);
     } catch (error) {
