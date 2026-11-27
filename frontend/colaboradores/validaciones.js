@@ -89,3 +89,103 @@ export function errorDuracionBaja({ tipo, inicio = '', fin = '' } = {}, hoy = ''
 export function puedeDarDeBaja({ vistaPrevia, duracion, hoy, enviando = false } = {}) {
   return Boolean(vistaPrevia?.colaborador?.idInstitucional) && !enviando && errorDuracionBaja(duracion, hoy) === null;
 }
+
+// ---------- EQ-73 · HU6-19: casos especiales y transferencia manual ----------
+
+function normalizarTextoBusqueda(texto) {
+  return String(texto ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+/**
+ * Valida que el identificador interno del expediente (`aspiranteId`) sea texto
+ * no vacío tras `.trim()` y de máximo 50 caracteres (alineado a EQ-70).
+ * @param {unknown} valor
+ * @returns {boolean}
+ */
+export function aspiranteIdValido(valor) {
+  if (typeof valor !== 'string') return false;
+  const limpio = valor.trim();
+  return limpio.length >= 1 && limpio.length <= 50;
+}
+
+/**
+ * Filtra únicamente colaboradores activos con la casilla `casosEspeciales` habilitada
+ * (criterio C5 / CP-HU6-18), permitiendo filtrar por campus y buscar por nombre o ID.
+ *
+ * @param {Array<Object>} [colaboradores]
+ * @param {{ campus?: string, busqueda?: string }} [filtros]
+ * @returns {Array<Object>}
+ */
+export function filtrarColaboradoresCasosEspeciales(
+  colaboradores = [],
+  { campus = '', busqueda = '' } = {}
+) {
+  if (!Array.isArray(colaboradores)) return [];
+  const campusLimpio = String(campus ?? '').trim();
+  const termino = normalizarTextoBusqueda(busqueda);
+
+  return colaboradores.filter((c) => {
+    if (!c || c.activo !== true || c.casosEspeciales !== true) return false;
+    if (campusLimpio && c.campus !== campusLimpio) return false;
+    if (!termino) return true;
+    const nombreNorm = normalizarTextoBusqueda(c.nombreCompleto);
+    const idNorm = normalizarTextoBusqueda(c.idInstitucional);
+    return nombreNorm.includes(termino) || idNorm.includes(termino);
+  });
+}
+
+/**
+ * Determina si se puede enviar el formulario de transferencia manual:
+ * requiere `aspiranteId` válido, sin envío en curso y un `colaboradorDestino`
+ * que exista en `colaboradores` con `activo === true` y `casosEspeciales === true`.
+ *
+ * @param {{
+ *   aspiranteId?: unknown,
+ *   colaboradorDestino?: unknown,
+ *   colaboradores?: Array<Object>,
+ *   enviando?: boolean
+ * }} [params]
+ * @returns {boolean}
+ */
+export function puedeTransferirManual({
+  aspiranteId,
+  colaboradorDestino,
+  colaboradores = [],
+  enviando = false,
+} = {}) {
+  if (enviando) return false;
+  if (!aspiranteIdValido(aspiranteId)) return false;
+  const idDestino = String(colaboradorDestino ?? '').trim();
+  if (!idValido(idDestino) || !Array.isArray(colaboradores)) return false;
+  const destino = colaboradores.find((c) => String(c?.idInstitucional ?? '').trim() === idDestino);
+  return Boolean(destino && destino.activo === true && destino.casosEspeciales === true);
+}
+
+const MENSAJES_ERROR_TRANSFERENCIA = Object.freeze({
+  ASPIRANTE_ID_INVALIDO: 'Ingresa un identificador interno de expediente válido (máximo 50 caracteres, ej. asp-003).',
+  ID_INVALIDO: 'Selecciona un colaborador destino con un ID institucional válido.',
+  ASPIRANTE_NO_ENCONTRADO: 'No se encontró un expediente con ese ID. Verifica que sea el ID interno (ej. asp-003) y no el folio.',
+  COLABORADOR_DESTINO_NO_ENCONTRADO: 'No se encontró el colaborador destino seleccionado.',
+  COLABORADOR_DESTINO_INACTIVO: 'El colaborador destino está inactivo. Solo puedes transferir expedientes a colaboradores activos.',
+  COLABORADOR_SIN_CASOS_ESPECIALES: 'El colaborador seleccionado no tiene activa la casilla «Casos especiales».',
+  YA_ASIGNADO: 'Este expediente ya se encuentra asignado al colaborador seleccionado.',
+  MISMO_CAMPUS: 'El expediente pertenece al mismo campus base del colaborador destino. La transferencia manual solo aplica entre campus diferentes.',
+});
+
+/**
+ * Devuelve un mensaje claro y accionable para los códigos de error de EQ-70.
+ * @param {string} [codigo]
+ * @param {string} [mensajeServidor]
+ * @returns {string}
+ */
+export function describirErrorTransferencia(codigo, mensajeServidor) {
+  if (codigo && MENSAJES_ERROR_TRANSFERENCIA[codigo]) {
+    return MENSAJES_ERROR_TRANSFERENCIA[codigo];
+  }
+  const respaldo = typeof mensajeServidor === 'string' ? mensajeServidor.trim() : '';
+  return respaldo || 'No se pudo completar la transferencia manual del expediente.';
+}

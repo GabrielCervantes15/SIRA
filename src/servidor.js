@@ -478,7 +478,8 @@ export function crearServidor(opciones = {}) {
         }
 
         const recursosRegistro = new Set([
-          'registro.html', 'registro.js', 'registro.css', 'validaciones.js', 'baja.js'
+          'registro.html', 'registro.js', 'registro.css', 'validaciones.js', 'baja.js',
+          'transferencia.html', 'transferencia.js', 'transferencia.css'
         ]);
         const recursoRegistro = url.pathname.replace(/^\/app\/colaboradores\//, '');
         if (rutaAdminFrontend && req.method === 'GET' && recursosRegistro.has(recursoRegistro)) {

@@ -47,6 +47,7 @@
         <div class="filtros-campus" id="filtros-campus" aria-label="Filtrar por campus"></div>
         <span class="herramientas-espaciador"></span>
         <label class="interruptor-muestra"><span>Mostrar inactivos</span><input id="mostrar-inactivos" type="checkbox" role="switch"><span class="pista-muestra" aria-hidden="true"></span></label>
+        <a class="boton-registrar enlace-transferencia" id="ir-transferencia-manual" href="/app/colaboradores/transferencia.html"><span aria-hidden="true">⇄</span> Transferencia manual</a>
         <button type="button" class="boton-registrar" id="abrir-registro"><span aria-hidden="true">＋</span> Registrar colaborador</button>
         <div class="paginar-muestra" aria-label="Paginación del listado">
           <button id="pagina-anterior" type="button" aria-label="Página anterior">‹</button>
@@ -54,6 +55,7 @@
           <button id="pagina-siguiente" type="button" aria-label="Página siguiente">›</button>
         </div>
       </div>
+      <p id="estado-casos-especiales" class="registro-mensaje aviso-casos-especiales" role="status" aria-live="polite" hidden></p>
       <div class="cuadricula-colaboradores" id="cuadricula-colaboradores" aria-live="polite"></div>
       <p class="pie-tablero" id="pie-tablero">Nombre, correo y teléfono provienen del directorio institucional (simulado en este sprint).</p>
     </section>

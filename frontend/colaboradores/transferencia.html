@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Administrador · Transferencia manual de expedientes · SIRA</title>
+  <link rel="stylesheet" href="/app/css/estilos.css">
+  <link rel="stylesheet" href="/app/colaboradores/registro.css">
+  <link rel="stylesheet" href="/app/colaboradores/transferencia.css">
+</head>
+<body class="pagina-colaboradores pagina-transferencia">
+  <!-- Encabezado institucional compartido con /app y /app/colaboradores/registro.html -->
+  <header class="barra-superior">
+    <nav class="menu-principal" aria-label="Principal">
+      <a href="/app" id="nav-aspirantes">Aspirantes</a>
+      <a href="/app/colaboradores/registro.html" id="nav-colaboradores" class="activo" aria-current="page">Colaboradores</a>
+      <a href="/app?vista=mensajes" id="nav-mensajes">Mensajes</a>
+    </nav>
+    <div class="usuario" id="usuario">
+      <span class="avatar" id="avatar-usuario" aria-hidden="true"></span>
+      <span id="nombre-usuario">Cargando…</span>
+      <button type="button" class="boton" id="cerrar-sesion">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main class="contenedor tablero-colaboradores">
+    <section class="tablero-tarjeta tarjeta-transferencia" aria-labelledby="titulo-transferencia">
+      <div class="tablero-titulo cabecera-transferencia">
+        <div>
+          <a class="enlace-volver" id="volver-colaboradores" href="/app/colaboradores/registro.html">← Volver a Colaboradores</a>
+          <h1 id="titulo-transferencia">Transferencia manual de expedientes (Casos especiales)</h1>
+          <p>Transfiere el expediente de un aspirante hacia un colaborador activo de otro campus que tenga habilitada la casilla «Casos especiales».</p>
+        </div>
+        <div class="indicador-autorizados">
+          <span>Colaboradores autorizados activos: <strong id="conteo-autorizados">0</strong></span>
+        </div>
+      </div>
+
+      <p id="mensaje-transferencia" class="registro-mensaje" role="status" aria-live="polite" hidden></p>
+
+      <!-- Estado vacío cuando ningún colaborador activo tiene activada la casilla casosEspeciales -->
+      <section id="aviso-sin-autorizados" class="aviso-vacio-casos" role="region" aria-labelledby="titulo-sin-autorizados" hidden>
+        <h2 id="titulo-sin-autorizados">No hay colaboradores con «Casos especiales» habilitados</h2>
+        <p>La transferencia manual de expedientes entre campus solo está permitida hacia colaboradores activos que tengan activada la casilla <strong>«Casos especiales (otros campus)»</strong> en su tarjeta de perfil.</p>
+        <p><a class="btn-principal enlace-accion-volver" href="/app/colaboradores/registro.html">Ir al listado de colaboradores para habilitar la casilla</a></p>
+      </section>
+
+      <div class="rejilla-transferencia">
+        <!-- Columna izquierda: formulario de transferencia -->
+        <section class="panel-formulario-transferencia" aria-labelledby="subtitulo-formulario">
+          <h2 id="subtitulo-formulario" class="subtitulo-panel">1. Datos de la transferencia</h2>
+
+          <form id="form-transferencia-manual" novalidate>
+            <div class="grupo-campo">
+              <label class="campo-titulo" for="aspirante-id">ID interno del expediente <span class="requerido">*</span></label>
+              <p class="texto-instruccion" id="ayuda-aspirante-id">Ingresa el identificador interno del expediente del aspirante (1 a 50 caracteres, ej. <code>asp-003</code>), no el folio de solicitud.</p>
+              <input
+                id="aspirante-id"
+                name="aspiranteId"
+                type="text"
+                maxlength="50"
+                placeholder="Ej. asp-003"
+                autocomplete="off"
+                aria-describedby="ayuda-aspirante-id error-aspirante-id"
+                required
+              >
+              <p id="error-aspirante-id" class="texto-error" role="alert" hidden>Ingresa un identificador interno de expediente válido (1 a 50 caracteres).</p>
+            </div>
+
+            <div class="grupo-campo">
+              <div class="cabecera-selector-destino">
+                <label class="campo-titulo" for="buscar-destino">2. Selecciona el colaborador destino autorizado <span class="requerido">*</span></label>
+              </div>
+              <p class="texto-instruccion">Solo aparecen colaboradores activos con la casilla «Casos especiales» habilitada. El campus del expediente debe ser distinto al campus base del colaborador destino.</p>
+
+              <div class="filtros-destino">
+                <label class="filtro-campo-destino">
+                  <span class="sr-only">Filtrar por campus destino</span>
+                  <select id="filtro-campus-destino" aria-label="Filtrar por campus destino">
+                    <option value="">Todos los campus</option>
+                  </select>
+                </label>
+                <label class="filtro-campo-busqueda">
+                  <span class="sr-only">Buscar colaborador destino</span>
+                  <input id="buscar-destino" type="search" autocomplete="off" placeholder="Buscar por nombre o ID institucional">
+                </label>
+              </div>
+
+              <div id="lista-colaboradores-destino" class="lista-colaboradores-destino" role="radiogroup" aria-label="Colaboradores autorizados para casos especiales"></div>
+            </div>
+
+            <section class="resumen-previo-transferencia" aria-labelledby="titulo-resumen-previo">
+              <h3 id="titulo-resumen-previo" class="campo-titulo">3. Resumen previo a la transferencia</h3>
+              <dl class="lista-resumen-previo">
+                <div><dt>Expediente a transferir:</dt><dd id="resumen-aspirante-id">—</dd></div>
+                <div><dt>Colaborador destino:</dt><dd id="resumen-colaborador-destino">—</dd></div>
+                <div><dt>Campus base del destino:</dt><dd id="resumen-campus-destino">—</dd></div>
+              </dl>
+              <p class="nota-reglas-hu6">
+                <strong>Garantía de trazabilidad (HU6-4 / EQ-70):</strong> El expediente conservará intactos su historial de eventos y toda su conversación de WhatsApp. Solo aplica entre campus diferentes y quedará registrado en la bitácora de transferencias con motivo <code>manual</code>.
+              </p>
+            </section>
+
+            <div class="acciones-transferencia">
+              <a class="btn-volver enlace-cancelar" href="/app/colaboradores/registro.html">Cancelar</a>
+              <button type="submit" class="btn-principal" id="confirmar-transferencia" disabled>Transferir expediente</button>
+            </div>
+          </form>
+        </section>
+
+        <!-- Columna derecha: confirmación y transferencias de la sesión -->
+        <aside class="panel-resultados-transferencia" aria-labelledby="subtitulo-resultados">
+          <h2 id="subtitulo-resultados" class="subtitulo-panel">Resultado y bitácora de la sesión</h2>
+
+          <section id="tarjeta-ultima-transferencia" class="tarjeta-confirmacion-transferencia" aria-live="polite" hidden>
+            <h3>✓ Última transferencia confirmada</h3>
+            <dl class="detalle-confirmacion">
+              <div><dt>Expediente:</dt><dd id="conf-aspirante">—</dd></div>
+              <div><dt>Campus origen:</dt><dd id="conf-campus-origen">—</dd></div>
+              <div><dt>Colaborador anterior:</dt><dd id="conf-origen">—</dd></div>
+              <div><dt>Nuevo responsable:</dt><dd id="conf-destino">—</dd></div>
+              <div><dt>Campus destino:</dt><dd id="conf-campus-destino">—</dd></div>
+              <div><dt>Motivo en bitácora:</dt><dd id="conf-motivo">manual</dd></div>
+              <div><dt>Fecha y hora:</dt><dd id="conf-fecha">—</dd></div>
+            </dl>
+          </section>
+
+          <section aria-labelledby="titulo-historial-sesion">
+            <h3 id="titulo-historial-sesion" class="campo-titulo">Transferencias realizadas en esta sesión</h3>
+            <ul id="historial-transferencias-sesion" class="lista-historial-sesion">
+              <li class="historial-vacio" id="sin-transferencias-sesion">Aún no se han realizado transferencias manuales en esta sesión.</li>
+            </ul>
+          </section>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="/app/colaboradores/transferencia.js"></script>
+</body>
+</html>

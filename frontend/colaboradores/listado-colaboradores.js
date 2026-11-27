@@ -14,17 +14,33 @@ const tonos = ['#345f81', '#64859c', '#5a6590', '#7d648a', '#8a9c71', '#a36a70',
 
 const listado = {
   datos: [], campus: [], filtroCampus: '', pagina: 0, tamano: 9, solicitud: 0, esAdministrador: false,
-  alInactivar: null, alReactivar: null,
+  alInactivar: null, alReactivar: null, alCambiarCasosEspeciales: null,
 };
 
-async function pedirJson(ruta) {
-  const respuesta = await fetch(ruta, { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
+async function pedirJson(ruta, opciones = {}) {
+  const respuesta = await fetch(ruta, {
+    credentials: 'same-origin',
+    cache: 'no-store',
+    headers: {
+      Accept: 'application/json',
+      ...(opciones.body ? { 'Content-Type': 'application/json' } : {}),
+    },
+    ...opciones,
+  });
   const datos = await respuesta.json().catch(() => ({}));
   if (!respuesta.ok) {
     if (respuesta.status === 401) window.location.replace('/?expired=1');
     throw Object.assign(new Error(datos.mensaje || 'No se pudo completar la solicitud.'), { codigo: datos.codigo });
   }
   return datos;
+}
+
+function anunciarEstadoCasosEspeciales(texto = '', tipo = 'exito') {
+  const aviso = $('estado-casos-especiales');
+  if (!aviso) return;
+  aviso.textContent = texto;
+  aviso.className = `registro-mensaje aviso-casos-especiales ${tipo}`;
+  aviso.hidden = !texto;
 }
 
 function crearElemento(tag, clase, texto) {
@@ -75,6 +91,9 @@ function tarjeta(c, indice) {
   const datos = crearElemento('div', 'detalles-muestra');
   const titulo = crearElemento('h3', '', nombre);
   if (!c.activo) titulo.append(crearElemento('span', 'estado-inactivo', 'Inactivo'));
+  const insigniaEspecial = crearElemento('span', 'insignia-casos-especiales', 'Casos especiales');
+  insigniaEspecial.hidden = !c.casosEspeciales;
+  if (listado.esAdministrador) titulo.append(insigniaEspecial);
   const campus = crearElemento('p', '');
   campus.append(crearElemento('span', '', 'Campus: '), crearElemento('strong', '', etiquetaCampus(c.campus) || '—'));
   const carga = crearElemento('p', '');
@@ -99,7 +118,65 @@ function tarjeta(c, indice) {
 
   // Solo administrador: activo → icono de perfil con X (dar de baja, HU6-18);
   // inactivo → icono de perfil con + (reactivar; el flujo lo conecta `alReactivar`).
+  // EQ-73 / HU6-19: casilla «Casos especiales (otros campus)» conectada a PATCH /api/v1/colaboradores/:id/casos-especiales.
+  let filaCasosEspeciales = null;
   if (listado.esAdministrador) {
+    filaCasosEspeciales = crearElemento('div', 'fila-casos-especiales');
+    const etiquetaSwitch = crearElemento('label', 'interruptor-casos-especiales');
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.setAttribute('role', 'switch');
+    checkbox.checked = Boolean(c.casosEspeciales);
+    checkbox.disabled = !c.activo;
+    checkbox.setAttribute('aria-label', `Casos especiales (otros campus) para ${nombre}`);
+
+    const pista = crearElemento('span', 'pista-muestra');
+    pista.setAttribute('aria-hidden', 'true');
+    const textoSwitch = crearElemento('span', 'texto-casos-especiales', 'Casos especiales (otros campus)');
+    etiquetaSwitch.append(checkbox, pista, textoSwitch);
+
+    if (!c.activo) {
+      etiquetaSwitch.title = 'Solo colaboradores activos pueden recibir casos especiales';
+    } else {
+      etiquetaSwitch.title = 'Habilita o deshabilita la recepción de expedientes de otros campus';
+      checkbox.addEventListener('change', async () => {
+        const valorAnterior = Boolean(c.casosEspeciales);
+        const nuevoValor = checkbox.checked;
+        checkbox.disabled = true;
+        try {
+          const respuesta = await pedirJson(
+            `/api/v1/colaboradores/${encodeURIComponent(c.idInstitucional)}/casos-especiales`,
+            {
+              method: 'PATCH',
+              body: JSON.stringify({ casosEspeciales: nuevoValor }),
+            }
+          );
+          const confirmado = Boolean(respuesta?.colaborador?.casosEspeciales ?? nuevoValor);
+          c.casosEspeciales = confirmado;
+          checkbox.checked = confirmado;
+          insigniaEspecial.hidden = !confirmado;
+          anunciarEstadoCasosEspeciales(
+            confirmado
+              ? `Casos especiales habilitados para ${nombre}. Ya puede recibir expedientes de otros campus.`
+              : `Casos especiales deshabilitados para ${nombre}.`,
+            'exito'
+          );
+          listado.alCambiarCasosEspeciales?.(c, confirmado);
+        } catch (error) {
+          c.casosEspeciales = valorAnterior;
+          checkbox.checked = valorAnterior;
+          insigniaEspecial.hidden = !valorAnterior;
+          anunciarEstadoCasosEspeciales(
+            error.message || 'No se pudo actualizar la autorización de casos especiales.',
+            'error'
+          );
+        } finally {
+          checkbox.disabled = !c.activo;
+        }
+      });
+    }
+    filaCasosEspeciales.append(etiquetaSwitch);
+
     const boton = crearElemento('button', 'boton-inactivar');
     boton.type = 'button';
     const marca = c.activo ? '<path d="M17 8l5 5M22 8l-5 5" stroke="currentColor" stroke-width="2"/>' : '<path d="M19.5 7v8M15.5 11h8" stroke="currentColor" stroke-width="2"/>';
@@ -113,7 +190,8 @@ function tarjeta(c, indice) {
     inferior.append(boton);
   }
 
-  el.append(superior, inferior);
+  if (filaCasosEspeciales) el.append(superior, filaCasosEspeciales, inferior);
+  else el.append(superior, inferior);
   return el;
 }
 
@@ -165,12 +243,23 @@ export async function recargarListado() {
 
 /**
  * Conecta los controles del listado y hace la primera carga.
- * @param {{ esAdministrador?: boolean, alInactivar?: (c: Object) => void, alReactivar?: (c: Object) => void }} [opciones]
+ * @param {{
+ *   esAdministrador?: boolean,
+ *   alInactivar?: (c: Object) => void,
+ *   alReactivar?: (c: Object) => void,
+ *   alCambiarCasosEspeciales?: (c: Object, habilitado: boolean) => void
+ * }} [opciones]
  */
-export function iniciarListadoColaboradores({ esAdministrador = false, alInactivar = null, alReactivar = null } = {}) {
+export function iniciarListadoColaboradores({
+  esAdministrador = false,
+  alInactivar = null,
+  alReactivar = null,
+  alCambiarCasosEspeciales = null,
+} = {}) {
   listado.esAdministrador = esAdministrador;
   listado.alInactivar = alInactivar;
   listado.alReactivar = alReactivar;
+  listado.alCambiarCasosEspeciales = alCambiarCasosEspeciales;
   let espera = null;
   $('buscar-muestra').addEventListener('input', () => {
     clearTimeout(espera);
