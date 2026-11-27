@@ -50,3 +50,11 @@ El enlace de recuperación muestra una indicación de soporte; no implementa tod
 - `POST /api/v1/colaboradores/:id/baja` con `{ "tipo": "indefinido" }` o `{ "tipo": "periodo", "inicio": "YYYY-MM-DD", "fin": "YYYY-MM-DD" }`: recalcula el plan, reasigna la cartera, inactiva al colaborador y publica `colaboradores.baja.confirmada`.
 - Algoritmo: `src/modulos/distribucion-carreras/reasignacion-baja.js` (carreras completas, solo a activos del mismo campus, menor carga primero). Sin otro colaborador activo en el campus → `409 SIN_COLABORADOR_RELEVO`.
 - Postgres: aplicar `docker/postgres/migrations/10_baja_colaboradores.sql` (columnas `baja_desde`, `baja_hasta`).
+
+
+## Correo por SMTP (BASE-9)
+
+- Con `SMTP_HOST` definido (en Docker ya apunta a `mailpit`) los correos salen por SMTP y se ven en http://localhost:8025. Sin `SMTP_HOST` se usa el correo simulado en memoria (el de las pruebas).
+- Variables: `SMTP_HOST`, `SMTP_PORT` (25 por defecto), `SMTP_FROM` (`sira@localhost` por defecto).
+- `servicio-correo-smtp.js` es un cliente SMTP mínimo sin dependencias, para el servidor de pruebas (sin TLS ni contraseña). Para un SMTP de producción con TLS/autenticación, sustituir ese archivo por uno basado en `nodemailer` con el mismo método `enviar`.
+- `plantillas.js` tiene la plantilla base `armarCorreo`; `cola-envio.js` reintenta fallos temporales con espera creciente y no reintenta los permanentes. Los consumidores son `consumidor-registro.js` y `consumidor-baja.js`.

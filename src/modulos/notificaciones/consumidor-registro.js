@@ -10,10 +10,9 @@
  *    el alta ya está confirmada y el correo es una consecuencia, no una condición.
  */
 import { correoBienvenidaColaborador } from "./plantillas.js";
+import { enviarConReintentos } from "./cola-envio.js";
 
 export const PATRON_REGISTRO_CONFIRMADO = "colaboradores.registro.confirmado";
-
-const esperar = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * @param {Object} dependencias
@@ -46,22 +45,14 @@ export function crearConsumidorRegistroConfirmado({
     procesados.set(eventId, { correoId: null }); // reserva: evita duplicados concurrentes
 
     const correo = correoBienvenidaColaborador(evento, { urlSira });
-    for (let intento = 1; intento <= intentos; intento++) {
-      try {
-        const { id } = await servicioCorreo.enviar(correo);
-        procesados.set(eventId, { correoId: id });
-        return;
-      } catch (error) {
-        const ultimo = intento === intentos || error?.reintentable === false;
-        if (ultimo) {
-          procesados.delete(eventId); // permite reprocesarlo si el evento se vuelve a entregar
-          fallidos.push({ eventId, colaboradorId: evento.colaboradorId, motivo: error?.codigo ?? "ERROR_ENVIO", intentos: intento });
-          registrar(`no se pudo enviar el correo de ${evento.colaboradorId}`, error);
-          return;
-        }
-        await esperar(esperaBaseMs * 2 ** (intento - 1));
-      }
+    const resultado = await enviarConReintentos({ servicioCorreo, correo, intentos, esperaBaseMs });
+    if (resultado.ok) {
+      procesados.set(eventId, { correoId: resultado.id });
+      return;
     }
+    procesados.delete(eventId); // permite reprocesarlo si el evento se vuelve a entregar
+    fallidos.push({ eventId, colaboradorId: evento.colaboradorId, motivo: resultado.error?.codigo ?? "ERROR_ENVIO", intentos: resultado.intentos });
+    registrar(`no se pudo enviar el correo de ${evento.colaboradorId}`, resultado.error);
   }
 
   // Igual que con RabbitMQ, quien publica no espera al correo: el envío corre aparte.
