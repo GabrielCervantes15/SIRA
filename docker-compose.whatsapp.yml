@@ -1,0 +1,13 @@
+# EQ-115 (BASE-11): variables de WhatsApp para el contenedor backend.
+# Usar junto con docker-compose.yml:
+# docker compose -f docker-compose.yml -f docker-compose.whatsapp.yml up -d --build backend
+services:
+  backend:
+    environment:
+      WHATSAPP_MOCK_ENABLED: ${WHATSAPP_MOCK_ENABLED:-true}
+      WHATSAPP_API_URL: ${WHATSAPP_API_URL:-https://graph.facebook.com/v26.0}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
+      WHATSAPP_WEBHOOK_VERIFY_TOKEN: ${WHATSAPP_WEBHOOK_VERIFY_TOKEN:-}
+      WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET:-}
+      WHATSAPP_WEBHOOK_MAX_BODY_BYTES: ${WHATSAPP_WEBHOOK_MAX_BODY_BYTES:-1048576}

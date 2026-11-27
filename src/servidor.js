@@ -28,6 +28,7 @@ import { crearColaEnvioCorreo } from './modulos/disparo-automatico/aplicacion/co
 import { crearServicioCorreoSimulado } from './modulos/notificaciones/servicio-correo-simulado.js';
 import { TIPO_ENVIO_SOLICITADO } from './modulos/disparo-automatico/eventos.js';
 import { crearProveedorWhatsAppCloudApi, crearProveedorWhatsAppSimulado, leerConfiguracionCloudApi } from './modulos/whatsapp/index.js';
+import { crearServicioWebhookWhatsApp, leerConfiguracionWebhookWhatsApp, RUTA_WEBHOOK_WHATSAPP } from './modulos/whatsapp/webhook.js';
 import { crearGeneradorMensajeReactivacion, ErrorMensajeReactivacion, TITULO_FALLO } from './modulos/disparo-automatico/mensaje-reactivacion.js';
 import { crearServicioVistaPreviaLote } from './modulos/disparo-automatico/vista-previa-lote.js';
 
@@ -57,6 +58,38 @@ function leerCuerpo(req, maxBytes = 16_384) {
       catch { reject(Object.assign(new Error('El cuerpo de la solicitud no contiene JSON válido.'), { status: 400 })); }
     });
     req.on('error', reject);
+  });
+}
+
+/**
+ * Lee el cuerpo HTTP sin transformarlo. Es indispensable para validar la firma HMAC
+ * de Meta, que se calcula sobre los bytes originales y no sobre JSON reserializado.
+ */
+function leerCuerpoRaw(req, maxBytes = 1_048_576) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let total = 0;
+    let excedido = false;
+
+    req.on('data', (chunk) => {
+      const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      total += bytes.length;
+      if (total > maxBytes) {
+        excedido = true;
+        chunks.length = 0;
+        return;
+      }
+      if (!excedido) chunks.push(bytes);
+    });
+    req.on('end', () => {
+      if (excedido) {
+        reject(Object.assign(new Error('La notificación excede el tamaño máximo permitido.'), { status: 413 }));
+        return;
+      }
+      resolve(Buffer.concat(chunks, total));
+    });
+    req.on('error', reject);
+    req.on('aborted', () => reject(Object.assign(new Error('La solicitud fue interrumpida.'), { status: 400 })));
   });
 }
 
@@ -162,6 +195,21 @@ export function crearServidor(opciones = {}) {
   const catalogoRegistro = opciones.catalogoRegistro || crearCatalogoRegistroDemo(aspirantesDemo);
   const borradoresRegistro = opciones.borradoresRegistro || crearServicioBorradores();
   const busEventos = opciones.busEventos || opciones.bus || crearBusEnMemoria();
+  // EQ-115 (BASE-11): webhook público de Meta. Solo publica eventos después de
+  // verificar el Verify Token (GET) o la firma HMAC del cuerpo original (POST).
+  const servicioWebhookWhatsApp = opciones.servicioWebhookWhatsApp || crearServicioWebhookWhatsApp({
+    ...leerConfiguracionWebhookWhatsApp(process.env),
+    alRecibirEvento: async (payload) => {
+      if (typeof busEventos.publicar !== 'function') return;
+      await busEventos.publicar('whatsapp.webhook.recibido', {
+        eventId: randomBytes(16).toString('hex'),
+        tipo: 'whatsapp.webhook.recibido',
+        version: 1,
+        publicadoEn: obtenerFechaReloj().toISOString(),
+        datos: payload,
+      });
+    },
+  });
   // HU 6: módulo Colaboradores (EQ-55, EQ-59, EQ-64, EQ-71). La semilla de colaboradores
   // registrados solo acompaña a los usuarios semilla; si una prueba inyecta sus propios
   // usuarios, arranca sin colaboradores salvo los de idsColaboradoresYaRegistrados.
@@ -289,6 +337,47 @@ export function crearServidor(opciones = {}) {
     try {
       if ((url.pathname === '/health' || url.pathname === '/api/v1/health') && req.method === 'GET') {
         return responderJson(res, 200, { status: 'UP', service: 'sira-crm-backend', environment: NODE_ENV, timestamp: new Date().toISOString(), uptimeSeconds: Math.floor(process.uptime()), database: { host: process.env.DB_HOST || 'localhost', database: process.env.DB_NAME || 'sira_db', schemasConfigured: ['usuarios', 'aspirantes', 'alertas', 'conocimiento'] }, eventBus: { type: process.env.RABBITMQ_HOST ? 'rabbitmq' : 'memoria', host: process.env.RABBITMQ_HOST || 'memoria' } });
+      }
+
+      // EQ-115: Meta no inicia sesión en SIRA. La autenticidad se comprueba con
+      // Verify Token (GET) y App Secret + X-Hub-Signature-256 (POST).
+      if (url.pathname === RUTA_WEBHOOK_WHATSAPP || url.pathname === `${RUTA_WEBHOOK_WHATSAPP}/`) {
+        if (req.method === 'GET') {
+          const resultado = servicioWebhookWhatsApp.verificarSuscripcion({
+            mode: url.searchParams.get('hub.mode'),
+            token: url.searchParams.get('hub.verify_token'),
+            challenge: url.searchParams.get('hub.challenge'),
+          });
+          res.writeHead(resultado.statusCode, {
+            'Content-Type': 'text/plain; charset=utf-8',
+            'Cache-Control': 'no-store',
+            'X-Content-Type-Options': 'nosniff',
+          });
+          return res.end(resultado.body);
+        }
+
+        if (req.method === 'POST') {
+          let rawBody;
+          try {
+            rawBody = await leerCuerpoRaw(req, servicioWebhookWhatsApp.maxBodyBytes);
+          } catch (error) {
+            if (error.status === 413) {
+              return responderJson(res, 413, {
+                codigo: 'PAYLOAD_DEMASIADO_GRANDE',
+                mensaje: 'La notificación excede el tamaño máximo permitido.',
+              });
+            }
+            throw error;
+          }
+          const resultado = await servicioWebhookWhatsApp.procesarNotificacion({
+            rawBody,
+            signature: req.headers['x-hub-signature-256'],
+          });
+          return responderJson(res, resultado.statusCode, resultado.body);
+        }
+
+        res.writeHead(405, { Allow: 'GET, POST', 'Content-Type': 'text/plain; charset=utf-8' });
+        return res.end('Method Not Allowed');
       }
 
       if (url.pathname === '/api/v1/auth/login' && req.method === 'POST') {
@@ -798,6 +887,7 @@ export function crearServidor(opciones = {}) {
     colaboradores: moduloColaboradores,
     notificaciones: moduloNotificaciones,
     mensajes: moduloMensajes,
+    whatsappWebhook: servicioWebhookWhatsApp,
     bus: busEventos,
   };
   servidor.on('close', () => moduloNotificaciones.detener?.());
