@@ -1,0 +1,2377 @@
+openapi: 3.0.3
+info:
+  title: SIRA — CRM de Seguimiento de Aspirantes del ITSON
+  version: 0.2.0
+  description: |
+    Especificación HTTP REST del backend de **SIRA** (Monolito Modular en Node.js >= 20 con ESM nativo y cero dependencias externas), correspondiente al cierre del **Sprint 2**.
+
+    ### Autenticación y Autorización
+    - Todas las rutas protegidas utilizan la cookie de sesión `sira_session` (`HttpOnly`, `SameSite=Lax`, y `Secure` cuando `NODE_ENV=production`).
+    - Los roles soportados son `administrador` y `colaborador`.
+    - Las rutas de `Monitoreo`, `Colaboradores` y `Mensajes` aceptan tanto el prefijo versionado `/api/v1/...` como el alias `/api/...`.
+
+    ### Zona Horaria Institucional
+    - Toda validación de horario permitido de envío (HU 1 y HU 9) se evalúa en el servidor bajo la zona horaria fija `America/Hermosillo` (`UTC-07:00`, sin horario de verano).
+servers:
+  - url: http://localhost:3000
+    description: Servidor local de desarrollo / contenedor Docker
+tags:
+  - name: Salud
+    description: Estado operativo del backend, base de datos y bus de eventos.
+  - name: Autenticación
+    description: Inicio, consulta y cierre de sesión institucional (BASE-7, EQ-15, EQ-18).
+  - name: Monitoreo
+    description: Cartera de aspirantes, filtros, expediente, línea de tiempo y conversación (HU 2, HU 3 y HU 4).
+  - name: Colaboradores
+    description: Administración de colaboradores, registro en 3 pasos, casos especiales, transferencia manual y baja con reasignación equitativa (HU 6 y HU 7).
+  - name: Mensajes - Configuración
+    description: Parámetros de espera, jornada laboral por día y bitácora de auditoría (HU 9 · EQ-106, EQ-107, EQ-108).
+  - name: Mensajes - Catálogo IA
+    description: Catálogo de mensajes predefinidos de solo lectura (HU 8 · EQ-95, EQ-96, EQ-97).
+  - name: Disparo Automático
+    description: Vista previa, creación idempotente de lotes de reactivación y consulta de resultados (HU 1 · EQ-81, EQ-82, EQ-83, EQ-87).
+  - name: Webhooks WhatsApp
+    description: Verificación de suscripción y recepción firmada HMAC-SHA256 de WhatsApp Cloud API (BASE-11 · EQ-115).
+
+components:
+  securitySchemes:
+    cookieSesion:
+      type: apiKey
+      in: cookie
+      name: sira_session
+      description: Cookie de sesión `HttpOnly` emitida por `POST /api/v1/auth/login`.
+
+  parameters:
+    AspiranteIdPath:
+      name: id
+      in: path
+      required: true
+      description: Identificador interno (`asp-001`) o folio de solicitud (`FOL-2026-0001`) del aspirante.
+      schema:
+        type: string
+        example: asp-001
+    ColaboradorIdPath:
+      name: id
+      in: path
+      required: true
+      description: ID institucional numérico del colaborador (5 a 20 dígitos).
+      schema:
+        type: string
+        pattern: '^\d{5,20}$'
+        example: '00000252115'
+
+  schemas:
+    ErrorRespuesta:
+      type: object
+      required:
+        - codigo
+        - mensaje
+      properties:
+        codigo:
+          type: string
+          example: SIN_PERMISO
+        mensaje:
+          type: string
+          example: No tienes permisos para acceder a esta funcionalidad.
+        errores:
+          type: object
+          additionalProperties:
+            type: string
+          description: Mapa opcional de errores de validación por campo.
+        detalle:
+          type: object
+          description: Información estructurada adicional (p. ej. estado del horario en 409 FUERA_DE_HORARIO_PERMITIDO).
+
+    UsuarioSesion:
+      type: object
+      required:
+        - idInstitucional
+        - nombreCompleto
+        - rol
+      properties:
+        idInstitucional:
+          type: string
+          example: '00000252115'
+        nombreCompleto:
+          type: string
+          example: Sebastián Bórquez Huerta
+        correoInstitucional:
+          type: string
+          nullable: true
+          example: sebastian.borquez252115@potros.itson.edu.mx
+        telefono:
+          type: string
+          nullable: true
+          example: '+526441112233'
+        rol:
+          type: string
+          enum: [administrador, colaborador]
+          example: colaborador
+
+    PerfilDirectorio:
+      type: object
+      required:
+        - idInstitucional
+        - nombreCompleto
+      properties:
+        idInstitucional:
+          type: string
+          example: '00000260001'
+        nombreCompleto:
+          type: string
+          example: Valeria Ochoa Ruiz
+        correoInstitucional:
+          type: string
+          nullable: true
+          example: valeria.ochoa260001@potros.itson.edu.mx
+        telefono:
+          type: string
+          nullable: true
+          example: '+526449990011'
+        fotoUrl:
+          type: string
+          nullable: true
+          example: https://ad.itson.mx/fotos/00000260001.jpg
+
+    ColaboradorResumen:
+      type: object
+      required:
+        - idInstitucional
+        - campus
+        - carreras
+        - activo
+        - casosEspeciales
+        - fechaRegistro
+        - totalAspirantes
+      properties:
+        idInstitucional:
+          type: string
+          example: '00000252115'
+        nombreCompleto:
+          type: string
+          nullable: true
+          example: Sebastián Bórquez Huerta
+        correoInstitucional:
+          type: string
+          nullable: true
+        telefono:
+          type: string
+          nullable: true
+        fotoUrl:
+          type: string
+          nullable: true
+        campus:
+          type: string
+          example: Campus Obregón Náinari
+        carreras:
+          type: array
+          items:
+            type: string
+          example: [Ingeniería en Software, Licenciatura en Administración]
+        activo:
+          type: boolean
+          example: true
+        casosEspeciales:
+          type: boolean
+          example: false
+        periodoBaja:
+          type: object
+          nullable: true
+          properties:
+            indefinido:
+              type: boolean
+            desde:
+              type: string
+              format: date
+            hasta:
+              type: string
+              format: date
+              nullable: true
+        fechaRegistro:
+          type: string
+          format: date-time
+        totalAspirantes:
+          type: integer
+          minimum: 0
+          example: 40
+
+    AspiranteResumen:
+      type: object
+      properties:
+        id:
+          type: string
+          example: asp-001
+        folioSolicitud:
+          type: string
+          example: FOL-2026-0001
+        nombreCompleto:
+          type: string
+          example: Mariana López Soto
+        correo:
+          type: string
+          example: mariana.lopez@ejemplo.mx
+        telefono:
+          type: string
+          example: '+526441000001'
+        campus:
+          type: string
+          example: Campus Obregón Náinari
+        carreraSolicitada:
+          type: string
+          example: Ingeniería en Software
+        preparatoriaProcedencia:
+          type: string
+          example: CBTIS 37
+        periodo:
+          type: string
+          example: '2027-1'
+        fechaSolicitud:
+          type: string
+          format: date-time
+        estadoSolicitud:
+          type: string
+          enum: [RECIBIDA, EN_REVISION, CONSTANCIA_RECHAZADA, ACEPTADA, RECHAZADA]
+        semaforo:
+          type: string
+          enum: [ROJO, NARANJA, AMARILLO, VERDE]
+        colaboradorId:
+          type: string
+          nullable: true
+        fechaUltimaActividad:
+          type: string
+          format: date-time
+        fechaUltimaNotificacion:
+          type: string
+          format: date-time
+          nullable: true
+        vecesNotificado:
+          type: integer
+          minimum: 0
+
+    EventoHistorialAspirante:
+      type: object
+      properties:
+        id:
+          type: string
+          example: ev-001
+        aspiranteId:
+          type: string
+          example: asp-001
+        tipoEvento:
+          type: string
+          enum:
+            - MENSAJE_ENVIADO
+            - CONSTANCIA_ENTREGADA
+            - CAMBIO_ESTADO
+            - RECHAZO_SOLICITUD
+            - NOTA_SEGUIMIENTO
+            - MENSAJE_AUTOMATICO
+        titulo:
+          type: string
+          example: Constancia entregada
+        detalle:
+          type: string
+          nullable: true
+        motivoRechazo:
+          type: string
+          nullable: true
+        autorTipo:
+          type: string
+          enum: [SISTEMA, IA, COLABORADOR, REGISTRO_ESCOLAR]
+        autorId:
+          type: string
+          nullable: true
+        fechaEvento:
+          type: string
+          format: date-time
+        metadatos:
+          type: object
+
+    MensajeConversacion:
+      type: object
+      properties:
+        id:
+          type: string
+          example: msg-001
+        aspiranteId:
+          type: string
+          example: asp-001
+        direccion:
+          type: string
+          enum: [ENTRANTE, SALIENTE]
+        remitenteTipo:
+          type: string
+          enum: [ASPIRANTE, BOT_IA, COLABORADOR, SISTEMA]
+        remitenteId:
+          type: string
+          nullable: true
+        contenido:
+          type: string
+          example: Hola, ya subí mi constancia de estudios.
+        tipoContenido:
+          type: string
+          enum: [TEXTO, IMAGEN, DOCUMENTO, AUDIO]
+        estadoEntrega:
+          type: string
+          enum: [PENDIENTE, ENVIADO, ENTREGADO, LEIDO, FALLIDO]
+        whatsappMessageId:
+          type: string
+          nullable: true
+        fecha:
+          type: string
+          format: date-time
+
+    ParametroTiempo:
+      type: object
+      required:
+        - valor
+        - unidad
+      properties:
+        valor:
+          type: integer
+          minimum: 1
+          maximum: 720
+          description: Entero positivo cuyo equivalente en horas debe estar entre 1 h y 720 h (30 días).
+          example: 24
+        unidad:
+          type: string
+          enum: [horas, dias]
+          example: horas
+
+    JornadaDia:
+      type: object
+      required:
+        - habilitado
+        - inicio
+        - fin
+      properties:
+        habilitado:
+          type: boolean
+          example: true
+        inicio:
+          type: string
+          nullable: true
+          pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+          description: Hora de inicio en formato `HH:MM` (24 h) si `habilitado=true`, o `null` si `habilitado=false`.
+          example: '08:00'
+        fin:
+          type: string
+          nullable: true
+          pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+          description: Hora de fin en formato `HH:MM` (`inicio < fin`) si `habilitado=true`, o `null` si `habilitado=false`.
+          example: '18:00'
+
+    JornadaSemanal:
+      type: object
+      required:
+        - lunes
+        - martes
+        - miercoles
+        - jueves
+        - viernes
+        - sabado
+        - domingo
+      properties:
+        lunes:
+          $ref: '#/components/schemas/JornadaDia'
+        martes:
+          $ref: '#/components/schemas/JornadaDia'
+        miercoles:
+          $ref: '#/components/schemas/JornadaDia'
+        jueves:
+          $ref: '#/components/schemas/JornadaDia'
+        viernes:
+          $ref: '#/components/schemas/JornadaDia'
+        sabado:
+          $ref: '#/components/schemas/JornadaDia'
+        domingo:
+          $ref: '#/components/schemas/JornadaDia'
+
+    ConfiguracionMensajes:
+      type: object
+      required:
+        - zonaHoraria
+        - tiempoEsperaRespuesta
+        - tiempoEsperaContactoPrevio
+        - jornada
+      properties:
+        zonaHoraria:
+          type: string
+          enum: [America/Hermosillo]
+          example: America/Hermosillo
+        tiempoEsperaRespuesta:
+          $ref: '#/components/schemas/ParametroTiempo'
+        tiempoEsperaContactoPrevio:
+          $ref: '#/components/schemas/ParametroTiempo'
+        jornada:
+          $ref: '#/components/schemas/JornadaSemanal'
+        actualizadoEn:
+          type: string
+          format: date-time
+        actualizadoPor:
+          type: string
+          nullable: true
+        equivalenciasHoras:
+          type: object
+          properties:
+            tiempoEsperaRespuestaHoras:
+              type: integer
+              example: 24
+            tiempoEsperaContactoPrevioHoras:
+              type: integer
+              example: 48
+
+    EntradaBitacoraConfiguracion:
+      type: object
+      required:
+        - id
+        - usuarioId
+        - fechaCambio
+        - valorAnterior
+        - valorNuevo
+      properties:
+        id:
+          type: string
+          format: uuid
+        usuarioId:
+          type: string
+          example: '00000248910'
+        fechaCambio:
+          type: string
+          format: date-time
+        valorAnterior:
+          $ref: '#/components/schemas/ConfiguracionMensajes'
+        valorNuevo:
+          $ref: '#/components/schemas/ConfiguracionMensajes'
+
+    MensajeCatalogoIA:
+      type: object
+      properties:
+        id:
+          type: string
+          example: reactivacion-lote-hu1
+        categoria:
+          type: string
+          enum: [ENVIO, RESPUESTA]
+        nombre:
+          type: string
+          example: Reactivación de solicitud (Lote HU1)
+        orden:
+          type: integer
+        grupo:
+          type: string
+          nullable: true
+        pregunta:
+          type: string
+          nullable: true
+        disparador:
+          type: string
+          enum: [AUTOMATICO, MANUAL, AUTOMATICO_Y_MANUAL, LOTE_HU1, RESPUESTA]
+        canal:
+          type: string
+          example: WHATSAPP
+        requierePlantillaMeta:
+          type: boolean
+        plantillaMeta:
+          type: object
+          nullable: true
+          properties:
+            referencia:
+              type: string
+            estado:
+              type: string
+              enum: [PENDIENTE, ENVIADA, APROBADA, RECHAZADA]
+        texto:
+          type: string
+        variables:
+          type: array
+          items:
+            type: string
+        llaves:
+          type: array
+          items:
+            type: object
+            properties:
+              tipo:
+                type: string
+              valor:
+                type: string
+        reglas:
+          type: array
+          items:
+            type: string
+        vistaPrevia:
+          type: string
+
+    EstadoHorarioEnvio:
+      type: object
+      properties:
+        permitido:
+          type: boolean
+          example: true
+        zonaHoraria:
+          type: string
+          example: America/Hermosillo
+        fechaEvaluada:
+          type: string
+          format: date-time
+        diaSemana:
+          type: string
+          example: martes
+        diaActual:
+          type: string
+          example: Martes
+        horaActual:
+          type: string
+          example: '10:30'
+        horarioActual:
+          type: string
+          example: '10:30'
+        horarioPermitidoHoy:
+          $ref: '#/components/schemas/JornadaDia'
+        siguienteApertura:
+          type: string
+          format: date-time
+          nullable: true
+        mensaje:
+          type: string
+
+paths:
+  /health:
+    get:
+      tags: [Salud]
+      summary: Verifica el estado operativo del servicio (alias /api/v1/health)
+      operationId: obtenerSalud
+      responses:
+        '200':
+          description: Servicio activo.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: UP
+                  service:
+                    type: string
+                    example: sira-crm-backend
+                  environment:
+                    type: string
+                    example: development
+                  timestamp:
+                    type: string
+                    format: date-time
+                  uptimeSeconds:
+                    type: integer
+                  database:
+                    type: object
+                    properties:
+                      host:
+                        type: string
+                      database:
+                        type: string
+                      schemasConfigured:
+                        type: array
+                        items:
+                          type: string
+                  eventBus:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                        enum: [memoria, rabbitmq]
+                      host:
+                        type: string
+
+  /api/v1/auth/login:
+    post:
+      tags: [Autenticación]
+      summary: Autentica a un colaborador o administrador y emite la cookie HttpOnly sira_session
+      operationId: iniciarSesion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - identificador
+                - password
+              properties:
+                identificador:
+                  type: string
+                  description: ID institucional o correo institucional (`@potros.itson.edu.mx` / `@itson.edu.mx`).
+                  example: '00000252115'
+                password:
+                  type: string
+                  format: password
+                  example: Password123!
+      responses:
+        '200':
+          description: Sesión iniciada correctamente.
+          headers:
+            Set-Cookie:
+              description: Cookie `sira_session` con flags `HttpOnly`, `Path=/`, `SameSite=Lax` y `Max-Age`.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  autenticado:
+                    type: boolean
+                    example: true
+                  usuario:
+                    $ref: '#/components/schemas/UsuarioSesion'
+        '400':
+          description: Faltan campos requeridos (`CAMPOS_REQUERIDOS`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '401':
+          description: Credenciales inválidas (`CREDENCIALES_INVALIDAS`) o cuenta bloqueada en directorio (`CUENTA_BLOQUEADA`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '403':
+          description: Usuario sin autorización para SIRA o colaborador dado de baja en el CRM (`USUARIO_SIN_ACCESO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '503':
+          description: Proveedor de identidad institucional no disponible (`SERVICIO_NO_DISPONIBLE`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+
+  /api/v1/auth/session:
+    get:
+      tags: [Autenticación]
+      summary: Consulta la sesión activa actual
+      operationId: obtenerSesionActual
+      security:
+        - cookieSesion: []
+      responses:
+        '200':
+          description: Sesión activa y vigente.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  autenticado:
+                    type: boolean
+                    example: true
+                  expiraEn:
+                    type: string
+                    format: date-time
+                  usuario:
+                    $ref: '#/components/schemas/UsuarioSesion'
+        '401':
+          description: Sesión inexistente o expirada (`SESION_NO_VALIDA`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+
+  /api/v1/auth/logout:
+    post:
+      tags: [Autenticación]
+      summary: Invalida la sesión actual y limpia la cookie sira_session
+      operationId: cerrarSesion
+      security:
+        - cookieSesion: []
+      responses:
+        '200':
+          description: Sesión cerrada.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cerrado:
+                    type: boolean
+                    example: true
+
+  /api/v1/monitoreo/filtros:
+    get:
+      tags: [Monitoreo]
+      summary: Obtiene los catálogos de filtros disponibles para la cartera del colaborador autenticado (HU2-7)
+      description: También accesible mediante el alias `/api/monitoreo/filtros`.
+      operationId: obtenerFiltrosMonitoreo
+      security:
+        - cookieSesion: []
+      responses:
+        '200':
+          description: Opciones de filtrado de la cartera del colaborador.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  carreras:
+                    type: array
+                    items:
+                      type: string
+                  preparatorias:
+                    type: array
+                    items:
+                      type: string
+                  periodos:
+                    type: array
+                    items:
+                      type: string
+                  estadosSolicitud:
+                    type: array
+                    items:
+                      type: string
+                  semaforos:
+                    type: array
+                    items:
+                      type: string
+        '401':
+          description: Sin sesión activa (`NO_AUTORIZADO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+
+  /api/v1/monitoreo/aspirantes:
+    get:
+      tags: [Monitoreo]
+      summary: Lista y filtra los aspirantes asignados a la cartera del colaborador autenticado (HU2-4, HU2-5)
+      description: También accesible mediante el alias `/api/monitoreo/aspirantes`.
+      operationId: listarAspirantesCartera
+      security:
+        - cookieSesion: []
+      parameters:
+        - name: busqueda
+          in: query
+          description: Búsqueda parcial por nombre o folio (insensible a mayúsculas y acentos). También acepta `nombre`.
+          schema:
+            type: string
+        - name: semaforo
+          in: query
+          schema:
+            type: string
+            enum: [ROJO, NARANJA, AMARILLO, VERDE]
+        - name: carrera
+          in: query
+          schema:
+            type: string
+        - name: preparatoria
+          in: query
+          schema:
+            type: string
+        - name: periodo
+          in: query
+          schema:
+            type: string
+        - name: estado_solicitud
+          in: query
+          schema:
+            type: string
+        - name: mostrar_aceptados
+          in: query
+          description: Si es `false`, oculta aspirantes con estado `ACEPTADA`.
+          schema:
+            type: boolean
+            default: true
+        - name: ordenar_por
+          in: query
+          schema:
+            type: string
+            enum: [semaforo, nombre, carrera, preparatoria, periodo, estado_solicitud, fecha_solicitud, ultima_actividad]
+            default: fechaSolicitud
+        - name: direccion
+          in: query
+          schema:
+            type: string
+            enum: [ASC, DESC]
+            default: DESC
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Lista paginada de aspirantes de la cartera.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  aspirantes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AspiranteResumen'
+                  total:
+                    type: integer
+        '400':
+          description: Parámetro de consulta inválido (`PARAMETRO_INVALIDO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '401':
+          description: Sin sesión activa (`NO_AUTORIZADO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+
+  /api/v1/monitoreo/aspirantes/{id}:
+    get:
+      tags: [Monitoreo]
+      summary: Obtiene el detalle general del expediente de un aspirante de la cartera (HU3-3 / EQ-42)
+      description: También accesible mediante `/api/monitoreo/aspirantes/{id}`.
+      operationId: obtenerDetalleAspirante
+      security:
+        - cookieSesion: []
+      parameters:
+        - $ref: '#/components/parameters/AspiranteIdPath'
+      responses:
+        '200':
+          description: Expediente del aspirante.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  aspirante:
+                    $ref: '#/components/schemas/AspiranteResumen'
+        '401':
+          description: Sin sesión activa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '403':
+          description: El aspirante pertenece a la cartera de otro colaborador (`SIN_PERMISO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '404':
+          description: Aspirante no encontrado (`NO_ENCONTRADO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+
+  /api/v1/monitoreo/aspirantes/{id}/actividades:
+    get:
+      tags: [Monitoreo]
+      summary: Obtiene la línea de tiempo (historial unificado) del aspirante ordenada del más reciente al más antiguo (HU3-6 / EQ-43)
+      description: También accesible mediante `/api/monitoreo/aspirantes/{id}/actividades`.
+      operationId: obtenerHistorialAspirante
+      security:
+        - cookieSesion: []
+      parameters:
+        - $ref: '#/components/parameters/AspiranteIdPath'
+        - name: desde
+          in: query
+          description: Fecha/hora inicial inclusiva (ISO 8601).
+          schema:
+            type: string
+            format: date-time
+        - name: hasta
+          in: query
+          description: Fecha/hora final inclusiva (ISO 8601).
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Eventos del historial del aspirante.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  actividades:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EventoHistorialAspirante'
+                  total:
+                    type: integer
+        '400':
+          description: Rango de fechas inválido o invertido (`RANGO_FECHAS_INVALIDO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '401':
+          description: Sin sesión activa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '403':
+          description: El aspirante pertenece a otra cartera (`SIN_PERMISO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '404':
+          description: Aspirante no encontrado (`NO_ENCONTRADO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+
+  /api/v1/monitoreo/aspirantes/{id}/conversacion:
+    get:
+      tags: [Monitoreo]
+      summary: Obtiene los mensajes de conversación de WhatsApp del aspirante en orden cronológico ascendente (HU3-5)
+      description: También accesible mediante `/api/monitoreo/aspirantes/{id}/conversacion`.
+      operationId: obtenerConversacionAspirante
+      security:
+        - cookieSesion: []
+      parameters:
+        - $ref: '#/components/parameters/AspiranteIdPath'
+      responses:
+        '200':
+          description: Mensajes de la conversación del aspirante.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mensajes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MensajeConversacion'
+        '401':
+          description: Sin sesión activa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '403':
+          description: El aspirante pertenece a otra cartera (`SIN_PERMISO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '404':
+          description: Aspirante no encontrado (`NO_ENCONTRADO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+    post:
+      tags: [Monitoreo]
+      summary: Envía un mensaje manual a la conversación del aspirante y registra actividad en su historial (EQ-46)
+      operationId: enviarMensajeConversacion
+      security:
+        - cookieSesion: []
+      parameters:
+        - $ref: '#/components/parameters/AspiranteIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - contenido
+              properties:
+                contenido:
+                  type: string
+                  example: Hola Mariana, confirmamos la recepción de tu documento.
+      responses:
+        '201':
+          description: Mensaje registrado y agregado al historial del aspirante.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mensaje:
+                    $ref: '#/components/schemas/MensajeConversacion'
+        '400':
+          description: Mensaje vacío (`MENSAJE_VACIO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '401':
+          description: Sin sesión activa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '403':
+          description: El aspirante no pertenece a la cartera del colaborador (`SIN_PERMISO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '404':
+          description: Aspirante no encontrado (`NO_ENCONTRADO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+
+  /api/v1/monitoreo/conversaciones:
+    get:
+      tags: [Monitoreo]
+      summary: Lista todas las conversaciones activas de la cartera del colaborador autenticado (HU 3 / HU 4)
+      operationId: listarConversacionesCartera
+      security:
+        - cookieSesion: []
+      responses:
+        '200':
+          description: Bandeja de conversaciones ordenada por fecha del último mensaje descendente.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversaciones:
+                    type: array
+                    items:
+                      type: object
+                  total:
+                    type: integer
+        '401':
+          description: Sin sesión activa (`NO_AUTORIZADO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+
+  /api/v1/colaboradores:
+    get:
+      tags: [Colaboradores]
+      summary: Lista los colaboradores por campus con datos del directorio y conteo real de aspirantes (EQ-71 · HU6-12)
+      description: |
+        Accesible tanto para `administrador` como para `colaborador`.
+        - El parámetro `incluir_inactivos` solo surte efecto cuando el usuario autenticado tiene rol `administrador`.
+      operationId: listarColaboradores
+      security:
+        - cookieSesion: []
+      parameters:
+        - name: campus
+          in: query
+          description: Nombre exacto del campus. Si no existe en el catálogo responde `400 CAMPUS_INVALIDO`.
+          schema:
+            type: string
+            example: Campus Obregón Náinari
+        - name: incluir_inactivos
+          in: query
+          description: Incluye colaboradores con `estado=inactivo` (`true` o `1`, solo aplicable para `administrador`).
+          schema:
+            type: boolean
+            default: false
+        - name: busqueda
+          in: query
+          description: Filtro parcial por nombre o ID institucional (insensible a mayúsculas y acentos).
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Listado de colaboradores y catálogo de campus.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  colaboradores:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ColaboradorResumen'
+                  total:
+                    type: integer
+                  campus:
+                    type: array
+                    items:
+                      type: string
+        '400':
+          description: Campus no existente en el catálogo (`CAMPUS_INVALIDO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '401':
+          description: Sin sesión activa (`SESION_NO_VALIDA`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+
+  /api/v1/colaboradores/registro/catalogo:
+    get:
+      tags: [Colaboradores]
+      summary: Obtiene el catálogo de campus y carreras por campus para el registro de colaboradores (EQ-62/EQ-63)
+      description: Exclusivo para rol `administrador`.
+      operationId: obtenerCatalogoRegistroColaboradores
+      security:
+        - cookieSesion: []
+      responses:
+        '200':
+          description: Catálogo de campus y carreras disponibles.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  campus:
+                    type: array
+                    items:
+                      type: string
+                  carrerasPorCampus:
+                    type: object
+                    additionalProperties:
+                      type: array
+                      items:
+                        type: string
+                  origen:
+                    type: string
+        '401':
+          description: Sin sesión activa (`SESION_NO_VALIDA`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '403':
+          description: Rol distinto de administrador (`SIN_PERMISO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+
+  /api/v1/colaboradores/registro/perfil/{id}:
+    get:
+      tags: [Colaboradores]
+      summary: Consulta los datos personales de solo lectura del colaborador en el directorio institucional (EQ-55 · HU6-5)
+      description: Exclusivo para rol `administrador`. Nunca devuelve contraseñas ni credenciales.
+      operationId: consultarPerfilDirectorioColaborador
+      security:
+        - cookieSesion: []
+      parameters:
+        - $ref: '#/components/parameters/ColaboradorIdPath'
+      responses:
+        '200':
+          description: Perfil encontrado en el directorio y disponible para registro.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  perfil:
+                    $ref: '#/components/schemas/PerfilDirectorio'
+        '400':
+          description: ID no numérico de 5 a 20 dígitos (`ID_INVALIDO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '401':
+          description: Sin sesión activa (`SESION_NO_VALIDA`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '403':
+          description: Rol distinto de administrador (`SIN_PERMISO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '404':
+          description: El directorio institucional no conoce el ID (`ID_NO_ENCONTRADO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '409':
+          description: El ID ya está registrado en SIRA, activo o inactivo (`YA_REGISTRADO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '503':
+          description: El directorio institucional no responde (`SERVICIO_NO_DISPONIBLE`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+
+  /api/v1/colaboradores/registro/borrador:
+    post:
+      tags: [Colaboradores]
+      summary: Guarda o actualiza un borrador temporal de registro (pasos 1 y 2 · EQ-56 / EQ-63)
+      description: Exclusivo para rol `administrador`. No confirma el alta ni mueve aspirantes.
+      operationId: guardarBorradorRegistroColaborador
+      security:
+        - cookieSesion: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - idInstitucional
+                - campus
+              properties:
+                idInstitucional:
+                  type: string
+                  example: '00000260001'
+                campus:
+                  type: string
+                  example: Campus Navojoa
+                carreras:
+                  type: array
+                  items:
+                    type: string
+                  example: [Ingeniería en Software]
+      responses:
+        '200':
+          description: Borrador almacenado temporalmente.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  borrador:
+                    type: object
+                  confirmado:
+                    type: boolean
+                    example: false
+        '400':
+          description: ID institucional inválido (`ID_INVALIDO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '401':
+          description: Sin sesión activa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '403':
+          description: Rol distinto de administrador.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '404':
+          description: ID no encontrado en el directorio (`ID_NO_ENCONTRADO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '409':
+          description: El colaborador ya está registrado (`YA_REGISTRADO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '422':
+          description: Campus o carreras inválidas (`CAMPUS_OBLIGATORIO`, `CAMPUS_INVALIDO`, `CARRERAS_OBLIGATORIAS`, `CARRERA_INVALIDA`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '503':
+          description: Directorio institucional no disponible (`SERVICIO_NO_DISPONIBLE`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+
+  /api/v1/colaboradores/registro/borrador/{id}:
+    get:
+      tags: [Colaboradores]
+      summary: Recupera un borrador temporal de registro por ID institucional (EQ-56 / EQ-63)
+      description: Exclusivo para rol `administrador`.
+      operationId: obtenerBorradorRegistroColaborador
+      security:
+        - cookieSesion: []
+      parameters:
+        - $ref: '#/components/parameters/ColaboradorIdPath'
+      responses:
+        '200':
+          description: Borrador encontrado.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  borrador:
+                    type: object
+        '401':
+          description: Sin sesión activa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '403':
+          description: Rol distinto de administrador.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '404':
+          description: Borrador no encontrado (`NO_ENCONTRADO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+
+  /api/v1/colaboradores/registro/vista-previa:
+    post:
+      tags: [Colaboradores]
+      summary: Calcula la vista previa del impacto de distribución de aspirantes antes de confirmar el alta (EQ-64 · HU6-17)
+      description: Exclusivo para rol `administrador`. No modifica ningún dato.
+      operationId: previsualizarRegistroColaborador
+      security:
+        - cookieSesion: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - idInstitucional
+                - campus
+                - carreras
+              properties:
+                idInstitucional:
+                  type: string
+                  example: '00000260001'
+                campus:
+                  type: string
+                  example: Campus Navojoa
+                carreras:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: string
+                  example: [Ingeniería en Software]
+      responses:
+        '200':
+          description: Vista previa de aspirantes por carrera y cargas antes/después.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  colaborador:
+                    $ref: '#/components/schemas/PerfilDirectorio'
+                  campus:
+                    type: string
+                  carreras:
+                    type: array
+                    items:
+                      type: object
+                  totalAspirantes:
+                    type: integer
+                  cargas:
+                    type: array
+                    items:
+                      type: object
+        '400':
+          description: Error de validación (`ID_INVALIDO`, `CAMPUS_OBLIGATORIO`, `CAMPUS_INVALIDO`, `CARRERAS_OBLIGATORIAS`, `CARRERA_INVALIDA`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '401':
+          description: Sin sesión activa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '403':
+          description: Rol distinto de administrador.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '404':
+          description: ID no encontrado en directorio (`ID_NO_ENCONTRADO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '409':
+          description: El colaborador ya está registrado (`YA_REGISTRADO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '503':
+          description: Directorio institucional no disponible (`SERVICIO_NO_DISPONIBLE`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+
+  /api/v1/colaboradores/registro:
+    post:
+      tags: [Colaboradores]
+      summary: Confirma el alta del colaborador en una transacción con compensación saga y publica colaboradores.registro.confirmado (EQ-59 · HU6-9)
+      description: También acepta `/api/v1/colaboradores/registro/confirmar`. Exclusivo para rol `administrador`.
+      operationId: confirmarRegistroColaborador
+      security:
+        - cookieSesion: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - idInstitucional
+                - campus
+                - carreras
+              properties:
+                idInstitucional:
+                  type: string
+                  example: '00000260001'
+                campus:
+                  type: string
+                  example: Campus Navojoa
+                carreras:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: string
+                  example: [Ingeniería en Software]
+      responses:
+        '201':
+          description: Colaborador registrado, cartera reasignada, bitácora escrita y evento publicado.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  confirmado:
+                    type: boolean
+                    example: true
+                  colaborador:
+                    type: object
+                  asignacion:
+                    type: object
+                  evento:
+                    type: object
+        '400':
+          description: Solicitud inválida (`ID_INVALIDO`, `CAMPUS_OBLIGATORIO`, `CAMPUS_INVALIDO`, `CARRERAS_OBLIGATORIAS`, `CARRERA_INVALIDA`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '401':
+          description: Sin sesión activa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '403':
+          description: Rol distinto de administrador.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '404':
+          description: ID no encontrado en directorio (`ID_NO_ENCONTRADO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '409':
+          description: El colaborador ya está registrado (`YA_REGISTRADO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '503':
+          description: Directorio institucional no disponible (`SERVICIO_NO_DISPONIBLE`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+
+  /api/v1/colaboradores/{id}/casos-especiales:
+    patch:
+      tags: [Colaboradores]
+      summary: Activa o desactiva la casilla «Casos especiales» en el perfil del colaborador (EQ-70 · HU6-11 / EQ-73 · HU6-19)
+      description: Exclusivo para rol `administrador`.
+      operationId: actualizarCasosEspecialesColaborador
+      security:
+        - cookieSesion: []
+      parameters:
+        - $ref: '#/components/parameters/ColaboradorIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - casosEspeciales
+              properties:
+                casosEspeciales:
+                  type: boolean
+                  example: true
+      responses:
+        '200':
+          description: Autorización de casos especiales actualizada.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  actualizado:
+                    type: boolean
+                    example: true
+                  colaborador:
+                    type: object
+                    properties:
+                      idInstitucional:
+                        type: string
+                      casosEspeciales:
+                        type: boolean
+        '400':
+          description: ID inválido (`ID_INVALIDO`) o valor no booleano (`CASOS_ESPECIALES_INVALIDO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '401':
+          description: Sin sesión activa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '403':
+          description: Rol distinto de administrador.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '404':
+          description: Colaborador no encontrado (`COLABORADOR_NO_ENCONTRADO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+
+  /api/v1/colaboradores/transferencias-manuales:
+    post:
+      tags: [Colaboradores]
+      summary: Transfiere manualmente un expediente de otro campus hacia un colaborador activo con casosEspeciales=true (EQ-70 · HU6-11)
+      description: Exclusivo para rol `administrador`. Conserva intactos el historial y la conversación del aspirante (HU6-4) y registra bitácora con motivo `manual`.
+      operationId: transferirAspiranteManual
+      security:
+        - cookieSesion: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - aspiranteId
+                - colaboradorDestino
+              properties:
+                aspiranteId:
+                  type: string
+                  maxLength: 50
+                  example: asp-003
+                colaboradorDestino:
+                  type: string
+                  example: '00000252115'
+      responses:
+        '200':
+          description: Expediente transferido y registrado en bitácora.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transferido:
+                    type: boolean
+                    example: true
+                  transferencia:
+                    type: object
+                    properties:
+                      aspiranteId:
+                        type: string
+                      nombreCompleto:
+                        type: string
+                        nullable: true
+                      campusOrigen:
+                        type: string
+                      colaboradorOrigen:
+                        type: string
+                        nullable: true
+                      colaboradorDestino:
+                        type: string
+                      campusDestino:
+                        type: string
+                      motivo:
+                        type: string
+                        example: manual
+                      realizadoPor:
+                        type: string
+                      fechaTransferencia:
+                        type: string
+                        format: date-time
+        '400':
+          description: Identificador de aspirante o colaborador inválido (`ASPIRANTE_ID_INVALIDO`, `ID_INVALIDO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '401':
+          description: Sin sesión activa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '403':
+          description: Rol distinto de administrador.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '404':
+          description: Expediente o colaborador destino no encontrado (`ASPIRANTE_NO_ENCONTRADO`, `COLABORADOR_DESTINO_NO_ENCONTRADO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '409':
+          description: Colaborador destino inactivo (`COLABORADOR_DESTINO_INACTIVO`), sin casilla activa (`COLABORADOR_SIN_CASOS_ESPECIALES`) o expediente ya asignado (`YA_ASIGNADO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '422':
+          description: El expediente pertenece al mismo campus base que el colaborador destino (`MISMO_CAMPUS`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+
+  /api/v1/colaboradores/{id}/baja/vista-previa:
+    post:
+      tags: [Colaboradores]
+      summary: Calcula la propuesta de reasignación equitativa por carrera antes de dar de baja a un colaborador (EQ-69 · HU6-10 / HU6-18)
+      description: Exclusivo para rol `administrador`. No modifica datos. Si no existe otro colaborador activo en el mismo campus, bloquea con `409 SIN_COLABORADOR_RELEVO`.
+      operationId: previsualizarBajaColaborador
+      security:
+        - cookieSesion: []
+      parameters:
+        - $ref: '#/components/parameters/ColaboradorIdPath'
+      responses:
+        '200':
+          description: Propuesta de distribución equitativa entre colaboradores activos del mismo campus.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  colaborador:
+                    type: object
+                  informacionActual:
+                    type: object
+                  distribucion:
+                    type: array
+                    items:
+                      type: object
+                  totalAspirantes:
+                    type: integer
+        '400':
+          description: ID institucional inválido (`ID_INVALIDO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '401':
+          description: Sin sesión activa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '403':
+          description: Rol distinto de administrador.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '404':
+          description: Colaborador no encontrado (`COLABORADOR_NO_ENCONTRADO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '409':
+          description: El colaborador ya está inactivo (`YA_INACTIVO`) o es el único activo del campus (`SIN_COLABORADOR_RELEVO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+
+  /api/v1/colaboradores/{id}/baja:
+    post:
+      tags: [Colaboradores]
+      summary: Marca al colaborador como inactivo, reasigna equitativamente su cartera según HU6-2 y publica colaboradores.baja.confirmada (EQ-69 · HU6-10 / HU6-18)
+      description: Exclusivo para rol `administrador`.
+      operationId: confirmarBajaColaborador
+      security:
+        - cookieSesion: []
+      parameters:
+        - $ref: '#/components/parameters/ColaboradorIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tipo
+              properties:
+                tipo:
+                  type: string
+                  enum: [indefinido, periodo]
+                  example: indefinido
+                inicio:
+                  type: string
+                  format: date
+                  description: Requerido cuando `tipo = "periodo"`.
+                  example: '2026-11-26'
+                fin:
+                  type: string
+                  format: date
+                  description: Requerido cuando `tipo = "periodo"`.
+                  example: '2027-01-15'
+      responses:
+        '200':
+          description: Colaborador inactivado, cartera reasignada, bitácora registrada y evento publicado.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  confirmado:
+                    type: boolean
+                    example: true
+                  colaborador:
+                    type: object
+                  reasignacion:
+                    type: object
+                  evento:
+                    type: object
+        '400':
+          description: Duración o ID inválidos (`TIPO_BAJA_INVALIDO`, `FECHAS_BAJA_INVALIDAS`, `PERIODO_BAJA_INVALIDO`, `PERIODO_BAJA_VENCIDO`, `ID_INVALIDO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '401':
+          description: Sin sesión activa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '403':
+          description: Rol distinto de administrador.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '404':
+          description: Colaborador no encontrado (`COLABORADOR_NO_ENCONTRADO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '409':
+          description: El colaborador ya está inactivo (`YA_INACTIVO`) o es el único activo de su campus (`SIN_COLABORADOR_RELEVO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+
+  /api/v1/mensajes/configuracion:
+    get:
+      tags: [Mensajes - Configuración]
+      summary: Obtiene la configuración vigente de tiempos de espera y jornada laboral por día (EQ-106 · HU9-5)
+      description: Exclusivo para rol `administrador`. También acepta el alias `/api/mensajes/configuracion`.
+      operationId: obtenerConfiguracionMensajes
+      security:
+        - cookieSesion: []
+      responses:
+        '200':
+          description: Configuración vigente con equivalencias en horas.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  configuracion:
+                    $ref: '#/components/schemas/ConfiguracionMensajes'
+        '401':
+          description: Sin sesión activa (`SESION_NO_VALIDA`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '403':
+          description: Rol distinto de administrador (`SIN_PERMISO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+    put:
+      tags: [Mensajes - Configuración]
+      summary: Valida y guarda de forma atómica la configuración de mensajes, registra bitácora y publica mensajes.configuracion.actualizada (EQ-107 · HU9-6 / EQ-108 · HU9-7)
+      description: Exclusivo para rol `administrador`. También acepta el alias `/api/mensajes/configuracion`.
+      operationId: guardarConfiguracionMensajes
+      security:
+        - cookieSesion: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tiempoEsperaRespuesta
+                - tiempoEsperaContactoPrevio
+                - jornada
+              properties:
+                zonaHoraria:
+                  type: string
+                  enum: [America/Hermosillo]
+                tiempoEsperaRespuesta:
+                  $ref: '#/components/schemas/ParametroTiempo'
+                tiempoEsperaContactoPrevio:
+                  $ref: '#/components/schemas/ParametroTiempo'
+                jornada:
+                  $ref: '#/components/schemas/JornadaSemanal'
+      responses:
+        '200':
+          description: Configuración actualizada, entrada registrada en bitácora y evento publicado.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mensaje:
+                    type: string
+                  configuracion:
+                    $ref: '#/components/schemas/ConfiguracionMensajes'
+                  bitacora:
+                    $ref: '#/components/schemas/EntradaBitacoraConfiguracion'
+                  evento:
+                    type: object
+        '400':
+          description: Configuración inválida (`CONFIGURACION_INVALIDA`) o JSON mal formado (`JSON_INVALIDO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '401':
+          description: Sin sesión activa (`SESION_NO_VALIDA`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '403':
+          description: Rol distinto de administrador (`SIN_PERMISO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+
+  /api/v1/mensajes/configuracion/bitacora:
+    get:
+      tags: [Mensajes - Configuración]
+      summary: Lista la bitácora de auditoría de cambios en la configuración de mensajes del más reciente al más antiguo (EQ-108 · HU9-7)
+      description: Exclusivo para rol `administrador`. También acepta `/api/mensajes/configuracion/bitacora`.
+      operationId: listarBitacoraConfiguracionMensajes
+      security:
+        - cookieSesion: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        '200':
+          description: Historial de modificaciones de configuración.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  bitacora:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EntradaBitacoraConfiguracion'
+                  total:
+                    type: integer
+        '401':
+          description: Sin sesión activa (`SESION_NO_VALIDA`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '403':
+          description: Rol distinto de administrador (`SIN_PERMISO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+
+  /api/v1/mensajes-ia:
+    get:
+      tags: [Mensajes - Catálogo IA]
+      summary: Lista el catálogo completo de mensajes predefinidos de envío y respuesta con vista previa (HU 8 · EQ-96, EQ-97)
+      description: Solo lectura para ambos roles (`administrador` y `colaborador`). Cualquier método distinto de `GET` responde `405 SOLO_LECTURA`.
+      operationId: listarCatalogoMensajesIA
+      security:
+        - cookieSesion: []
+      parameters:
+        - name: categoria
+          in: query
+          schema:
+            type: string
+            enum: [ENVIO, RESPUESTA]
+      responses:
+        '200':
+          description: Catálogo de mensajes predefinidos.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  soloLectura:
+                    type: boolean
+                    example: true
+                  mensajes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MensajeCatalogoIA'
+                  total:
+                    type: integer
+        '400':
+          description: Categoría inválida (`CATEGORIA_INVALIDA`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '401':
+          description: Sin sesión activa (`SESION_NO_VALIDA`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '405':
+          description: Intento de escritura sobre un catálogo de solo lectura (`SOLO_LECTURA`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+
+  /api/v1/mensajes-ia/{id}:
+    get:
+      tags: [Mensajes - Catálogo IA]
+      summary: Obtiene el detalle y vista previa de un mensaje predefinido por ID (HU 8 · EQ-96)
+      operationId: obtenerDetalleMensajeCatalogoIA
+      security:
+        - cookieSesion: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: reactivacion-lote-hu1
+      responses:
+        '200':
+          description: Mensaje del catálogo encontrado.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  soloLectura:
+                    type: boolean
+                    example: true
+                  mensaje:
+                    $ref: '#/components/schemas/MensajeCatalogoIA'
+        '401':
+          description: Sin sesión activa (`SESION_NO_VALIDA`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '404':
+          description: Mensaje no encontrado (`MENSAJE_NO_ENCONTRADO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+
+  /api/v1/disparo-mensajes/vista-previa:
+    get:
+      tags: [Disparo Automático]
+      summary: Calcula la vista previa de aspirantes elegibles para un lote de reactivación (HU 1 · EQ-81, EQ-82, EQ-84)
+      description: |
+        Puede consultarse incluso fuera del horario permitido de envío (`200 OK` con `dentroDeHorario: false`), permitiendo al colaborador inspeccionar su cartera antes de enviar.
+      operationId: previsualizarLoteDisparo
+      security:
+        - cookieSesion: []
+      parameters:
+        - name: semaforos
+          in: query
+          description: Lista separada por comas de semáforos elegibles (`ROJO`, `NARANJA`, `AMARILLO`).
+          schema:
+            type: string
+            example: ROJO,NARANJA
+        - name: carreras
+          in: query
+          description: Lista separada por comas de carreras asignadas al colaborador.
+          schema:
+            type: string
+        - name: inactividadValor
+          in: query
+          schema:
+            type: integer
+            example: 24
+        - name: inactividadUnidad
+          in: query
+          schema:
+            type: string
+            enum: [horas, dias]
+            example: horas
+      responses:
+        '200':
+          description: Conteo de elegibles, desglose de excluidos, estado del horario en America/Hermosillo y ejemplos del mensaje personalizado.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valido:
+                    type: boolean
+                  errores:
+                    type: object
+                  carrerasDisponibles:
+                    type: array
+                    items:
+                      type: string
+                  semaforosDisponibles:
+                    type: array
+                    items:
+                      type: string
+                  fechaCorte:
+                    type: string
+                    format: date-time
+                    nullable: true
+                  horasContactoPrevio:
+                    type: integer
+                    example: 48
+                  dentroDeHorario:
+                    type: boolean
+                  estadoHorario:
+                    $ref: '#/components/schemas/EstadoHorarioEnvio'
+                  mensajeHorario:
+                    type: string
+                  total:
+                    type: integer
+                  excluidos:
+                    type: object
+                  mensajesEjemplo:
+                    type: array
+                    items:
+                      type: string
+                  sinDatosParaMensaje:
+                    type: integer
+                  mensajeReactivacionDisponible:
+                    type: boolean
+        '401':
+          description: Sin sesión activa (`SESION_NO_VALIDA`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+
+  /api/v1/disparo-mensajes/enviar:
+    post:
+      tags: [Disparo Automático]
+      summary: Valida el horario permitido en el servidor, crea el lote de envío de forma idempotente y publica eventos por aspirante y canal (HU 1 · EQ-82, EQ-83, EQ-85)
+      description: |
+        Exclusivo para rol `colaborador`.
+        - Consulta en vivo la jornada laboral vigente de **HU 9** (`America/Hermosillo`). Si el reloj del servidor está fuera del horario permitido, rechaza con `409 FUERA_DE_HORARIO_PERMITIDO` sin crear lotes ni publicar eventos.
+      operationId: enviarLoteDisparo
+      security:
+        - cookieSesion: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          description: Clave opcional de idempotencia (`^[A-Za-z0-9_-]{8,100}$`) para evitar duplicar lotes ante reintentos de red.
+          schema:
+            type: string
+            pattern: '^[A-Za-z0-9_-]{8,100}$'
+            example: lote-20261126-colab01
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - semaforos
+                - carreras
+                - inactividadValor
+                - inactividadUnidad
+              properties:
+                semaforos:
+                  type: array
+                  items:
+                    type: string
+                    enum: [ROJO, NARANJA, AMARILLO]
+                  example: [ROJO, NARANJA]
+                carreras:
+                  type: array
+                  items:
+                    type: string
+                  example: [Ingeniería en Software]
+                inactividadValor:
+                  type: integer
+                  minimum: 1
+                  example: 24
+                inactividadUnidad:
+                  type: string
+                  enum: [horas, dias]
+                  example: horas
+                enviarPorCorreo:
+                  type: boolean
+                  default: false
+      responses:
+        '200':
+          description: Lote creado (o recuperado por idempotencia) y eventos de envío publicados.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  loteId:
+                    type: string
+                    format: uuid
+                  estado:
+                    type: string
+                    example: CREADO
+                  creadoEn:
+                    type: string
+                    format: date-time
+                  totalAspirantes:
+                    type: integer
+                  totalEnviosPendientes:
+                    type: integer
+                  noEnviables:
+                    type: integer
+                  repetido:
+                    type: boolean
+                  estadoHorario:
+                    $ref: '#/components/schemas/EstadoHorarioEnvio'
+        '400':
+          description: Filtros inválidos (`FILTROS_LOTE_INVALIDOS`) o clave de idempotencia inválida (`CLAVE_IDEMPOTENCIA_INVALIDA`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '401':
+          description: Sin sesión activa (`SESION_NO_VALIDA`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '403':
+          description: El usuario autenticado no tiene rol `colaborador` (`SIN_PERMISO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '409':
+          description: Envío rechazado por encontrarse fuera del horario laboral permitido (`FUERA_DE_HORARIO_PERMITIDO`), sin aspirantes elegibles (`LOTE_SIN_ELEGIBLES`) o clave de idempotencia reutilizada con otros filtros (`IDEMPOTENCIA_CONFLICTO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+
+  /api/v1/disparo-mensajes/lotes/{loteId}:
+    get:
+      tags: [Disparo Automático]
+      summary: Consulta el progreso y conteo de resultados (enviados, fallidos, diferidos, pendientes) de un lote del colaborador (HU 1 · EQ-87)
+      operationId: obtenerEstadoLoteDisparo
+      security:
+        - cookieSesion: []
+      parameters:
+        - name: loteId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Resumen de resultados del lote.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  loteId:
+                    type: string
+                    format: uuid
+                  estado:
+                    type: string
+                  creadoEn:
+                    type: string
+                    format: date-time
+                  filtros:
+                    type: object
+                  totalAspirantes:
+                    type: integer
+                  aspirantesNotificados:
+                    type: integer
+                  enviados:
+                    type: integer
+                  fallidos:
+                    type: integer
+                  diferidos:
+                    type: integer
+                  pendientes:
+                    type: integer
+                  noEnviables:
+                    type: integer
+        '401':
+          description: Sin sesión activa (`SESION_NO_VALIDA`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '404':
+          description: Lote inexistente o perteneciente a otro colaborador (`LOTE_NO_ENCONTRADO`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+
+  /api/v1/webhooks/whatsapp:
+    get:
+      tags: [Webhooks WhatsApp]
+      summary: Endpoint público de verificación de suscripción del Webhook de Meta (BASE-11 · EQ-115)
+      operationId: verificarWebhookWhatsApp
+      parameters:
+        - name: hub.mode
+          in: query
+          required: true
+          schema:
+            type: string
+            example: subscribe
+        - name: hub.verify_token
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: hub.challenge
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Token válido; devuelve el `hub.challenge` en texto plano.
+          content:
+            text/plain:
+              schema:
+                type: string
+        '403':
+          description: Verify Token inválido o ausente.
+    post:
+      tags: [Webhooks WhatsApp]
+      summary: Recibe notificaciones de eventos de WhatsApp Cloud API verificando la firma HMAC-SHA256 sobre los bytes crudos (BASE-11 · EQ-115)
+      operationId: recibirNotificacionWebhookWhatsApp
+      parameters:
+        - name: X-Hub-Signature-256
+          in: header
+          required: true
+          description: Firma HMAC-SHA256 (`sha256=<hex>`) calculada con `WHATSAPP_APP_SECRET`.
+          schema:
+            type: string
+            example: sha256=8f14e45fceea167a5a36dedd4bea2543
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - object
+                - entry
+              properties:
+                object:
+                  type: string
+                  example: whatsapp_business_account
+                entry:
+                  type: array
+                  items:
+                    type: object
+      responses:
+        '200':
+          description: Firma válida y evento publicado en el bus como `whatsapp.webhook.recibido`.
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Cuerpo JSON inválido o estructura ajena a WhatsApp Business Account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '401':
+          description: Firma `X-Hub-Signature-256` ausente o inválida.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
+        '413':
+          description: Cuerpo superior al límite permitido (`PAYLOAD_DEMASIADO_GRANDE`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorRespuesta'
