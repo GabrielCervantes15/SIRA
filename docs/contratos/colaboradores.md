@@ -9,6 +9,7 @@ Módulo `src/modulos/colaboradores/` (esquema `usuarios`). Arquitectura hexagona
 | EQ-64 | HU6-17 | Paso 3: vista previa de la distribución (backend + frontend) |
 | EQ-59 | HU6-9 | Confirmar el registro en una transacción |
 | EQ-61 | HU6-14 | Consumir el evento del bus y enviar el correo (módulo `notificaciones`) |
+| EQ-69 | HU6-10 / HU6-18 | Marcar inactivo (baja): bloqueo si es único activo del campus, reasignación equitativa (HU6-2) y evento `colaboradores.baja.confirmada` |
 | EQ-70 | HU6-11 | Casos especiales: habilitar recepción y transferir expedientes de otros campus con bitácora |
 
 ```
@@ -128,6 +129,113 @@ Reglas:
 * Si la escritura de la bitácora falla, se intenta restaurar el responsable anterior. Si la bitácora no confirma todas las filas en PostgreSQL, la operación se considera fallida y se ejecuta la compensación.
 
 Códigos: 400 `ASPIRANTE_ID_INVALIDO` o `ID_INVALIDO`; 401 sin sesión; 403 si no es administrador; 404 `ASPIRANTE_NO_ENCONTRADO` o `COLABORADOR_DESTINO_NO_ENCONTRADO`; 409 `COLABORADOR_DESTINO_INACTIVO`, `COLABORADOR_SIN_CASOS_ESPECIALES` o `YA_ASIGNADO`; 422 `MISMO_CAMPUS`.
+
+## `POST /api/v1/colaboradores/:id/baja/vista-previa` (EQ-69 / HU6-10 / HU6-18)
+
+Solo administrador. Calcula la propuesta de reasignación equitativa por carrera según las reglas de HU6-2 **sin modificar datos**. Si el campus no cuenta con otro colaborador activo de relevo, responde `409 SIN_COLABORADOR_RELEVO`.
+
+Respuesta 200:
+
+```json
+{
+  "colaborador": {
+    "idInstitucional": "00000252115",
+    "nombreCompleto": "Sebastián Bórquez Huerta",
+    "campus": "Campus Obregón Náinari"
+  },
+  "informacionActual": {
+    "campus": "Campus Obregón Náinari",
+    "aspirantes": 40,
+    "carreras": 2
+  },
+  "distribucion": [
+    {
+      "colaboradorId": "00000252390",
+      "nombreCompleto": "Gabriel …",
+      "fotoUrl": "…",
+      "campus": "Campus Obregón Náinari",
+      "nuevosAspirantes": 40,
+      "antes": 10,
+      "despues": 50,
+      "carreras": [
+        { "campus": "Campus Obregón Náinari", "carrera": "Ingeniería en Software", "aspirantes": 25 },
+        { "campus": "Campus Obregón Náinari", "carrera": "Licenciatura en Administración", "aspirantes": 15 }
+      ]
+    }
+  ],
+  "totalAspirantes": 40
+}
+```
+
+## `POST /api/v1/colaboradores/:id/baja` (EQ-69 / HU6-10 / HU6-18)
+
+Solo administrador. Marca al colaborador como inactivo (de forma indefinida o por periodo), reasigna su cartera equitativamente en una transacción con compensación saga y publica `colaboradores.baja.confirmada`.
+
+Cuerpo:
+
+```json
+{ "tipo": "indefinido" }
+```
+o por periodo:
+```json
+{ "tipo": "periodo", "inicio": "2026-11-26", "fin": "2027-01-15" }
+```
+
+| Código | `codigo` | Cuándo (en este orden) |
+|---|---|---|
+| 400 | `TIPO_BAJA_INVALIDO` / `FECHAS_BAJA_INVALIDAS` / `PERIODO_BAJA_INVALIDO` / `PERIODO_BAJA_VENCIDO` | Duración o fechas inválidas. |
+| 400 | `ID_INVALIDO` | ID no numérico de 5 a 20 dígitos. |
+| 404 | `COLABORADOR_NO_ENCONTRADO` | No existe un colaborador con ese ID. |
+| 409 | `YA_INACTIVO` | El colaborador ya tiene `estado !== "activo"`. |
+| 409 | `SIN_COLABORADOR_RELEVO` | Es el único colaborador activo que cubre su campus; se bloquea la baja. |
+| 200 | — | Colaborador inactivado, cartera reasignada y evento publicado. |
+
+Respuesta 200:
+
+```json
+{
+  "confirmado": true,
+  "colaborador": {
+    "idInstitucional": "00000252115",
+    "nombreCompleto": "Sebastián Bórquez Huerta",
+    "campus": "Campus Obregón Náinari",
+    "activo": false,
+    "periodoBaja": { "indefinido": true, "desde": "2026-11-26", "hasta": null }
+  },
+  "reasignacion": {
+    "totalAspirantes": 40,
+    "receptores": [
+      {
+        "colaboradorId": "00000252390",
+        "nombreCompleto": "Gabriel …",
+        "correoInstitucional": "…",
+        "aspirantesRecibidos": 40,
+        "carrerasRecibidas": ["…"]
+      }
+    ]
+  },
+  "evento": {
+    "eventId": "evt-baja-…",
+    "tipo": "colaboradores.baja.confirmada",
+    "colaboradorId": "00000252115",
+    "nombreCompleto": "Sebastián Bórquez Huerta",
+    "correoInstitucional": "…",
+    "campus": "Campus Obregón Náinari",
+    "baja": { "indefinido": true, "desde": "2026-11-26", "hasta": null },
+    "receptores": ["…"],
+    "realizadoPor": "00000100001",
+    "fechaConfirmacion": "2026-11-26T18:00:00.000Z"
+  }
+}
+```
+
+Reglas de negocio y transaccionalidad (EQ-69 / HU6-10 / HU6-18):
+
+* **Bloqueo de único activo del campus:** Si al excluir al colaborador objetivo no queda ningún colaborador `activo` en el mismo campus, se responde `409 SIN_COLABORADOR_RELEVO` sin cambiar su estado, sin mover aspirantes, sin escribir bitácora y sin publicar eventos.
+* **Reasignación equitativa (HU6-2):** Solo participan colaboradores `activo` del mismo campus (`calcularReasignacionBaja`). Se parte de la carga real actual (`contarPorColaborador()`), y las carreras se reparten de mayor a menor cantidad de aspirantes al candidato con menor carga proyectada.
+* **Conservación del expediente (HU6-4):** En `aspirantes` solo se actualiza `colaborador_id`; el historial y las conversaciones siguen ligados al mismo `aspirante_id`.
+* **Transacción y compensación (saga):** Dentro de `repositorio.transaccion(tx => ...)` se reasigna la cartera mediante `moduloMonitoreo.cartera.reasignarCartera(...)`, se marca al colaborador como `inactivo` con `tx.aplicarBaja(...)` vaciando sus carreras en `usuarios`, y se registra cada transferencia en `usuarios.bitacora_transferencia` con `motivo: "inactivacion"`. Si cualquier paso falla, se revierte `usuarios` y se ejecuta `deshacer()` en `aspirantes`.
+* **Bloqueo de inicio de sesión:** Un colaborador con `estado: "inactivo"` recibe `403 USUARIO_SIN_ACCESO` ("La cuenta está inactiva.") al intentar autenticarse en `POST /api/v1/auth/login`.
 
 ## `POST /api/v1/colaboradores/registro/vista-previa` (EQ-64)
 

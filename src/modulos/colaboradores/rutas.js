@@ -40,7 +40,7 @@ export function crearEnrutadorColaboradores({ controlador }) {
       return true;
     }
 
-    // HU6-18: baja del colaborador (vista previa y confirmación).
+    // HU6-18 / EQ-69 (HU6-10): baja/inactivación del colaborador (vista previa y confirmación).
     const vistaBaja = ruta.match(/^\/([^/]+)\/baja\/vista-previa$/);
     if (vistaBaja && req.method === "POST") {
       await controlador.vistaPreviaBaja(req, res, contexto, vistaBaja[1]);
